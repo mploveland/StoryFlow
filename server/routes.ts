@@ -448,6 +448,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  apiRouter.post("/ai/interactive-story", async (req: Request, res: Response) => {
+    try {
+      const { worldContext, characters, messageHistory, userInput } = req.body;
+      
+      if (!worldContext || !userInput) {
+        return res.status(400).json({ message: "World context and user input are required" });
+      }
+      
+      const storyResponse = await generateInteractiveStoryResponse(
+        worldContext,
+        characters || [],
+        messageHistory || [],
+        userInput
+      );
+      
+      return res.status(200).json(storyResponse);
+    } catch (error) {
+      console.error("Error generating interactive story response:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
   // Use the router
   app.use("/api", apiRouter);
   

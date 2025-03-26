@@ -116,3 +116,37 @@ export async function fetchTextAnalysis(text: string): Promise<{
     };
   }
 }
+
+export interface StoryMessage {
+  sender: string;
+  content: string;
+}
+
+export interface StoryResponse {
+  content: string;
+  choices?: string[];
+}
+
+export async function fetchInteractiveStoryResponse(
+  worldContext: string,
+  characters: Character[],
+  messageHistory: StoryMessage[],
+  userInput: string
+): Promise<StoryResponse> {
+  try {
+    const response = await apiRequest("POST", "/api/ai/interactive-story", {
+      worldContext,
+      characters,
+      messageHistory,
+      userInput
+    });
+    
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching interactive story response:", error);
+    return {
+      content: "The story pauses momentarily...",
+      choices: ["Continue the journey", "Take another approach"]
+    };
+  }
+}
