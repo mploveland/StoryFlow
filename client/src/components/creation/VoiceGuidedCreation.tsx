@@ -11,6 +11,7 @@ import { CharacterData } from '../character/CharacterBuilder';
 import { WorldData } from '../world/WorldDesigner';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
+import { AudioPlayer } from '@/components/ui/audio-player';
 
 interface VoiceGuidedCreationProps {
   onWorldCreated: (world: WorldData) => void;
@@ -83,7 +84,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   });
   
   // Speech synthesis setup
-  const { speak, isPlaying, stop: stopSpeaking, voices, voicesLoading, selectedVoice, changeVoice } = useTTS({
+  const { speak, isPlaying, stop: stopSpeaking, voices, voicesLoading, selectedVoice, changeVoice, currentAudioUrl } = useTTS({
     defaultVoiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel from ElevenLabs
     defaultProvider: "elevenlabs"
   });

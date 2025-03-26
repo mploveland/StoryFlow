@@ -50,47 +50,58 @@ export async function generateSpeech(
 }
 
 /**
- * Play audio from a data URL
+ * This function is deprecated - we're now using the Audio API directly in useTTS
+ * Keeping it for backward compatibility
+ * 
  * @param dataUrl The data URL containing the audio data
  * @returns A cleanup function to stop the audio
  */
 export function playAudio(dataUrl: string): () => void {
+  console.warn('playAudio is deprecated, use the useTTS hook instead');
   console.log('Creating audio element with data URL length:', dataUrl.length);
-  const audio = new Audio(dataUrl);
   
-  // Set audio context for better compatibility
+  const audio = new Audio();
+  
   try {
-    // Force audio to be processed and played, even if tab is not active
-    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-    if (AudioContext) {
-      const audioContext = new AudioContext();
-      const source = audioContext.createMediaElementSource(audio);
-      source.connect(audioContext.destination);
+    // Create a one-time click handler that will play the audio
+    // when the user interacts with the page
+    const playOnInteraction = () => {
+      console.log('User interaction detected, playing audio');
       
-      // Resume audio context if it's suspended (required in some browsers)
-      if (audioContext.state === 'suspended') {
-        audioContext.resume();
+      try {
+        // Set the source and play
+        audio.src = dataUrl;
+        audio.play().catch(e => console.error('Play failed:', e));
+      } catch (err) {
+        console.error('Error in play handler:', err);
       }
-    }
-  } catch (error) {
-    console.warn('Advanced audio context not available, falling back to basic audio', error);
-  }
-  
-  // Play the audio with better error handling
-  audio.play().catch(err => {
-    console.error('Error playing audio:', err);
+      
+      // Remove the listeners
+      document.removeEventListener('click', playOnInteraction);
+      document.removeEventListener('keydown', playOnInteraction);
+    };
     
-    // Try playing again with user interaction simulation
-    document.addEventListener('click', function playOnClick() {
-      audio.play().catch(e => console.error('Second attempt to play failed:', e));
-      document.removeEventListener('click', playOnClick);
-    }, { once: true });
-  });
+    // Add listeners for user interaction
+    document.addEventListener('click', playOnInteraction, { once: true });
+    document.addEventListener('keydown', playOnInteraction, { once: true });
+    
+    // Also try playing directly, which may work in some browsers
+    audio.src = dataUrl;
+    audio.play().catch(err => {
+      console.warn('Initial play failed, waiting for user interaction:', err);
+    });
+  } catch (error) {
+    console.error('Error setting up audio playback:', error);
+  }
   
   // Return a cleanup function
   return () => {
-    audio.pause();
-    audio.currentTime = 0;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+    } catch (err) {
+      console.error('Error cleaning up audio:', err);
+    }
   };
 }
 
