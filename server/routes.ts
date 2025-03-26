@@ -17,6 +17,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
+import { createDetailedCharacter } from "./assistants";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
@@ -467,6 +468,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error generating interactive story response:", error);
       return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.post("/ai/detailed-character", async (req: Request, res: Response) => {
+    try {
+      const { name, role, genre, setting, story, additionalInfo } = req.body;
+      
+      const detailedCharacter = await createDetailedCharacter({
+        name,
+        role,
+        genre,
+        setting,
+        story,
+        additionalInfo
+      });
+      
+      return res.status(200).json(detailedCharacter);
+    } catch (error: any) {
+      console.error("Error creating detailed character:", error);
+      return res.status(500).json({ 
+        message: "Failed to create character with the OpenAI assistant",
+        error: error.message || "Unknown error"
+      });
     }
   });
   

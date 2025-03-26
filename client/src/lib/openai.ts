@@ -127,6 +127,54 @@ export interface StoryResponse {
   choices?: string[];
 }
 
+export interface DetailedCharacter {
+  name: string;
+  role: string;
+  background: string;
+  personality: string[];
+  goals: string[];
+  fears: string[];
+  relationships: string[];
+  skills: string[];
+  appearance: string;
+  voice: string;
+  secrets?: string;
+  quirks?: string[];
+  motivations?: string[];
+  flaws?: string[];
+}
+
+export interface CharacterCreationInput {
+  name?: string;
+  role?: string;
+  genre?: string;
+  setting?: string;
+  story?: string;
+  additionalInfo?: string;
+}
+
+export async function fetchDetailedCharacter(input: CharacterCreationInput): Promise<DetailedCharacter> {
+  try {
+    const response = await apiRequest("POST", "/api/ai/detailed-character", input);
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating detailed character:", error);
+    // Return a basic fallback character if the API fails
+    return {
+      name: input.name || "Character",
+      role: input.role || "Character",
+      background: "A mysterious individual with an unclear past.",
+      personality: ["Adaptable", "Resourceful"],
+      goals: ["Survival", "Finding purpose"],
+      fears: ["Unknown", "Failure"],
+      relationships: [],
+      skills: ["Resilience", "Quick thinking"],
+      appearance: "Has a distinctive appearance that matches their personality.",
+      voice: "Speaks with an authentic and engaging tone."
+    };
+  }
+}
+
 export async function fetchInteractiveStoryResponse(
   worldContext: string,
   characters: Character[],
