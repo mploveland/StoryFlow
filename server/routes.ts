@@ -495,6 +495,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // TTS routes
+  apiRouter.get("/tts/voices", async (_req: Request, res: Response) => {
+    try {
+      const voices = getAvailableVoices();
+      return res.status(200).json(voices);
+    } catch (error) {
+      console.error("Error getting available voices:", error);
+      return res.status(500).json({ message: "Failed to retrieve voices" });
+    }
+  });
+  
+  apiRouter.post("/tts/generate", async (req: Request, res: Response) => {
+    try {
+      const { text, voiceId, provider } = req.body;
+      
+      if (!text) {
+        return res.status(400).json({ message: "Text is required" });
+      }
+      
+      if (!voiceId || !provider) {
+        return res.status(400).json({ message: "Voice ID and provider are required" });
+      }
+      
+      // Find the voice option
+      const voices = getAvailableVoices();
+      const voiceOption = voices.find(v => v.id === voiceId && v.provider === provider);
+      
+      if (!voiceOption) {
+        return res.status(404).json({ message: "Voice not found" });
+      }
+      
+      const audioDataUrl = await generateSpeech(text, voiceOption);
+      return res.status(200).json({ audio: audioDataUrl });
+    } catch (error: any) {
+      console.error("Error generating speech:", error);
+      return res.status(500).json({ 
+        message: "Failed to generate speech",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
   // Use the router
   app.use("/api", apiRouter);
   
