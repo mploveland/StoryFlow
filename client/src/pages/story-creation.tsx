@@ -193,47 +193,57 @@ const StoryCreationPage: React.FC = () => {
           
           <TabsContent value="characters" className="pt-4">
             {worldData ? (
-              <div className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h2 className="text-2xl font-bold">Characters for {worldData.name}</h2>
-                    <p className="text-neutral-500">
-                      Create characters to populate your world. You need at least one character to begin your story.
-                    </p>
-                  </div>
-                  
-                  {characters.length > 0 && (
-                    <Button
-                      onClick={() => {
-                        setCreationStep('story');
-                        setActiveTab('story');
-                      }}
-                    >
-                      Begin Story
-                    </Button>
-                  )}
-                </div>
-                
-                {characters.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                    {characters.map(character => (
-                      <Card key={character.id} className="p-4">
-                        <h3 className="text-xl font-semibold">{character.name}</h3>
-                        <p className="text-sm text-neutral-600">{character.role}</p>
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {character.personality.slice(0, 3).map((trait, i) => (
-                            <span key={i} className="text-xs bg-neutral-100 px-2 py-1 rounded-full">
-                              {trait}
-                            </span>
-                          ))}
-                        </div>
-                      </Card>
-                    ))}
+              <>
+                {inspirationData ? (
+                  <CharacterImporter 
+                    inspirationData={inspirationData}
+                    onCharactersImported={handleCharactersImported}
+                    onGenerateNew={handleUseCustomCharacter}
+                  />
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h2 className="text-2xl font-bold">Characters for {worldData.name}</h2>
+                        <p className="text-neutral-500">
+                          Create characters to populate your world. You need at least one character to begin your story.
+                        </p>
+                      </div>
+                      
+                      {characters.length > 0 && (
+                        <Button
+                          onClick={() => {
+                            setCreationStep('story');
+                            setActiveTab('story');
+                          }}
+                        >
+                          Begin Story
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {characters.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                        {characters.map(character => (
+                          <Card key={character.id} className="p-4">
+                            <h3 className="text-xl font-semibold">{character.name}</h3>
+                            <p className="text-sm text-neutral-600">{character.role}</p>
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {character.personality.slice(0, 3).map((trait, i) => (
+                                <span key={i} className="text-xs bg-neutral-100 px-2 py-1 rounded-full">
+                                  {trait}
+                                </span>
+                              ))}
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <CharacterBuilder worldData={worldData} onCharacterCreated={handleCharacterCreated} />
                   </div>
                 )}
-                
-                <CharacterBuilder worldData={worldData} onCharacterCreated={handleCharacterCreated} />
-              </div>
+              </>
             ) : (
               <div className="text-center py-12">
                 <p>Please create a world first.</p>
