@@ -14,7 +14,8 @@ import {
   getAISuggestions,
   generateCharacterResponse,
   continueStory,
-  analyzeTextSentiment
+  analyzeTextSentiment,
+  generateInteractiveStoryResponse
 } from "./ai";
 
 export async function registerRoutes(app: Express): Promise<Server> {

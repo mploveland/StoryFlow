@@ -211,3 +211,69 @@ export async function analyzeTextSentiment(text: string): Promise<{
     };
   }
 }
+
+export interface StoryResponse {
+  content: string;
+  choices?: string[];
+}
+
+export async function generateInteractiveStoryResponse(
+  worldContext: string,
+  characters: { name: string; role: string; personality: string[] }[],
+  messageHistory: { sender: string; content: string }[],
+  userInput: string
+): Promise<StoryResponse> {
+  try {
+    const charactersText = characters.map(char => 
+      `${char.name} (${char.role}): ${char.personality.join(', ')}`
+    ).join('\n');
+    
+    const conversationHistory = messageHistory.map(msg => 
+      `${msg.sender}: ${msg.content}`
+    ).join('\n');
+    
+    const prompt = `
+    You are a highly creative interactive storyteller. You're running an immersive narrative experience set in the following world:
+    
+    WORLD CONTEXT:
+    ${worldContext}
+    
+    CHARACTERS:
+    ${charactersText}
+    
+    CONVERSATION HISTORY:
+    ${conversationHistory}
+    
+    USER INPUT:
+    ${userInput}
+    
+    Based on the world, characters, and conversation so far, create a compelling story response.
+    
+    Return your response as a JSON object with these fields:
+    - content: string (your main story response, 100-200 words, written in engaging prose)
+    - choices: array of 2-4 strings (options for what the user could do next)
+    
+    Make your response feel like part of an ongoing adventure, with dramatic elements, character interactions, and vivid imagery.
+    `;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      max_tokens: 700
+    });
+
+    const result = JSON.parse(response.choices[0].message.content);
+    
+    return {
+      content: result.content || "The story continues...",
+      choices: result.choices || ["Continue the journey", "Ask for more details", "Change course"]
+    };
+  } catch (error) {
+    console.error("Error generating interactive story response:", error);
+    return {
+      content: "The storyteller pauses for a moment, gathering thoughts before continuing the tale...",
+      choices: ["Continue the journey", "Ask for more details", "Change course"]
+    };
+  }
+}
