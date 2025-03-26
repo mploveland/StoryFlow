@@ -47,7 +47,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Speech recognition setup
-  const { transcript, listening, startListening, stopListening } = useSpeechRecognition({
+  const { transcript, isListening, start, stop } = useSpeechRecognition({
     onResult: (text) => setInputText(text),
     onEnd: () => {
       // Auto-send message when user stops speaking after a brief pause
@@ -137,13 +137,27 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       };
       
       // Call the AI for a response
-      const response = await fetchInteractiveStoryResponse({
-        messages: [
-          { sender: "system", content: `You are a creative writing assistant helping the user build a story interactively. Currently gathered inspirations: ${inspirations.join(', ')}. Current world building progress: ${JSON.stringify(partialWorld)}. Current character progress: ${JSON.stringify(partialCharacters)}. If you identify specific inspirations, world elements, or character traits in the user's input, extract them. Guide the conversation naturally towards building a complete story world.` },
-          { sender: "context", content: context },
-          { sender: "user", content: inputText }
-        ]
-      });
+      const worldContextStr = `Currently gathered inspirations: ${inspirations.join(', ')}. Current world building progress: ${JSON.stringify(partialWorld)}. Current character progress: ${JSON.stringify(partialCharacters)}. If you identify specific inspirations, world elements, or character traits in the user's input, extract them. Guide the conversation naturally towards building a complete story world.`;
+      
+      const charactersList = partialCharacters.filter(char => char.name).map(char => ({
+        id: char.id || 0,
+        name: char.name || 'Unknown',
+        description: char.background || '',
+        traits: char.personality || [],
+        role: char.role
+      }));
+      
+      const messageHistoryFormatted = messages.slice(-8).map(msg => ({
+        sender: msg.sender === 'user' ? 'user' : 'story',
+        content: msg.content
+      }));
+      
+      const response = await fetchInteractiveStoryResponse(
+        worldContextStr,
+        charactersList,
+        messageHistoryFormatted,
+        inputText
+      );
       
       // Process the response to extract structured data
       const extractedInspirations = extractInspirations(inputText);
@@ -228,10 +242,10 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   
   // Toggle voice recognition on/off
   const toggleVoiceRecognition = () => {
-    if (listening) {
-      stopListening();
+    if (isListening) {
+      stop();
     } else {
-      startListening();
+      start();
     }
   };
   
@@ -672,11 +686,11 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             <Button
               variant="outline"
               size="icon"
-              className={listening ? "bg-red-100 text-red-600 border-red-300" : ""}
+              className={isListening ? "bg-red-100 text-red-600 border-red-300" : ""}
               onClick={toggleVoiceRecognition}
-              title={listening ? "Stop listening" : "Start voice input"}
+              title={isListening ? "Stop listening" : "Start voice input"}
             >
-              {listening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
             </Button>
             
             <Button
@@ -688,7 +702,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             </Button>
           </div>
           
-          {listening && (
+          {isListening && (
             <div className="mt-2 text-sm text-center">
               <span className="inline-flex items-center">
                 <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></span>
