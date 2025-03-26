@@ -81,15 +81,15 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     
     setMessages([initialMessage]);
     
-    // Use a more natural-sounding voice if available
+    // Use the default ElevenLabs voice (Rachel) if available
     if (voices.length > 0) {
       const preferredVoice = voices.find(v => 
-        v.name.includes('Samantha') || 
-        v.name.includes('Google') || 
-        v.name.toLowerCase().includes('female')
+        v.id === "21m00Tcm4TlvDq8ikWAM" || // Rachel from ElevenLabs
+        v.name.includes('Rachel') || 
+        v.provider === 'elevenlabs'
       );
       if (preferredVoice) {
-        changeVoice(preferredVoice);
+        changeVoice(preferredVoice.id, preferredVoice.provider);
       }
     }
     
@@ -234,7 +234,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     
     // Cancel any ongoing speech
     if (isPlaying) {
-      stop();
+      stopSpeaking();
     }
     
     setIsSpeaking(true);
@@ -248,9 +248,9 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // Toggle voice recognition on/off
   const toggleVoiceRecognition = () => {
     if (isListening) {
-      stop();
+      stopRecognition();
     } else {
-      start();
+      startRecognition();
     }
   };
   
@@ -258,7 +258,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   const toggleVoiceOutput = () => {
     setVoiceEnabled(!voiceEnabled);
     if (isPlaying && !voiceEnabled) {
-      stop();
+      stopSpeaking();
     }
   };
   

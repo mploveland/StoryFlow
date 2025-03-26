@@ -15,11 +15,8 @@ export interface VoiceOption {
  */
 export async function fetchAvailableVoices(): Promise<VoiceOption[]> {
   try {
-    const response = await apiRequest({
-      url: "/api/tts/voices",
-      method: "GET"
-    });
-    return response as VoiceOption[];
+    const response = await apiRequest("GET", "/api/tts/voices");
+    return await response.json();
   } catch (error) {
     console.error('Error fetching available voices:', error);
     throw new Error('Failed to fetch voice options');
@@ -39,16 +36,13 @@ export async function generateSpeech(
   provider: 'elevenlabs' | 'openai'
 ): Promise<string> {
   try {
-    const response = await apiRequest({
-      url: "/api/tts/generate",
-      method: "POST",
-      data: {
-        text,
-        voiceId,
-        provider
-      }
+    const response = await apiRequest("POST", "/api/tts/generate", {
+      text,
+      voiceId,
+      provider
     });
-    return (response as { audio: string }).audio;
+    const data = await response.json();
+    return data.audio;
   } catch (error) {
     console.error('Error generating speech:', error);
     throw new Error('Failed to generate speech');
