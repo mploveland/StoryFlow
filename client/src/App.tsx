@@ -19,6 +19,7 @@ function Router() {
       {/* Redirect traditional path to voice-driven experience */}
       <Route path="/create-story" component={VoiceStoryCreation} />
       <Route path="/voice-story" component={VoiceStoryCreation} />
+      <Route path="/voice-story-creation" component={VoiceStoryCreation} />
       {/* Keep the structured form component available but not as default */}
       <Route path="/structured-story" component={StoryCreation} />
       <Route path="/story/:storyId" component={StoryEditor} />

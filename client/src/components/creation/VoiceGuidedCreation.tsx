@@ -659,6 +659,18 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   
   return (
     <div className="flex flex-col h-[80vh] max-w-4xl mx-auto">
+      {/* Hidden audio player to handle audio playback properly in all browsers */}
+      <div className="sr-only" aria-hidden="true">
+        <AudioPlayer
+          audioUrl={currentAudioUrl}
+          autoPlay={true}
+          onPlayStateChange={(isPlayingAudio) => {
+            console.log("Audio player playback state changed:", isPlayingAudio);
+            setIsSpeaking(isPlayingAudio);
+          }}
+        />
+      </div>
+      
       <div className="text-center mb-4">
         <h1 className="text-2xl font-bold text-primary">Talk to StoryFlow</h1>
         <p className="text-muted-foreground">
