@@ -18,6 +18,7 @@ import {
   generateInteractiveStoryResponse
 } from "./ai";
 import { createDetailedCharacter } from "./assistants";
+import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
