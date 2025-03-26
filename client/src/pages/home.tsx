@@ -37,14 +37,14 @@ const Home: React.FC = () => {
         <section className="py-16 md:py-24 bg-gradient-to-b from-white to-neutral-50">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-neutral-900 mb-6">
-              Create Stories With <span className="text-primary-600">AI</span> As Your Co-Author
+              Experience Interactive <span className="text-primary-600">AI-Powered</span> Storytelling
             </h1>
             <p className="text-lg md:text-xl text-neutral-600 max-w-3xl mx-auto mb-8">
-              StoryFlow helps you write better stories with AI-powered suggestions, character personas, 
-              voice input, and collaborative tools.
+              StoryFlow creates immersive stories tailored to your preferences. Design worlds, develop characters,
+              and guide narratives through voice and chat interactions.
             </p>
             <Button size="lg" onClick={handleGetStarted} className="text-lg px-8 py-6">
-              Start Writing Now
+              Begin Your Adventure
             </Button>
           </div>
         </section>
@@ -54,34 +54,34 @@ const Home: React.FC = () => {
             <h2 className="text-3xl font-bold text-center mb-12">Key Features</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
               <FeatureCard 
-                icon="🎙️"
-                title="Voice Input & Output"
-                description="Dictate your story and hear it read back like an audiobook."
+                icon="🌍"
+                title="World Designer"
+                description="Create immersive worlds with AI-generated historical contexts, geography, and culture."
               />
               <FeatureCard 
                 icon="👤"
-                title="AI Character Personas"
-                description="Create detailed characters and chat with them to develop your story."
+                title="Character Builder"
+                description="Generate detailed character profiles with psychological depth and meaningful backgrounds."
               />
               <FeatureCard 
-                icon="✍️"
-                title="Co-Writing with AI"
-                description="Get suggestions, scene ideas, and help with writer's block."
+                icon="🎭"
+                title="Interactive Storytelling"
+                description="Guide the narrative through choices that shape how your adventure unfolds."
               />
               <FeatureCard 
-                icon="🔄"
-                title="Version History"
-                description="Track changes and revisions with easy version control."
+                icon="🎙️"
+                title="Voice & Chat Interface"
+                description="Experience stories through natural conversation with AI characters and storytellers."
               />
               <FeatureCard 
                 icon="👥"
-                title="Collaboration Tools"
-                description="Work with co-authors in real-time or asynchronously."
+                title="Multi-User Adventures"
+                description="Share story sessions with friends for collaborative decision-making."
               />
               <FeatureCard 
-                icon="📊"
-                title="Writing Analytics"
-                description="Track progress, set goals, and get feedback on your writing."
+                icon="📱"
+                title="Multi-Format Export"
+                description="Save your adventures as text, audio files, or visual summaries to revisit later."
               />
             </div>
           </div>
@@ -89,9 +89,9 @@ const Home: React.FC = () => {
 
         <section className="py-16 bg-neutral-50">
           <div className="container mx-auto px-4 text-center">
-            <h2 className="text-3xl font-bold mb-8">Ready to Transform Your Writing?</h2>
+            <h2 className="text-3xl font-bold mb-8">Ready to Embark on an AI-Crafted Adventure?</h2>
             <Button size="lg" onClick={handleGetStarted} className="text-lg px-8 py-6">
-              Start Your Story Now
+              Create Your World Now
             </Button>
           </div>
         </section>

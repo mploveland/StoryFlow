@@ -1,0 +1,75 @@
+**Interactive Story Creator App - Design Document**
+
+**Overview:**
+This app is designed for non-writers who love immersive storytelling. It leverages AI to generate stories, allowing users to experience and guide narratives rather than write them from scratch. Users interact primarily through voice and chat, creating a seamless, conversational experience.
+
+---
+
+**Key Features:**
+
+1. **World Designer**
+   - AI-generated worlds based on user-selected genres (e.g., historical fiction, fantasy).
+   - Historical context builder: AI researches and incorporates real-world events and culture from a specified period.
+   - Map integration:
+     - Upload user-created maps.
+     - Assist users in generating maps for fantasy or sci-fi settings.
+
+2. **Character Builder**
+   - Start with character creation after world setup.
+   - In-depth AI-generated character profiles:
+     - History
+     - Psychological profiles
+     - Real-time personality and behavioral tracking
+   - Ability to specify known characters from existing books.
+     - AI generates detailed profiles and adapts them within the new world.
+
+3. **AI-Driven Story Experience**
+   - AI generates and narrates storylines.
+   - Users influence plot direction through choices and interactions.
+   - Seamless switching between different LLMs for varied story voices/styles.
+
+4. **Interaction Mode**
+   - Primary interaction through real-time chat and voice.
+   - Integration with real-time voice API for fluid conversational experiences.
+
+5. **Collaboration and Tools**
+   - Shared story sessions with multiple users.
+   - Version history and branching paths.
+   - Brainstorming tools: prompts, idea generators.
+   - Customizable templates for story types and genres.
+
+6. **Progress and Feedback**
+   - Track user choices, character arcs, and story development.
+   - Offer feedback on pacing, tone, and engagement.
+   - Export stories in various formats (text, audio, visual summaries).
+
+---
+
+**Next Steps:**
+- Prototype world designer interface.
+- Implement initial character profile generator.
+- Integrate voice/chat interface.
+- Build MVP on Replit.
+
+---
+
+**Replit Project Starter Prompt:**
+
+> "You're an expert world-builder AI helping a user design a fictional world for an interactive story. Ask the user for their preferred genre (e.g., historical fiction, fantasy, sci-fi) and setting details. Based on the genre, research relevant historical or fictional context, important events, geography, culture, and technology. Generate a rich, immersive world description with key locations, factions, conflicts, and unique elements that can serve as the foundation for a story."
+
+**Example Input:**
+> User: I want to create a story set in 15th century Italy during the Renaissance.
+
+**Example Output:**
+> Great choice! Here's your world setup:
+> - **Timeframe:** 1450s–1500s  
+> - **Region:** Florence and Venice, Italy  
+> - **Key Conflicts:** Power struggles between noble families, rise of humanist thinkers, church vs. science  
+> - **Important Figures (can be fictionalized):** A Da Vinci-like inventor, a Medici-style banking family, and a rebellious artist  
+> - **Cultural Setting:** Art flourishes, political intrigue is common, and new philosophical ideas are spreading rapidly.
+
+**Replit Setup Tips:**
+- Use Node.js or Python backend.
+- Add basic frontend input form or chat UI.
+- Connect to OpenAI API with prompt handling.
+- Output world data dynamically for use in next stages of the app.
