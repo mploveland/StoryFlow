@@ -6,6 +6,7 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import StoryEditor from "@/pages/story-editor";
+import StoryCreation from "@/pages/story-creation";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EditorProvider } from "@/contexts/EditorContext";
 
@@ -14,6 +15,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/create-story" component={StoryCreation} />
       <Route path="/story/:storyId" component={StoryEditor} />
       <Route path="/story/:storyId/chapter/:chapterId" component={StoryEditor} />
       <Route component={NotFound} />

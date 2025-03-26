@@ -8,7 +8,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import NewStoryModal from '@/components/dashboard/NewStoryModal';
-import { BookOpen, Plus, Search } from 'lucide-react';
+import { BookOpen, Plus, Search, Sparkles } from 'lucide-react';
 import { Story } from '@shared/schema';
 
 const Dashboard: React.FC = () => {
@@ -88,10 +88,16 @@ const Dashboard: React.FC = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-neutral-800">My Stories</h2>
-          <Button onClick={() => setIsNewStoryModalOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Story
-          </Button>
+          <div className="flex space-x-3">
+            <Button onClick={() => navigate("/create-story")} variant="outline" className="bg-gradient-to-r from-primary-500 to-violet-500 text-white hover:from-primary-600 hover:to-violet-600 border-0">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Interactive Story
+            </Button>
+            <Button onClick={() => setIsNewStoryModalOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Story
+            </Button>
+          </div>
         </div>
 
         <div className="relative max-w-md mb-8">

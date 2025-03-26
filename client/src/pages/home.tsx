@@ -16,7 +16,7 @@ const Home: React.FC = () => {
   const handleGetStarted = async () => {
     // For demo purposes, login as demo user
     await login('demo', 'password');
-    navigate('/dashboard');
+    navigate('/create-story');
   };
 
   return (
