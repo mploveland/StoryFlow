@@ -294,9 +294,19 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   
   // Speak a message using speech synthesis
   const speakMessage = (text: string) => {
-    if (!voiceEnabled) return;
+    if (!voiceEnabled) {
+      console.log("Voice is disabled, not speaking text");
+      return;
+    }
     
-    console.log("Speaking message with voice:", selectedVoice);
+    // Don't try to speak empty text
+    if (!text || text.trim() === '') {
+      console.warn("Cannot speak empty text");
+      return;
+    }
+    
+    console.log(`Speaking message (${text.length} chars): "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
+    console.log("Current voice:", selectedVoice?.name || "None selected");
     
     // Cancel any ongoing speech
     if (isPlaying) {
@@ -304,14 +314,34 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       stopSpeaking();
     }
     
+    // If we don't have a selected voice yet, try to find one
+    if (!selectedVoice && voices.length > 0) {
+      console.log("No voice selected, using first available voice");
+      // Prefer ElevenLabs, fall back to any available voice
+      const voice = voices.find(v => v.provider === 'elevenlabs') || voices[0];
+      changeVoice(voice.id, voice.provider);
+      console.log(`Selected voice: ${voice.name} (${voice.provider})`);
+    }
+    
     setIsSpeaking(true);
-    speak(text).then(() => {
-      console.log("Speech completed successfully");
-      setIsSpeaking(false);
-    }).catch((error) => {
-      console.error("Error in speech synthesis:", error);
-      setIsSpeaking(false);
-    });
+    
+    // Add a small delay to ensure UI updates before speech starts
+    setTimeout(() => {
+      speak(text)
+        .then(() => {
+          console.log("Speech completed successfully");
+          setIsSpeaking(false);
+        })
+        .catch((error) => {
+          console.error("Error in speech synthesis:", error);
+          toast({
+            title: 'Text-to-Speech Error',
+            description: 'Failed to speak the message. Please try again or check your audio settings.',
+            variant: 'destructive'
+          });
+          setIsSpeaking(false);
+        });
+    }, 100);
   };
   
   // Toggle voice recognition on/off
@@ -650,6 +680,13 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
                       : 'bg-muted'
                   }`}
                 >
+                  {/* Add audio indicator while speaking */}
+                  {message.sender === 'ai' && isSpeaking && messages[messages.length - 1].id === message.id && (
+                    <div className="flex items-center mb-1 text-xs text-muted-foreground">
+                      <Volume2 className="w-3 h-3 mr-1 animate-pulse" />
+                      <span>Speaking...</span>
+                    </div>
+                  )}
                   <p className="whitespace-pre-wrap">{message.content}</p>
                   
                   {/* Show extracted inspirations if any */}
