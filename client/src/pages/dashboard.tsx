@@ -26,7 +26,7 @@ const Dashboard: React.FC = () => {
   }, [user, navigate]);
 
   // Query stories
-  const { data: stories = [], isLoading, error, refetch } = useQuery({
+  const { data: stories = [], isLoading, error, refetch } = useQuery<Story[]>({
     queryKey: [`/api/stories?userId=${user?.id}`],
     enabled: !!user,
   });
@@ -67,7 +67,7 @@ const Dashboard: React.FC = () => {
 
   // Filter stories based on search query
   const filteredStories = searchQuery
-    ? stories.filter((story: Story) =>
+    ? stories.filter((story) =>
         story.title.toLowerCase().includes(searchQuery.toLowerCase())
       )
     : stories;
@@ -89,9 +89,9 @@ const Dashboard: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-neutral-800">My Stories</h2>
           <div className="flex space-x-3">
-            <Button onClick={() => navigate("/create-story")} variant="outline" className="bg-gradient-to-r from-primary-500 to-violet-500 text-white hover:from-primary-600 hover:to-violet-600 border-0">
+            <Button onClick={() => navigate("/voice-story")} variant="outline" className="bg-gradient-to-r from-primary-500 to-violet-500 text-white hover:from-primary-600 hover:to-violet-600 border-0">
               <Sparkles className="h-4 w-4 mr-2" />
-              Interactive Story
+              Voice Story
             </Button>
             <Button onClick={() => setIsNewStoryModalOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -144,16 +144,16 @@ const Dashboard: React.FC = () => {
                 <p className="text-neutral-600 mb-6">
                   Create your first story to get started with StoryFlow.
                 </p>
-                <Button onClick={() => setIsNewStoryModalOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Story
+                <Button onClick={() => navigate("/voice-story")}>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Create Your First Story with Voice
                 </Button>
               </>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredStories.map((story: Story) => (
+            {filteredStories.map((story) => (
               <Card 
                 key={story.id} 
                 className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"

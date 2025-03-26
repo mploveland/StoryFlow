@@ -16,8 +16,11 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/dashboard" component={Dashboard} />
-      <Route path="/create-story" component={StoryCreation} />
+      {/* Redirect traditional path to voice-driven experience */}
+      <Route path="/create-story" component={VoiceStoryCreation} />
       <Route path="/voice-story" component={VoiceStoryCreation} />
+      {/* Keep the structured form component available but not as default */}
+      <Route path="/structured-story" component={StoryCreation} />
       <Route path="/story/:storyId" component={StoryEditor} />
       <Route path="/story/:storyId/chapter/:chapterId" component={StoryEditor} />
       <Route component={NotFound} />
