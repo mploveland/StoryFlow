@@ -5,7 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { DownloadIcon, FileText, FileJson, FilePdf, Book } from 'lucide-react';
+import { DownloadIcon, FileText, FileJson, File, Book } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface ExportModalProps {
@@ -56,7 +56,7 @@ const ExportModal: React.FC<ExportModalProps> = ({
       case 'docx':
         return <FileText className="h-5 w-5 text-blue-500" />;
       case 'pdf':
-        return <FilePdf className="h-5 w-5 text-red-500" />;
+        return <File className="h-5 w-5 text-red-500" />;
       case 'epub':
         return <Book className="h-5 w-5 text-green-500" />;
       case 'json':

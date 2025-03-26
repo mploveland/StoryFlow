@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { 
   Save, 
-  UserEdit, 
+  UserPen, 
   Wand2, 
   ChevronLeft, 
   ChevronRight 
@@ -38,7 +38,7 @@ const VersionHistoryModal: React.FC<VersionHistoryModalProps> = ({
       case 'auto':
         return <Save className="h-6 w-6 text-primary-600" />;
       case 'manual':
-        return <UserEdit className="h-6 w-6 text-blue-600" />;
+        return <UserPen className="h-6 w-6 text-blue-600" />;
       case 'ai-assisted':
         return <Wand2 className="h-6 w-6 text-purple-600" />;
       default:
