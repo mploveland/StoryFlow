@@ -10,7 +10,7 @@ import { fetchInteractiveStoryResponse } from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
 import { WorldData } from '../world/WorldDesigner';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useSpeechSynthesis } from '@/hooks/useSpeechSynthesis';
+import { useTTS } from '@/hooks/useTTS';
 
 interface VoiceGuidedCreationProps {
   onWorldCreated: (world: WorldData) => void;
@@ -47,7 +47,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   
   // Speech recognition setup
-  const { transcript, isListening, start, stop } = useSpeechRecognition({
+  const { transcript, isListening, start: startRecognition, stop: stopRecognition } = useSpeechRecognition({
     onResult: (text) => setInputText(text),
     onEnd: () => {
       // Auto-send message when user stops speaking after a brief pause
@@ -59,8 +59,9 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   });
   
   // Speech synthesis setup
-  const { speak, speaking, cancel, voices, changeVoice } = useSpeechSynthesis({
-    onEnd: () => setIsSpeaking(false)
+  const { speak, isPlaying, stop: stopSpeaking, voices, selectedVoice, changeVoice } = useTTS({
+    defaultVoiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel from ElevenLabs
+    defaultProvider: "elevenlabs"
   });
   
   // Initialize with a welcoming AI message
@@ -232,12 +233,16 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     if (!voiceEnabled) return;
     
     // Cancel any ongoing speech
-    if (speaking) {
-      cancel();
+    if (isPlaying) {
+      stop();
     }
     
     setIsSpeaking(true);
-    speak(text);
+    speak(text).then(() => {
+      setIsSpeaking(false);
+    }).catch(() => {
+      setIsSpeaking(false);
+    });
   };
   
   // Toggle voice recognition on/off
@@ -252,8 +257,8 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // Toggle voice output on/off
   const toggleVoiceOutput = () => {
     setVoiceEnabled(!voiceEnabled);
-    if (speaking && !voiceEnabled) {
-      cancel();
+    if (isPlaying && !voiceEnabled) {
+      stop();
     }
   };
   
