@@ -8,6 +8,7 @@ import { Send, Mic, MicOff, Volume2, VolumeX, BookOpen, Save } from 'lucide-reac
 import { WorldData } from '../world/WorldDesigner';
 import { CharacterData } from '../character/CharacterBuilder';
 import { useToast } from '@/hooks/use-toast';
+import { fetchInteractiveStoryResponse, StoryMessage as APIStoryMessage } from '@/lib/openai';
 
 interface StoryExperienceProps {
   world: WorldData;
@@ -102,43 +103,69 @@ const StoryExperience: React.FC<StoryExperienceProps> = ({
     setCurrentChoices([]);
     setIsLoading(true);
     
-    // Simulate AI response
-    setTimeout(() => {
-      // Generate response from character or narrator
-      const useCharacter = Math.random() > 0.7 && characters.length > 0;
+    try {
+      // Format characters for the API
+      const formattedCharacters = characters.map(char => ({
+        name: char.name,
+        role: char.role || "Character",
+        personality: char.personality || []
+      }));
       
-      const responseMessage: StoryMessage = {
+      // Format message history for the API
+      const messageHistory = messages.map(msg => ({
+        sender: msg.sender,
+        content: msg.content
+      }));
+      
+      // Add current user message to history
+      messageHistory.push({
+        sender: 'user',
+        content: choice
+      });
+      
+      // Get AI response
+      const response = await fetchInteractiveStoryResponse(
+        `${world.name}: ${world.description}`, 
+        formattedCharacters,
+        messageHistory,
+        choice
+      );
+      
+      // Create new message from AI response
+      const storyResponse: StoryMessage = {
         id: (Date.now() + 1).toString(),
-        sender: useCharacter ? 'character' : 'story',
-        characterId: useCharacter ? characters[Math.floor(Math.random() * characters.length)].id : undefined,
-        content: useCharacter 
-          ? `"${generateCharacterResponse(choice)}"`
-          : generateResponseToChoice(choice),
+        sender: 'story',
+        content: response.content,
+        choices: response.choices,
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, responseMessage]);
+      setMessages(prev => [...prev, storyResponse]);
+      setCurrentChoices(response.choices || []);
+      setIsLoading(false);
       
-      // Sometimes add story progression with new choices
-      if (Math.random() > 0.3) {
-        setTimeout(() => {
-          const newChoices = generateNewChoices(choice);
-          const progressionMessage: StoryMessage = {
-            id: (Date.now() + 2).toString(),
-            sender: 'story',
-            content: generateStoryProgression(choice),
-            choices: newChoices,
-            timestamp: new Date()
-          };
-          
-          setMessages(prev => [...prev, progressionMessage]);
-          setCurrentChoices(newChoices);
-          setIsLoading(false);
-        }, 1000);
-      } else {
-        setIsLoading(false);
-      }
-    }, 1500);
+    } catch (error) {
+      console.error("Error getting story response:", error);
+      
+      // Fallback if AI fails
+      const fallbackMessage: StoryMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'story',
+        content: "The story continues, though the narrator seems momentarily distracted...",
+        choices: ["Continue the journey", "Ask for more details", "Change course"],
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
+      setCurrentChoices(fallbackMessage.choices || []);
+      setIsLoading(false);
+      
+      toast({
+        title: "Story Generation Issue",
+        description: "There was a problem with the AI storyteller. The journey continues with limited options.",
+        variant: "destructive"
+      });
+    }
   };
   
   // Generate character response based on personality
@@ -207,7 +234,7 @@ const StoryExperience: React.FC<StoryExperienceProps> = ({
   };
   
   // Handle text input submission
-  const handleSubmitText = () => {
+  const handleSubmitText = async () => {
     if (!userInput.trim()) return;
     
     const userMessage: StoryMessage = {
@@ -217,42 +244,74 @@ const StoryExperience: React.FC<StoryExperienceProps> = ({
       timestamp: new Date()
     };
     
+    const userInputCopy = userInput; // Copy the input before clearing
     setMessages(prev => [...prev, userMessage]);
     setUserInput('');
     setIsLoading(true);
     
-    // Simulate AI response
-    setTimeout(() => {
-      const responseMessage: StoryMessage = {
+    try {
+      // Format characters for the API
+      const formattedCharacters = characters.map(char => ({
+        name: char.name,
+        role: char.role || "Character",
+        personality: char.personality || []
+      }));
+      
+      // Format message history for the API
+      const messageHistory = messages.map(msg => ({
+        sender: msg.sender,
+        content: msg.content
+      }));
+      
+      // Add current user message to history
+      messageHistory.push({
+        sender: 'user',
+        content: userInputCopy
+      });
+      
+      // Get AI response
+      const response = await fetchInteractiveStoryResponse(
+        `${world.name}: ${world.description}`, 
+        formattedCharacters,
+        messageHistory,
+        userInputCopy
+      );
+      
+      // Create new message from AI response
+      const storyResponse: StoryMessage = {
         id: (Date.now() + 1).toString(),
         sender: 'story',
-        content: `The narrator acknowledges your words: "${userInput}" The story adapts to your input...`,
+        content: response.content,
+        choices: response.choices,
         timestamp: new Date()
       };
       
-      setMessages(prev => [...prev, responseMessage]);
+      setMessages(prev => [...prev, storyResponse]);
+      setCurrentChoices(response.choices || []);
       setIsLoading(false);
       
-      // Generate new choices occasionally
-      if (Math.random() > 0.7) {
-        const newChoices = [
-          "Continue with your plan",
-          "Reconsider your approach",
-          "Ask for more information"
-        ];
-        
-        const choiceMessage: StoryMessage = {
-          id: (Date.now() + 2).toString(),
-          sender: 'story',
-          content: "What would you like to do next?",
-          choices: newChoices,
-          timestamp: new Date()
-        };
-        
-        setMessages(prev => [...prev, choiceMessage]);
-        setCurrentChoices(newChoices);
-      }
-    }, 1500);
+    } catch (error) {
+      console.error("Error getting story response:", error);
+      
+      // Fallback if AI fails
+      const fallbackMessage: StoryMessage = {
+        id: (Date.now() + 1).toString(),
+        sender: 'story',
+        content: `The narrator acknowledges your words: "${userInputCopy}" The story adapts to your input...`,
+        choices: ["Continue the journey", "Ask for more details", "Change course"],
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
+      setCurrentChoices(fallbackMessage.choices || []);
+      setIsLoading(false);
+      
+      toast({
+        title: "Story Generation Issue",
+        description: "There was a problem with the AI storyteller. The journey continues with limited options.",
+        variant: "destructive"
+      });
+    }
   };
   
   // Toggle voice recording

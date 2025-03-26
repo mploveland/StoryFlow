@@ -63,7 +63,8 @@ export async function getAISuggestions(
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content || '{}';
+    const result = JSON.parse(content);
     
     return {
       plotSuggestions: result.plotSuggestions || [],
@@ -191,7 +192,8 @@ export async function analyzeTextSentiment(text: string): Promise<{
       response_format: { type: "json_object" }
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content || '{}';
+    const result = JSON.parse(content);
     
     return {
       tone: result.tone || "Unknown",
@@ -263,7 +265,8 @@ export async function generateInteractiveStoryResponse(
       max_tokens: 700
     });
 
-    const result = JSON.parse(response.choices[0].message.content);
+    const content = response.choices[0].message.content || '{}';
+    const result = JSON.parse(content);
     
     return {
       content: result.content || "The story continues...",
