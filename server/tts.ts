@@ -1,11 +1,7 @@
 import OpenAI from "openai";
-import { Voice, VoiceSettings } from "elevenlabs/api";
-import ElevenLabs from "elevenlabs";
+import * as elevenlabs from 'elevenlabs';
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-const elevenlabs = new ElevenLabs({
-  apiKey: process.env.ELEVEN_LABS_API_KEY,
-});
 
 // Voice options from both services
 export interface VoiceOption {
@@ -114,13 +110,18 @@ export async function generateElevenLabsSpeech(
   voiceId: string = "21m00Tcm4TlvDq8ikWAM" // Default to Rachel
 ): Promise<string> {
   try {
-    const audioStream = await elevenlabs.textToSpeech({
-      voiceId,
-      textInput: text,
-      stability: 0.5,
-      similarityBoost: 0.8,
-      style: 0,
-      modelId: "eleven_multilingual_v2", // Use the multilingual model for better quality
+    // Set the API key before making the request
+    elevenlabs.set({ apiKey: process.env.ELEVEN_LABS_API_KEY });
+    
+    // Generate audio stream with configurable parameters
+    const audioStream = await elevenlabs.generate({
+      voice: voiceId,
+      text: text,
+      model: "eleven_multilingual_v2", // Use the multilingual model for better quality
+      voice_settings: {
+        stability: 0.5,
+        similarity_boost: 0.8,
+      }
     });
     
     // Convert to base64 for browser playback
@@ -165,7 +166,9 @@ export async function generateSpeech(
   if (voiceOption.provider === "elevenlabs") {
     return generateElevenLabsSpeech(text, voiceOption.id);
   } else {
-    return generateOpenAISpeech(text, voiceOption.id);
+    // Cast to OpenAI voice type
+    const openaiVoice = voiceOption.id as "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
+    return generateOpenAISpeech(text, openaiVoice);
   }
 }
 
