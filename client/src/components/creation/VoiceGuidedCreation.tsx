@@ -133,27 +133,43 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     // Always enable voice by default and auto-start speech and recognition
     setVoiceEnabled(true);
     
-    // Auto-speak the welcome message (with retry mechanism)
+    // Auto-speak the welcome message (with improved retry mechanism)
     const speakWithRetry = (retryCount = 0) => {
       console.log(`Attempting to speak welcome message (attempt ${retryCount + 1})`);
       
-      if (voices.length === 0 && retryCount < 5) {
+      // Force a retry if no voices are loaded yet or maximum retries not reached
+      if ((voices.length === 0 || !selectedVoice) && retryCount < 10) {
         // Voices not loaded yet, wait and retry
-        console.log("Voices not loaded yet, waiting to retry...");
+        console.log("Voices not loaded yet or no voice selected, waiting to retry...");
         setTimeout(() => speakWithRetry(retryCount + 1), 1000);
         return;
       }
       
+      // This is a workaround to ensure we have a valid voice and the DOM is fully loaded
       setTimeout(() => {
-        console.log("Speaking welcome message...");
-        speakMessage(initialMessage.content);
+        console.log("Speaking welcome message with voice:", selectedVoice?.name || "default");
         
-        // Also auto-start continuous voice recognition
-        if (!isListening) {
-          console.log("Auto-starting voice recognition");
-          startRecognition();
+        // Explicitly select OpenAI voice if not already selected
+        if (!selectedVoice) {
+          const openAIVoice = voices.find(v => v.provider === 'openai' && v.id === 'alloy');
+          if (openAIVoice) {
+            console.log("Explicitly setting OpenAI voice:", openAIVoice.name);
+            changeVoice(openAIVoice.id, openAIVoice.provider);
+          }
         }
-      }, 1000);
+        
+        // Use a longer delay to ensure everything is initialized
+        setTimeout(() => {
+          console.log("Actually speaking welcome message now");
+          speakMessage(initialMessage.content);
+          
+          // Also auto-start continuous voice recognition
+          if (!isListening) {
+            console.log("Auto-starting voice recognition");
+            startRecognition();
+          }
+        }, 1000);
+      }, 2000);
     };
     
     // Start the speech process
@@ -318,31 +334,52 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     // If we don't have a selected voice yet, try to find one
     if (!selectedVoice && voices.length > 0) {
       console.log("No voice selected, using first available voice");
-      // Prefer OpenAI, fall back to any available voice
-      const voice = voices.find(v => v.provider === 'openai') || voices[0];
+      // Always prefer OpenAI voices
+      const voice = voices.find(v => v.provider === 'openai' && v.id === 'alloy') || 
+                   voices.find(v => v.provider === 'openai') || 
+                   voices[0];
       changeVoice(voice.id, voice.provider);
       console.log(`Selected voice: ${voice.name} (${voice.provider})`);
     }
     
     setIsSpeaking(true);
     
-    // Add a small delay to ensure UI updates before speech starts
-    setTimeout(() => {
-      speak(text)
-        .then(() => {
-          console.log("Speech completed successfully");
-          setIsSpeaking(false);
-        })
-        .catch((error) => {
-          console.error("Error in speech synthesis:", error);
-          toast({
-            title: 'Text-to-Speech Error',
-            description: 'Failed to speak the message. Please try again or check your audio settings.',
-            variant: 'destructive'
-          });
-          setIsSpeaking(false);
+    // Start speaking immediately, no delay needed
+    speak(text)
+      .then(() => {
+        console.log("Speech completed successfully");
+        setIsSpeaking(false);
+        
+        // Auto-restart speech recognition if needed
+        if (voiceEnabled && !isListening) {
+          console.log("Auto-restarting speech recognition after speaking");
+          setTimeout(() => startRecognition(), 500);
+        }
+      })
+      .catch((error) => {
+        console.error("Error in speech synthesis:", error);
+        setIsSpeaking(false);
+        
+        // Try again with a different OpenAI voice if this fails
+        if (selectedVoice?.provider === 'openai') {
+          const alternateVoice = voices.find(v => 
+            v.provider === 'openai' && v.id !== selectedVoice.id
+          );
+          
+          if (alternateVoice) {
+            console.log(`Retrying with alternate voice: ${alternateVoice.name}`);
+            changeVoice(alternateVoice.id, 'openai');
+            setTimeout(() => speakMessage(text), 500);
+            return;
+          }
+        }
+        
+        toast({
+          title: 'Text-to-Speech Issue',
+          description: 'There was a problem speaking that message. I\'ll continue in text mode.',
+          variant: 'default'
         });
-    }, 100);
+      });
   };
   
   // Toggle voice recognition on/off

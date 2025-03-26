@@ -85,18 +85,30 @@ export function useSpeechRecognition({
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
           console.log(`Speech Recognition: Final transcript: "${transcript}"`);
+          
+          // Immediately call onResult with final transcript for faster response
+          if (onResult && finalTranscript.trim()) {
+            console.log(`Speech Recognition: Immediately calling onResult with final transcript: "${finalTranscript}"`);
+            onResult(finalTranscript);
+            
+            // Reset transcript after processing
+            setTranscript('');
+            return;
+          }
         } else {
           interimTranscript += transcript;
           console.log(`Speech Recognition: Interim transcript: "${transcript}"`);
         }
       }
 
+      // Only use interim transcript for UI feedback, not for triggering callbacks
       const currentTranscript = finalTranscript || interimTranscript;
       setTranscript(currentTranscript);
       
-      if (onResult) {
-        console.log(`Speech Recognition: Calling onResult with transcript: "${currentTranscript}"`);
-        onResult(currentTranscript);
+      // Only call onResult with finalized speech
+      if (onResult && finalTranscript && finalTranscript.trim() !== '') {
+        console.log(`Speech Recognition: Calling onResult with transcript: "${finalTranscript}"`);
+        onResult(finalTranscript);
       }
     };
 
@@ -109,6 +121,24 @@ export function useSpeechRecognition({
     recognition.onend = () => {
       console.log("Speech Recognition: Recognition ended");
       setIsListening(false);
+      
+      // Auto-restart if this was not manually stopped and continuous mode is enabled
+      if (continuous) {
+        console.log("Speech Recognition: Auto-restarting because continuous mode is enabled");
+        try {
+          // Small delay to avoid race conditions
+          setTimeout(() => {
+            if (recognition) {
+              recognition.start();
+              console.log("Speech Recognition: Auto-restarted successfully");
+              setIsListening(true);
+            }
+          }, 300);
+        } catch (err) {
+          console.error("Speech Recognition: Failed to auto-restart", err);
+        }
+      }
+      
       if (onEnd) {
         onEnd();
       }
