@@ -6,17 +6,21 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import WorldDesigner, { WorldData } from '@/components/world/WorldDesigner';
 import CharacterBuilder, { CharacterData } from '@/components/character/CharacterBuilder';
 import StoryExperience from '@/components/story/StoryExperience';
+import InspirationGatherer, { InspirationData } from '@/components/inspiration/InspirationGatherer';
+import WorldBuilder from '@/components/inspiration/WorldBuilder';
+import CharacterImporter from '@/components/inspiration/CharacterImporter';
 import { useToast } from '@/hooks/use-toast';
 
-type CreationStep = 'world' | 'characters' | 'story';
+type CreationStep = 'inspiration' | 'world' | 'characters' | 'story';
 
 const StoryCreationPage: React.FC = () => {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [creationStep, setCreationStep] = useState<CreationStep>('world');
+  const [creationStep, setCreationStep] = useState<CreationStep>('inspiration');
+  const [inspirationData, setInspirationData] = useState<InspirationData | null>(null);
   const [worldData, setWorldData] = useState<WorldData | null>(null);
   const [characters, setCharacters] = useState<CharacterData[]>([]);
-  const [activeTab, setActiveTab] = useState<string>('world');
+  const [activeTab, setActiveTab] = useState<string>('inspiration');
   
   const handleWorldCreated = (world: WorldData) => {
     setWorldData(world);
@@ -80,7 +84,69 @@ const StoryCreationPage: React.FC = () => {
     });
   };
   
+  // Handle inspiration data
+  const handleInspirationComplete = (data: InspirationData) => {
+    setInspirationData(data);
+    setCreationStep('world');
+    setActiveTab('world');
+    
+    toast({
+      title: 'Inspiration Gathered',
+      description: 'Your inspiration has been collected and analyzed. Now create your world.',
+    });
+  };
+  
+  // Handle world building from inspiration
+  const handleWorldComplete = (world: WorldData) => {
+    setWorldData(world);
+    setCreationStep('characters');
+    setActiveTab('characters');
+    
+    toast({
+      title: 'World Created',
+      description: `The world of ${world.name} is ready for your story.`,
+    });
+  };
+  
+  // Handle character importing from inspiration
+  const handleCharactersImported = (importedCharacters: CharacterData[]) => {
+    const charactersWithIds = importedCharacters.map(character => ({
+      ...character,
+      id: character.id || Date.now() + Math.floor(Math.random() * 1000)
+    }));
+    
+    setCharacters(prev => [...prev, ...charactersWithIds]);
+    setCreationStep('story');
+    setActiveTab('story');
+    
+    toast({
+      title: 'Characters Imported',
+      description: `Successfully imported ${charactersWithIds.length} characters for your story.`,
+    });
+  };
+  
+  // Use standard components without inspiration
+  const handleUseCustomWorld = () => {
+    setActiveTab('world');
+    setCreationStep('world');
+  };
+  
+  const handleUseCustomCharacter = () => {
+    if (!worldData) {
+      toast({
+        title: 'World Required',
+        description: 'Please create a world first before creating characters.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    setActiveTab('characters');
+    setCreationStep('characters');
+  };
+  
   // Prevent users from moving forward without completing necessary steps
+  const canAccessWorld = true; // Anyone can access world creation
   const canAccessCharacters = !!worldData;
   const canAccessStory = !!worldData && characters.length > 0;
   
@@ -93,21 +159,36 @@ const StoryCreationPage: React.FC = () => {
           className="space-y-8"
         >
           <div className="flex justify-center">
-            <TabsList className="grid grid-cols-3 w-full max-w-xl">
-              <TabsTrigger value="world" disabled={creationStep !== 'world' && !worldData}>
-                1. World Design
+            <TabsList className="grid grid-cols-4 w-full max-w-3xl">
+              <TabsTrigger value="inspiration">
+                1. Inspiration
+              </TabsTrigger>
+              <TabsTrigger value="world" disabled={creationStep === 'inspiration'}>
+                2. World Design
               </TabsTrigger>
               <TabsTrigger value="characters" disabled={!canAccessCharacters}>
-                2. Characters
+                3. Characters
               </TabsTrigger>
               <TabsTrigger value="story" disabled={!canAccessStory}>
-                3. Story
+                4. Story
               </TabsTrigger>
             </TabsList>
           </div>
           
+          <TabsContent value="inspiration" className="pt-4">
+            <InspirationGatherer onInspirationComplete={handleInspirationComplete} />
+          </TabsContent>
+          
           <TabsContent value="world" className="pt-4">
-            <WorldDesigner onWorldCreated={handleWorldCreated} />
+            {inspirationData ? (
+              <WorldBuilder 
+                inspirationData={inspirationData} 
+                onWorldComplete={handleWorldComplete} 
+                onCustomWorld={handleUseCustomWorld} 
+              />
+            ) : (
+              <WorldDesigner onWorldCreated={handleWorldCreated} />
+            )}
           </TabsContent>
           
           <TabsContent value="characters" className="pt-4">
