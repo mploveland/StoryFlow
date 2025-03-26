@@ -105,10 +105,11 @@ const StoryExperience: React.FC<StoryExperienceProps> = ({
     
     try {
       // Format characters for the API
-      const formattedCharacters = characters.map(char => ({
+      const formattedCharacters: AICharacter[] = characters.map(char => ({
         name: char.name,
-        role: char.role || "Character",
-        personality: char.personality || []
+        description: char.background || "",
+        traits: char.personality || [],
+        role: char.role || "Character"
       }));
       
       // Format message history for the API
@@ -251,10 +252,11 @@ const StoryExperience: React.FC<StoryExperienceProps> = ({
     
     try {
       // Format characters for the API
-      const formattedCharacters = characters.map(char => ({
+      const formattedCharacters: AICharacter[] = characters.map(char => ({
         name: char.name,
-        role: char.role || "Character",
-        personality: char.personality || []
+        description: char.background || "",
+        traits: char.personality || [],
+        role: char.role || "Character"
       }));
       
       // Format message history for the API
