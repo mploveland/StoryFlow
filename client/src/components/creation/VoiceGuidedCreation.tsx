@@ -59,10 +59,21 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   });
   
   // Speech synthesis setup
-  const { speak, isPlaying, stop: stopSpeaking, voices, selectedVoice, changeVoice } = useTTS({
+  const { speak, isPlaying, stop: stopSpeaking, voices, voicesLoading, selectedVoice, changeVoice } = useTTS({
     defaultVoiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel from ElevenLabs
     defaultProvider: "elevenlabs"
   });
+  
+  // Log any TTS-related state changes
+  useEffect(() => {
+    console.log("TTS State: isPlaying=", isPlaying, "voicesLoading=", voicesLoading);
+    if (voices.length > 0) {
+      console.log("Available voices:", voices.map(v => `${v.name} (${v.provider})`).join(", "));
+    }
+    if (selectedVoice) {
+      console.log("Selected voice:", selectedVoice.name, "Provider:", selectedVoice.provider);
+    }
+  }, [isPlaying, voices, voicesLoading, selectedVoice]);
   
   // Initialize with a welcoming AI message
   useEffect(() => {

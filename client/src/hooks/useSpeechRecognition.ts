@@ -1,5 +1,35 @@
 import { useState, useEffect, useCallback } from 'react';
 
+// Type definitions for Web Speech API
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionError extends Event {
+  error: string;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionError) => void) | null;
+  onend: (() => void) | null;
+}
+
+// Add global definitions
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+  }
+}
+
 interface UseSpeechRecognitionProps {
   onResult?: (transcript: string) => void;
   onEnd?: () => void;
@@ -44,7 +74,7 @@ export function useSpeechRecognition({
 
     console.log(`Speech Recognition: Configured with continuous=${continuous}, language=${language}`);
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -70,7 +100,7 @@ export function useSpeechRecognition({
       }
     };
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (event: SpeechRecognitionError) => {
       console.error(`Speech Recognition: Error - ${event.error}`, event);
       setError(event.error);
       stop();
