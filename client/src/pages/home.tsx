@@ -16,7 +16,7 @@ const Home: React.FC = () => {
   const handleGetStarted = async () => {
     // For demo purposes, login as demo user
     await login('demo', 'password');
-    navigate('/create-story');
+    navigate('/voice-story');
   };
 
   return (
@@ -37,11 +37,11 @@ const Home: React.FC = () => {
         <section className="py-16 md:py-24 bg-gradient-to-b from-white to-neutral-50">
           <div className="container mx-auto px-4 text-center">
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-neutral-900 mb-6">
-              Experience Interactive <span className="text-primary-600">AI-Powered</span> Storytelling
+              Experience <span className="text-primary-600">Voice-Driven</span> AI Storytelling
             </h1>
             <p className="text-lg md:text-xl text-neutral-600 max-w-3xl mx-auto mb-8">
-              StoryFlow creates immersive stories tailored to your preferences. Design worlds, develop characters,
-              and guide narratives through voice and chat interactions.
+              StoryFlow creates immersive stories through natural conversation. Just talk to our AI,
+              share your interests, and co-create a world of adventure through voice and chat.
             </p>
             <Button size="lg" onClick={handleGetStarted} className="text-lg px-8 py-6">
               Begin Your Adventure
