@@ -508,28 +508,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   apiRouter.post("/tts/generate", async (req: Request, res: Response) => {
     try {
+      console.log("TTS Generate request received");
       const { text, voiceId, provider } = req.body;
       
+      console.log(`TTS Request params: voice=${voiceId}, provider=${provider}, text length=${text?.length || 0}`);
+      
       if (!text) {
+        console.log("TTS Error: No text provided");
         return res.status(400).json({ message: "Text is required" });
       }
       
       if (!voiceId || !provider) {
+        console.log(`TTS Error: Missing parameters - voiceId=${!!voiceId}, provider=${!!provider}`);
         return res.status(400).json({ message: "Voice ID and provider are required" });
       }
       
       // Find the voice option
       const voices = getAvailableVoices();
+      console.log(`TTS: Found ${voices.length} available voices`);
+      
       const voiceOption = voices.find(v => v.id === voiceId && v.provider === provider);
       
       if (!voiceOption) {
+        console.log(`TTS Error: Voice not found - voiceId=${voiceId}, provider=${provider}`);
         return res.status(404).json({ message: "Voice not found" });
       }
       
-      const audioDataUrl = await generateSpeech(text, voiceOption);
-      return res.status(200).json({ audio: audioDataUrl });
+      console.log(`TTS: Selected voice "${voiceOption.name}" (${voiceOption.provider}), generating speech...`);
+      
+      try {
+        const audioDataUrl = await generateSpeech(text, voiceOption);
+        console.log(`TTS: Speech generated successfully, data URL length: ${audioDataUrl.length}`);
+        return res.status(200).json({ audio: audioDataUrl });
+      } catch (speechError: any) {
+        console.error("TTS: Specific error during speech generation:", speechError);
+        return res.status(500).json({ 
+          message: "Speech generation failed", 
+          error: speechError.message || "Unknown error" 
+        });
+      }
     } catch (error: any) {
-      console.error("Error generating speech:", error);
+      console.error("TTS: Error in speech generation route:", error);
       return res.status(500).json({ 
         message: "Failed to generate speech",
         error: error.message || "Unknown error"

@@ -23,30 +23,41 @@ export function useSpeechRecognition({
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    console.log("Speech Recognition: Initializing...");
+
     // Check if browser supports speech recognition
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
+      console.error("Speech Recognition: Not supported in this browser");
       setSupported(false);
       setError('Speech recognition is not supported in this browser.');
       return;
     }
 
+    console.log("Speech Recognition: API is available");
+    
     const recognition = new SpeechRecognition();
     recognition.continuous = continuous;
     recognition.interimResults = true;
     recognition.lang = language;
 
+    console.log(`Speech Recognition: Configured with continuous=${continuous}, language=${language}`);
+
     recognition.onresult = (event) => {
       let interimTranscript = '';
       let finalTranscript = '';
+
+      console.log(`Speech Recognition: Result received with ${event.results.length} results`);
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
           finalTranscript += transcript;
+          console.log(`Speech Recognition: Final transcript: "${transcript}"`);
         } else {
           interimTranscript += transcript;
+          console.log(`Speech Recognition: Interim transcript: "${transcript}"`);
         }
       }
 
@@ -54,16 +65,19 @@ export function useSpeechRecognition({
       setTranscript(currentTranscript);
       
       if (onResult) {
+        console.log(`Speech Recognition: Calling onResult with transcript: "${currentTranscript}"`);
         onResult(currentTranscript);
       }
     };
 
     recognition.onerror = (event) => {
+      console.error(`Speech Recognition: Error - ${event.error}`, event);
       setError(event.error);
       stop();
     };
 
     recognition.onend = () => {
+      console.log("Speech Recognition: Recognition ended");
       setIsListening(false);
       if (onEnd) {
         onEnd();
@@ -83,25 +97,37 @@ export function useSpeechRecognition({
   }, [continuous, language, onEnd, onResult]);
 
   const start = useCallback(() => {
-    if (!recognition) return;
+    if (!recognition) {
+      console.error("Speech Recognition: Cannot start - recognition not initialized");
+      return;
+    }
     
+    console.log("Speech Recognition: Starting...");
     setError(null);
     try {
       recognition.start();
+      console.log("Speech Recognition: Started successfully");
       setIsListening(true);
     } catch (err) {
+      console.error("Speech Recognition: Error starting recognition", err);
       setError('Failed to start speech recognition.');
       setIsListening(false);
     }
   }, [recognition]);
 
   const stop = useCallback(() => {
-    if (!recognition) return;
+    if (!recognition) {
+      console.log("Speech Recognition: Cannot stop - recognition not initialized");
+      return;
+    }
     
+    console.log("Speech Recognition: Stopping...");
     try {
       recognition.stop();
+      console.log("Speech Recognition: Stopped successfully");
       setIsListening(false);
     } catch (err) {
+      console.error("Speech Recognition: Error stopping recognition", err);
       setError('Failed to stop speech recognition.');
     }
   }, [recognition]);
