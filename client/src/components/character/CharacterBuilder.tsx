@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import { User, Brain, BookOpen, Heart, Sparkles, Sword, Bookmark, XCircle } from 'lucide-react';
+import { User, Brain, BookOpen, Heart, Sparkles, Sword, Bookmark, XCircle, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { WorldData } from '../world/WorldDesigner';
+import { fetchDetailedCharacter, DetailedCharacter, CharacterCreationInput } from '@/lib/openai';
 
 interface CharacterBuilderProps {
   worldData: WorldData;
@@ -116,31 +117,42 @@ const CharacterBuilder: React.FC<CharacterBuilderProps> = ({ worldData, onCharac
     setIsGenerating(true);
 
     try {
-      // In a real implementation, this would call the OpenAI API to generate character details
-      // For now, we'll simulate a response with a timeout
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      toast({
+        title: 'Creating Character',
+        description: 'Contacting your Hyper-Realistic Character Creator assistant...',
+      });
 
-      // Generate mock character details based on user input and world context
+      // Prepare the input for the OpenAI assistant
+      const characterInput: CharacterCreationInput = {
+        name: character.name,
+        role: character.role,
+        genre: worldData.genre,
+        setting: worldData.setting,
+        story: `This story takes place in ${worldData.name}, a ${worldData.genre} world with the following characteristics: ${worldData.description}. The timeframe is ${worldData.timeframe}, and the primary conflicts involve ${worldData.keyConflicts.join(', ')}.`,
+        additionalInfo: `Character depth: ${character.depth}%. ${character.personality?.length ? 'Personality traits: ' + character.personality.join(', ') + '.' : ''} ${character.goals?.length ? 'Goals: ' + character.goals.join(', ') + '.' : ''} ${character.fears?.length ? 'Fears: ' + character.fears.join(', ') + '.' : ''} ${character.skills?.length ? 'Skills: ' + character.skills.join(', ') + '.' : ''} ${character.background ? 'Background: ' + character.background : ''} ${character.appearance ? 'Appearance: ' + character.appearance : ''}`
+      };
+
+      // Call the OpenAI assistant through our API
+      const detailedCharacter = await fetchDetailedCharacter(characterInput);
+
+      // Map the detailed character to our CharacterData format
       const enhancedCharacter: CharacterData = {
         ...character as CharacterData,
-        personality: character.personality?.length ? character.personality : 
-          ['Determined', 'Resourceful', 'Compassionate'],
-        goals: character.goals?.length ? character.goals : 
-          ['Discover the truth about their past', 'Protect their loved ones'],
-        fears: character.fears?.length ? character.fears : 
-          ['Losing their identity', 'Failing those who depend on them'],
-        relationships: character.relationships?.length ? character.relationships : 
-          ['Mentor to a young protégé', 'Rivalry with a powerful figure'],
-        skills: character.skills?.length ? character.skills : 
-          ['Strategic thinking', 'Persuasive speaking'],
-        background: character.background || `A character shaped by the ${worldData.setting} environment, with a complex history tied to the conflicts of this world.`,
-        appearance: character.appearance || 'A distinctive appearance that reflects their role and personality.',
+        name: detailedCharacter.name,
+        role: detailedCharacter.role,
+        background: detailedCharacter.background,
+        personality: detailedCharacter.personality,
+        goals: detailedCharacter.goals,
+        fears: detailedCharacter.fears,
+        relationships: detailedCharacter.relationships,
+        skills: detailedCharacter.skills,
+        appearance: detailedCharacter.appearance || character.appearance || 'A distinctive appearance that reflects their role and personality.',
         voice: character.voice || 'casual'
       };
 
       toast({
         title: 'Character Created',
-        description: `"${character.name}" has been generated successfully!`,
+        description: `"${enhancedCharacter.name}" has been generated successfully with your Hyper-Realistic Character Creator assistant!`,
       });
 
       onCharacterCreated(enhancedCharacter);
@@ -148,7 +160,7 @@ const CharacterBuilder: React.FC<CharacterBuilderProps> = ({ worldData, onCharac
       console.error('Error generating character:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate character. Please try again.',
+        description: 'Failed to generate character with the OpenAI assistant. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -221,9 +233,15 @@ const CharacterBuilder: React.FC<CharacterBuilderProps> = ({ worldData, onCharac
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>Character Builder</CardTitle>
+        <div className="flex items-center gap-2">
+          <CardTitle>Character Builder</CardTitle>
+          <Badge variant="outline" className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+            <Bot className="h-3.5 w-3.5 mr-1" />
+            Hyper-Realistic Character Creator
+          </Badge>
+        </div>
         <CardDescription>
-          Create characters that will inhabit the world of {worldData.name}. Provide details or let the AI generate a deep character profile.
+          Create characters that will inhabit the world of {worldData.name}. Provide details or let your custom OpenAI assistant generate a deep character profile.
         </CardDescription>
       </CardHeader>
       
@@ -376,8 +394,22 @@ const CharacterBuilder: React.FC<CharacterBuilderProps> = ({ worldData, onCharac
         </Button>
         
         {activeTab === 'details' ? (
-          <Button onClick={handleGenerateCharacter} disabled={isGenerating}>
-            {isGenerating ? 'Generating...' : 'Generate Character'}
+          <Button 
+            onClick={handleGenerateCharacter} 
+            disabled={isGenerating}
+            className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+          >
+            {isGenerating ? (
+              <>
+                <Bot className="h-4 w-4 mr-2 animate-pulse" />
+                Assistant Generating...
+              </>
+            ) : (
+              <>
+                <Bot className="h-4 w-4 mr-2" />
+                Generate with AI Assistant
+              </>
+            )}
           </Button>
         ) : (
           <Button onClick={() => setActiveTab(activeTab === 'basic' ? 'personality' : 'details')}>
