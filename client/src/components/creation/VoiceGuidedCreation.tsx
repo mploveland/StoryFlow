@@ -45,14 +45,38 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   const [partialCharacters, setPartialCharacters] = useState<Partial<CharacterData>[]>([]);
   const [inspirations, setInspirations] = useState<string[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const autoSubmitTimerRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Speech recognition setup
+  // Speech recognition setup - use continuous mode like ChatGPT iOS app
   const { transcript, isListening, start: startRecognition, stop: stopRecognition } = useSpeechRecognition({
-    onResult: (text) => setInputText(text),
+    onResult: (text) => {
+      if (text.trim() !== '') {
+        setInputText(text);
+        
+        // Auto-submit after a brief pause if the text is substantial
+        if (text.trim().length > 10 && !isProcessing && !isSpeaking) {
+          const cleanText = text.trim();
+          if (autoSubmitTimerRef.current) {
+            clearTimeout(autoSubmitTimerRef.current);
+          }
+          
+          autoSubmitTimerRef.current = setTimeout(() => {
+            console.log("Auto-submitting voice input:", cleanText);
+            setInputText(cleanText);
+            handleSendMessage();
+          }, 2000); // 2-second pause after speaking
+        }
+      }
+    },
     onEnd: () => {
-      // Auto-send message when user stops speaking after a brief pause
-      if (inputText.trim().length > 10) {
-        setTimeout(() => handleSendMessage(), 1000);
+      console.log("Speech recognition ended");
+      
+      // Auto-restart recognition to maintain continuous listening
+      if (voiceEnabled) {
+        console.log("Auto-restarting voice recognition...");
+        setTimeout(() => {
+          startRecognition();
+        }, 500);
       }
     },
     continuous: true
@@ -100,17 +124,40 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         v.provider === 'elevenlabs'
       );
       if (preferredVoice) {
+        console.log("Setting preferred voice:", preferredVoice.name);
         changeVoice(preferredVoice.id, preferredVoice.provider);
       }
     }
     
-    // Auto-speak the welcome message
-    if (voiceEnabled) {
+    // Always enable voice by default and auto-start speech and recognition
+    setVoiceEnabled(true);
+    
+    // Auto-speak the welcome message (with retry mechanism)
+    const speakWithRetry = (retryCount = 0) => {
+      console.log(`Attempting to speak welcome message (attempt ${retryCount + 1})`);
+      
+      if (voices.length === 0 && retryCount < 5) {
+        // Voices not loaded yet, wait and retry
+        console.log("Voices not loaded yet, waiting to retry...");
+        setTimeout(() => speakWithRetry(retryCount + 1), 1000);
+        return;
+      }
+      
       setTimeout(() => {
+        console.log("Speaking welcome message...");
         speakMessage(initialMessage.content);
-      }, 500);
-    }
-  }, []);
+        
+        // Also auto-start continuous voice recognition
+        if (!isListening) {
+          console.log("Auto-starting voice recognition");
+          startRecognition();
+        }
+      }, 1000);
+    };
+    
+    // Start the speech process
+    speakWithRetry();
+  }, [voices]);
   
   // Auto-scroll to bottom when messages change
   useEffect(() => {
@@ -270,8 +317,10 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // Toggle voice recognition on/off
   const toggleVoiceRecognition = () => {
     if (isListening) {
+      console.log("Stopping voice recognition");
       stopRecognition();
     } else {
+      console.log("Starting voice recognition");
       startRecognition();
     }
   };
