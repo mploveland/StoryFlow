@@ -8,6 +8,8 @@ import Dashboard from "@/pages/dashboard";
 import StoryEditor from "@/pages/story-editor";
 import StoryCreation from "@/pages/story-creation";
 import VoiceStoryCreation from "@/pages/voice-story-creation";
+import WorldDetails from "@/pages/world-details";
+import CharacterDetails from "@/pages/character-details";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EditorProvider } from "@/contexts/EditorContext";
 
@@ -24,6 +26,9 @@ function Router() {
       <Route path="/structured-story" component={StoryCreation} />
       <Route path="/story/:storyId" component={StoryEditor} />
       <Route path="/story/:storyId/chapter/:chapterId" component={StoryEditor} />
+      {/* New world and character detail pages */}
+      <Route path="/world/:id" component={WorldDetails} />
+      <Route path="/character/:id" component={CharacterDetails} />
       <Route component={NotFound} />
     </Switch>
   );

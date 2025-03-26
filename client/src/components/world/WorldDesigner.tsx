@@ -15,6 +15,7 @@ interface WorldDesignerProps {
 }
 
 export interface WorldData {
+  id?: number;
   name: string;
   genre: string;
   setting: string;

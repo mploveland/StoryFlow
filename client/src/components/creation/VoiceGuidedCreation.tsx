@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation, Link } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, MicOff, Send, RefreshCw, VolumeX, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Send, RefreshCw, VolumeX, Volume2, Map, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchInteractiveStoryResponse } from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
@@ -25,6 +26,7 @@ interface Message {
   content: string;
   sender: 'user' | 'ai';
   timestamp: Date;
+  interviewStage?: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready';
   inspiration?: string[];
   suggestions?: string[];
   worldData?: Partial<WorldData>;
@@ -100,13 +102,19 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     }
   }, [isPlaying, voices, voicesLoading, selectedVoice]);
   
+  // Track interview stage
+  const [interviewStage, setInterviewStage] = useState<
+    'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready'
+  >('genre');
+  
   // Initialize with a welcoming AI message
   useEffect(() => {
     const initialMessage: Message = {
       id: Date.now().toString(),
-      content: "Welcome to StoryFlow! I'll help you create an amazing interactive story through our conversation. Let's start by talking about your ideas or interests. What kind of stories do you enjoy, or what themes would you like to explore?",
+      content: "Welcome to StoryFlow! I'll help you create an amazing interactive story through our conversation. Let's take some time to explore your ideas before we start. First, what kind of stories do you enjoy, or what themes or genres would you like to explore?",
       sender: 'ai',
       timestamp: new Date(),
+      interviewStage: 'genre',
       suggestions: [
         "I love fantasy stories with magic and adventure",
         "I'm interested in sci-fi exploring future technology",
@@ -193,11 +201,16 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   const handleSendMessage = async () => {
     if (inputText.trim() === '' || isProcessing) return;
     
+    // Get current interview stage
+    const lastAiMessage = messages.findLast(msg => msg.sender === 'ai');
+    const currentStage = lastAiMessage?.interviewStage || interviewStage;
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       content: inputText,
       sender: 'user',
-      timestamp: new Date()
+      timestamp: new Date(),
+      interviewStage: currentStage
     };
     
     setMessages(prev => [...prev, userMessage]);
@@ -213,13 +226,28 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       
       // Current state data
       const currentState = {
+        currentStage,
+        interviewStage,
         inspirations,
         partialWorld,
         partialCharacters
       };
       
-      // Call the AI for a response
-      const worldContextStr = `Currently gathered inspirations: ${inspirations.join(', ')}. Current world building progress: ${JSON.stringify(partialWorld)}. Current character progress: ${JSON.stringify(partialCharacters)}. If you identify specific inspirations, world elements, or character traits in the user's input, extract them. Guide the conversation naturally towards building a complete story world.`;
+      // Determine the next interview stage based on current stage and user input
+      let nextStage = determineNextStage(currentStage, inputText);
+      setInterviewStage(nextStage);
+      
+      // Call the AI for a response with interview context
+      const worldContextStr = `
+        Currently in the ${currentStage} stage of the interview process. 
+        Currently gathered inspirations: ${inspirations.join(', ')}. 
+        Current world building progress: ${JSON.stringify(partialWorld)}. 
+        Current character progress: ${JSON.stringify(partialCharacters)}. 
+        Moving to the ${nextStage} stage after this response.
+        If you identify specific inspirations, world elements, or character traits in the user's input, extract them.
+        Guide the conversation naturally towards building a complete story world following the interview flow:
+        genre → influences → world → characters → details → ready
+      `;
       
       const charactersList = partialCharacters.filter(char => char.name).map(char => ({
         id: char.id || 0,
@@ -281,6 +309,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         content: response.content,
         sender: 'ai',
         timestamp: new Date(),
+        interviewStage: nextStage, // Set the next interview stage
         inspiration: extractedInspirations.length > 0 ? extractedInspirations : undefined,
         suggestions: suggestions,
         worldData: extractedWorldData && Object.keys(extractedWorldData).length > 0 ? extractedWorldData : undefined,
@@ -494,35 +523,143 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     return Object.keys(characterData).length > 0 ? characterData : null;
   };
   
-  // Generate contextual suggestions based on the conversation state
+  // Determine the next interview stage based on current stage and user input
+  const determineNextStage = (
+    currentStage: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready',
+    userInput: string
+  ): 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready' => {
+    // Progress through the interview stages
+    switch(currentStage) {
+      case 'genre':
+        // After getting genre preferences, move to influences
+        return 'influences';
+      
+      case 'influences':
+        // After discussing influences, move to world building
+        return 'world';
+        
+      case 'world':
+        // After basic world building, move to characters
+        if (partialWorld.name && partialWorld.setting) {
+          return 'characters';
+        }
+        // Stay in world stage if we don't have enough world details
+        return 'world';
+        
+      case 'characters':
+        // After basic character creation, move to details
+        if (partialCharacters.length > 0 && partialCharacters.some(char => char.name)) {
+          return 'details';
+        }
+        // Stay in character stage if we don't have enough character details
+        return 'characters';
+        
+      case 'details':
+        // After gathering details, if we have enough, move to ready
+        if (partialWorld.name && partialCharacters.length > 0 && partialCharacters.some(char => char.name)) {
+          return 'ready';
+        }
+        // Stay in details stage if we don't have enough
+        return 'details';
+        
+      case 'ready':
+        // Once ready, stay ready
+        return 'ready';
+        
+      default:
+        return 'genre';
+    }
+  };
+  
+  // Generate contextual suggestions based on the conversation state and interview stage
   const generateSuggestions = (
     userInput: string, 
-    state: {inspirations: string[], partialWorld: Partial<WorldData>, partialCharacters: Partial<CharacterData>[]}
+    state: {currentStage?: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready', interviewStage?: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready', inspirations: string[], partialWorld: Partial<WorldData>, partialCharacters: Partial<CharacterData>[]}
   ): string[] => {
     const suggestions: string[] = [];
+    const currentStage = state.currentStage || state.interviewStage || 'genre';
     
-    // Suggestions based on current progress
-    if (state.inspirations.length === 0) {
-      suggestions.push("Tell me about your favorite book or author");
-      suggestions.push("What genre of stories do you enjoy most?");
+    // Provide stage-specific suggestions
+    switch(currentStage) {
+      case 'genre':
+        suggestions.push("I love fantasy stories with magic and adventure");
+        suggestions.push("I'm interested in sci-fi exploring future technology");
+        suggestions.push("I enjoy mysteries and detective stories");
+        suggestions.push("I'd like a story about personal growth and discovery");
+        break;
+        
+      case 'influences':
+        suggestions.push("My favorite author is J.R.R. Tolkien");
+        suggestions.push("I really enjoyed the Harry Potter series");
+        suggestions.push("I like the writing style of Stephen King");
+        suggestions.push("I'm a fan of classic literature like Jane Austen");
+        break;
+        
+      case 'world':
+        if (!state.partialWorld.name) {
+          suggestions.push("A medieval fantasy realm with magic");
+          suggestions.push("A futuristic world with advanced technology");
+          suggestions.push("A contemporary setting with supernatural elements");
+          suggestions.push("An alternate history world");
+        } else {
+          suggestions.push(`Tell me more about the history of ${state.partialWorld.name}`);
+          suggestions.push(`What kind of magic or technology exists in ${state.partialWorld.name}?`);
+          suggestions.push(`What are the major locations in ${state.partialWorld.name}?`);
+        }
+        break;
+        
+      case 'characters':
+        if (state.partialCharacters.length === 0) {
+          suggestions.push("The main character is a young adventurer seeking their destiny");
+          suggestions.push("I'd like a character who's a wise mentor with a mysterious past");
+          suggestions.push("A reluctant hero who has to step up to save others");
+          suggestions.push("A character with unique abilities they're still learning to control");
+        } else {
+          const mainChar = state.partialCharacters[0];
+          suggestions.push(`Tell me more about ${mainChar.name || 'the main character'}'s background`);
+          suggestions.push(`What motivates ${mainChar.name || 'the protagonist'}?`);
+          suggestions.push("I'd like to add another character to the story");
+        }
+        break;
+        
+      case 'details':
+        suggestions.push("I'd like the story to focus on themes of redemption");
+        suggestions.push("The story should have plenty of action and adventure");
+        suggestions.push("I want a mystery that slowly unravels throughout the story");
+        suggestions.push("Let's add some romance or relationship development");
+        break;
+        
+      case 'ready':
+        suggestions.push("I think we have enough to start the story now");
+        suggestions.push("Let's see how these characters interact in this world");
+        suggestions.push("I'm ready to begin the adventure");
+        suggestions.push("Can we add one final detail before starting?");
+        break;
+        
+      default:
+        // Generic suggestions if no stage matches
+        if (state.inspirations.length === 0) {
+          suggestions.push("Tell me about your favorite book or author");
+          suggestions.push("What genre of stories do you enjoy most?");
+        }
+        
+        if (Object.keys(state.partialWorld).length === 0) {
+          suggestions.push("Describe the world where your story takes place");
+          suggestions.push("Would you prefer a fantasy, sci-fi, or realistic setting?");
+        } else if (!state.partialWorld.name) {
+          suggestions.push(`What should we name this ${state.partialWorld.genre || ''} world?`);
+        }
+        
+        if (state.partialCharacters.length === 0) {
+          suggestions.push("Tell me about the main character of your story");
+          suggestions.push("Who would be an interesting protagonist for this adventure?");
+        } else if (state.partialCharacters.length === 1) {
+          suggestions.push("Would you like to add another character to the story?");
+        }
     }
     
-    if (Object.keys(state.partialWorld).length === 0) {
-      suggestions.push("Describe the world where your story takes place");
-      suggestions.push("Would you prefer a fantasy, sci-fi, or realistic setting?");
-    } else if (!state.partialWorld.name) {
-      suggestions.push(`What should we name this ${state.partialWorld.genre || ''} world?`);
-    }
-    
-    if (state.partialCharacters.length === 0) {
-      suggestions.push("Tell me about the main character of your story");
-      suggestions.push("Who would be an interesting protagonist for this adventure?");
-    } else if (state.partialCharacters.length === 1) {
-      suggestions.push("Would you like to add another character to the story?");
-    }
-    
-    // If we have enough information, suggest moving forward
-    if (state.partialWorld.name && state.partialCharacters.length > 0) {
+    // If we have enough information, always suggest moving forward
+    if (state.partialWorld.name && state.partialCharacters.length > 0 && currentStage !== 'ready') {
       suggestions.push("I think we have enough to start creating your story!");
     }
     
@@ -534,11 +671,15 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   };
   
   // Check if we have enough information to create a world or character
+  // Access location for navigation
+  const [, setLocation] = useLocation();
+  
   const checkCreationProgress = () => {
     // Check if we have enough world data
     if (partialWorld.name && partialWorld.genre && partialWorld.setting && !partialWorld.complexity) {
       // We have enough basic info to create a world
       const completeWorld: WorldData = {
+        id: Date.now(), // Generate a simple ID for the world
         name: partialWorld.name,
         genre: partialWorld.genre,
         setting: partialWorld.setting,
@@ -559,6 +700,14 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       toast({
         title: "World Created",
         description: `The world of ${completeWorld.name} is ready for your story!`,
+        action: (
+          <Link href={`/world/${completeWorld.id}`}>
+            <Button variant="ghost" size="sm" className="gap-1">
+              <Map size={16} />
+              View World
+            </Button>
+          </Link>
+        ),
       });
     }
     
@@ -567,6 +716,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       if (char.name && char.personality && char.personality.length >= 2 && !char.depth) {
         // We have enough basic info to create a character
         const completeCharacter: CharacterData = {
+          id: Date.now() + Math.floor(Math.random() * 1000), // Generate a simple ID for the character
           name: char.name,
           role: char.role || 'Protagonist',
           background: char.background || `${char.name} has a mysterious past that shapes their current actions and decisions.`,
@@ -585,6 +735,14 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         toast({
           title: "Character Created",
           description: `${completeCharacter.name} has been added to your story!`,
+          action: (
+            <Link href={`/character/${completeCharacter.id}`}>
+              <Button variant="ghost" size="sm" className="gap-1">
+                <User size={16} />
+                View Character
+              </Button>
+            </Link>
+          ),
         });
         
         // Remove this character from the partials
@@ -619,6 +777,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     // Create a complete world if we don't have one yet
     if (!partialWorld.complexity) {
       const completeWorld: WorldData = {
+        id: Date.now(), // Generate a simple ID for the world
         name: partialWorld.name || "Mysterious Realm",
         genre: partialWorld.genre || "Fantasy",
         setting: partialWorld.setting || "Magical landscape with diverse regions",
@@ -633,7 +792,22 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         description: partialWorld.description || `A world where adventure awaits around every corner.`,
         complexity: 3
       };
+      
       onWorldCreated(completeWorld);
+      
+      // Also add a toast with a link to the world details
+      toast({
+        title: "World Created",
+        description: `The world of ${completeWorld.name} is ready for your story!`,
+        action: (
+          <Link href={`/world/${completeWorld.id}`}>
+            <Button variant="ghost" size="sm" className="gap-1">
+              <Map size={16} />
+              View World
+            </Button>
+          </Link>
+        ),
+      });
     }
     
     // Create complete characters for any partial ones
