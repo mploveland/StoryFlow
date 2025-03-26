@@ -8,7 +8,7 @@ import { Send, Mic, MicOff, Volume2, VolumeX, BookOpen, Save } from 'lucide-reac
 import { WorldData } from '../world/WorldDesigner';
 import { CharacterData } from '../character/CharacterBuilder';
 import { useToast } from '@/hooks/use-toast';
-import { fetchInteractiveStoryResponse, StoryMessage as APIStoryMessage } from '@/lib/openai';
+import { fetchInteractiveStoryResponse, StoryMessage as APIStoryMessage, Character as AICharacter } from '@/lib/openai';
 
 interface StoryExperienceProps {
   world: WorldData;
