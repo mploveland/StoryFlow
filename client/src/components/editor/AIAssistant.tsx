@@ -5,7 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAI } from '@/hooks/useAI';
 import { Character } from '@/lib/openai';
-import { Lightbulb, MessageSquare, Sparkles, PaperPlane, Mic } from 'lucide-react';
+import { Lightbulb, MessageSquare, Sparkles, Send, Mic } from 'lucide-react';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 
 interface AIAssistantProps {
@@ -404,7 +404,7 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
                   disabled={!promptInput.trim()}
                   className="p-1 text-primary-500 hover:text-primary-600"
                 >
-                  <PaperPlane className="h-4 w-4" />
+                  <Send className="h-4 w-4" />
                 </Button>
               </div>
             </div>
