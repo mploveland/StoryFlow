@@ -1,7 +1,10 @@
 import OpenAI from "openai";
-import * as elevenlabs from 'elevenlabs';
+import { ElevenLabsClient } from 'elevenlabs'; // Import from root package
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const elevenLabsClient = new ElevenLabsClient({
+  apiKey: process.env.ELEVEN_LABS_API_KEY
+});
 
 // Voice options from both services
 export interface VoiceOption {
@@ -110,28 +113,37 @@ export async function generateElevenLabsSpeech(
   voiceId: string = "21m00Tcm4TlvDq8ikWAM" // Default to Rachel
 ): Promise<string> {
   try {
-    // Set the API key before making the request
-    elevenlabs.set({ apiKey: process.env.ELEVEN_LABS_API_KEY });
-    
-    // Generate audio stream with configurable parameters
-    const audioStream = await elevenlabs.generate({
-      voice: voiceId,
-      text: text,
-      model: "eleven_multilingual_v2", // Use the multilingual model for better quality
-      voice_settings: {
-        stability: 0.5,
-        similarity_boost: 0.8,
+    // Use the client to generate speech
+    const audioStream = await elevenLabsClient.textToSpeech.convert(
+      voiceId, 
+      {
+        text,
+        model_id: "eleven_multilingual_v2", // Use the multilingual model for better quality
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.8
+        }
       }
-    });
+    );
     
     // Convert to base64 for browser playback
-    const chunks: Uint8Array[] = [];
-    for await (const chunk of audioStream) {
+    const chunks: Buffer[] = [];
+    audioStream.on('data', (chunk: Buffer) => {
       chunks.push(chunk);
-    }
+    });
     
-    const audioBuffer = Buffer.concat(chunks);
-    return `data:audio/mpeg;base64,${audioBuffer.toString('base64')}`;
+    // Return a promise that resolves when the stream ends
+    return new Promise((resolve, reject) => {
+      audioStream.on('end', () => {
+        const audioBuffer = Buffer.concat(chunks);
+        resolve(`data:audio/mpeg;base64,${audioBuffer.toString('base64')}`);
+      });
+      
+      audioStream.on('error', (err: Error) => {
+        console.error("Stream error:", err);
+        reject(new Error("Error processing audio stream"));
+      });
+    });
   } catch (error) {
     console.error("Error generating ElevenLabs speech:", error);
     throw new Error("Failed to generate speech with ElevenLabs");
