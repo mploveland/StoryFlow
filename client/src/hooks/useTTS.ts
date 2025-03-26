@@ -102,52 +102,77 @@ export function useTTS(options: UseTTSOptions = {}) {
   
   // Handle changes to the current audio URL
   useEffect(() => {
-    if (!currentAudioUrl || !audioRef.current) return;
+    if (!currentAudioUrl || !audioRef.current) {
+      console.log("useTTS: No audio URL or audio element available");
+      return;
+    }
     
-    console.log(`Setting up audio with URL of length ${currentAudioUrl.length}`);
+    console.log(`useTTS: Setting up audio with URL of length ${currentAudioUrl.length}`);
+    console.log(`useTTS: URL starts with: ${currentAudioUrl.substring(0, 40)}...`);
     
     // Use the Web Audio API for better browser compatibility
     try {
       if (audioContextRef.current && audioRef.current) {
+        console.log("useTTS: Using Web Audio API for playback");
+        
         // Disconnect any existing source
         if (sourceNodeRef.current) {
+          console.log("useTTS: Disconnecting previous source node");
           sourceNodeRef.current.disconnect();
         }
         
         // Set the source on the audio element
+        console.log("useTTS: Setting audio source URL");
         audioRef.current.src = currentAudioUrl;
         
         // Create a new source node
+        console.log("useTTS: Creating media element source node");
         sourceNodeRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
         sourceNodeRef.current.connect(audioContextRef.current.destination);
         
         // Resume audio context (needed in some browsers)
         if (audioContextRef.current.state === 'suspended') {
-          console.log("Resuming suspended audio context");
+          console.log("useTTS: Resuming suspended audio context");
           audioContextRef.current.resume();
         }
         
         // Attempt to play
-        console.log("Starting playback with Web Audio API");
+        console.log("useTTS: Starting playback with Web Audio API");
         playAudio();
       } else {
         // Fallback to basic audio element
-        console.log("Using basic audio element (no audio context)");
+        console.log("useTTS: Using basic audio element (no audio context)");
         if (audioRef.current) {
           audioRef.current.src = currentAudioUrl;
           playAudio();
         }
       }
     } catch (error) {
-      console.error("Error setting up audio:", error);
+      console.error("useTTS: Error setting up audio:", error);
       
       // Last-resort fallback
       if (audioRef.current) {
         try {
-          audioRef.current.src = currentAudioUrl;
-          playAudio();
+          console.log("useTTS: Using emergency fallback approach");
+          
+          // Create a completely fresh audio element
+          const freshAudio = new Audio();
+          freshAudio.src = currentAudioUrl;
+          freshAudio.oncanplaythrough = () => {
+            console.log("useTTS: Fresh audio element can play through");
+            freshAudio.play()
+              .then(() => console.log("useTTS: Fallback playback started successfully"))
+              .catch(err => console.error("useTTS: Fallback playback failed:", err));
+          };
+          freshAudio.onerror = (e) => {
+            console.error("useTTS: Fresh audio element error:", e);
+          };
+          
+          // Replace our reference
+          audioRef.current = freshAudio;
+          
         } catch (e) {
-          console.error("Even the fallback failed:", e);
+          console.error("useTTS: Even the fallback failed:", e);
         }
       }
     }
@@ -156,46 +181,73 @@ export function useTTS(options: UseTTSOptions = {}) {
   // Play the current audio
   const playAudio = useCallback(() => {
     if (!audioRef.current) {
-      console.error("Cannot play: no audio element");
+      console.error("useTTS: Cannot play: no audio element");
       return;
     }
     
-    console.log("Attempting to play audio");
+    console.log("useTTS: Attempting to play audio");
+    console.log("useTTS: Audio element current src:", audioRef.current.src ? audioRef.current.src.substring(0, 40) + "..." : "none");
+    console.log("useTTS: Audio element readyState:", audioRef.current.readyState);
+    console.log("useTTS: Audio element muted:", audioRef.current.muted);
+    
+    // Make sure audio is not muted
+    audioRef.current.muted = false;
+    
+    // Set volume to maximum to ensure audibility
+    audioRef.current.volume = 1.0;
     
     // Force autoplay by playing in response to a user gesture (even a synthetic one)
     const playPromise = audioRef.current.play();
     
     if (playPromise !== undefined) {
-      playPromise.catch(error => {
-        console.error("Error playing audio:", error);
-        
-        // Try again with user interaction
-        console.log("Will attempt to play on next user interaction");
-        const playOnUserInteraction = () => {
-          console.log("User interaction detected, trying to play again");
-          if (audioRef.current) {
-            audioRef.current.play().catch(e => console.error("Play attempt failed again:", e));
-          }
+      playPromise
+        .then(() => {
+          console.log("useTTS: Audio playback started successfully");
+        })
+        .catch(error => {
+          console.error("useTTS: Error playing audio:", error);
           
-          // Remove the listener
-          document.removeEventListener('click', playOnUserInteraction);
-          document.removeEventListener('keydown', playOnUserInteraction);
-        };
-        
-        document.addEventListener('click', playOnUserInteraction, { once: true });
-        document.addEventListener('keydown', playOnUserInteraction, { once: true });
-        
-        // Also dispatch a synthetic click event to try immediately
-        try {
-          document.dispatchEvent(new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true
-          }));
-        } catch (e) {
-          console.warn("Could not dispatch synthetic click:", e);
-        }
-      });
+          // Try an alternative approach - using a fresh audio element
+          console.log("useTTS: Trying alternative audio element...");
+          const altAudio = new Audio(audioRef.current?.src);
+          altAudio.volume = 1.0;
+          altAudio.muted = false;
+          altAudio.oncanplaythrough = () => {
+            console.log("useTTS: Alternative audio can play");
+            altAudio.play()
+              .then(() => console.log("useTTS: Alternative audio playing"))
+              .catch(err => console.error("useTTS: Alternative audio failed:", err));
+          };
+          
+          // Try again with user interaction
+          console.log("useTTS: Will attempt to play on next user interaction");
+          const playOnUserInteraction = () => {
+            console.log("useTTS: User interaction detected, trying to play again");
+            if (audioRef.current) {
+              audioRef.current.play()
+                .then(() => console.log("useTTS: Playback on user interaction succeeded"))
+                .catch(e => console.error("useTTS: Play attempt on user interaction failed:", e));
+            }
+            
+            // Remove the listener
+            document.removeEventListener('click', playOnUserInteraction);
+            document.removeEventListener('keydown', playOnUserInteraction);
+          };
+          
+          document.addEventListener('click', playOnUserInteraction, { once: true });
+          document.addEventListener('keydown', playOnUserInteraction, { once: true });
+          
+          // Also dispatch a synthetic click event to try immediately
+          try {
+            document.dispatchEvent(new MouseEvent('click', {
+              view: window,
+              bubbles: true,
+              cancelable: true
+            }));
+          } catch (e) {
+            console.warn("useTTS: Could not dispatch synthetic click:", e);
+          }
+        });
     }
   }, []);
   
@@ -211,17 +263,17 @@ export function useTTS(options: UseTTSOptions = {}) {
   // Generate speech and play it
   const speak = useCallback(async (text: string): Promise<void> => {
     if (!selectedVoice) {
-      console.error('Cannot speak: No voice selected');
+      console.error('useTTS: Cannot speak: No voice selected');
       return;
     }
     
     // Don't process empty text
     if (!text || text.trim() === '') {
-      console.warn('Cannot speak: Empty text provided');
+      console.warn('useTTS: Cannot speak: Empty text provided');
       return;
     }
     
-    console.log(`Generating speech for "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" with voice ${selectedVoice.name}`);
+    console.log(`useTTS: Generating speech for "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" with voice ${selectedVoice.name}`);
     
     try {
       // Stop any current playback
@@ -234,19 +286,39 @@ export function useTTS(options: UseTTSOptions = {}) {
         selectedVoice.provider
       );
       
-      console.log(`Received audio data URL (length: ${audioDataUrl.length})`);
+      console.log(`useTTS: Received audio data URL (length: ${audioDataUrl.length})`);
       setCurrentAudioUrl(audioDataUrl);
+      
+      // Create a simple audio element directly
+      try {
+        console.log("useTTS: Attempting direct audio playback");
+        const directAudio = new Audio(audioDataUrl);
+        directAudio.volume = 1.0;
+        directAudio.playbackRate = 1.0;
+        directAudio.muted = false;
+        directAudio.oncanplaythrough = () => {
+          console.log("useTTS: Direct audio can play through");
+          directAudio.play()
+            .then(() => console.log("useTTS: Direct audio playback started"))
+            .catch(err => console.error("useTTS: Direct audio playback failed:", err));
+        };
+        directAudio.onerror = (err) => {
+          console.error("useTTS: Direct audio error:", err);
+        };
+      } catch (directErr) {
+        console.error("useTTS: Could not create direct audio element:", directErr);
+      }
       
       // Return a promise that resolves when playback finishes
       return new Promise((resolve) => {
         if (!audioRef.current) {
-          console.error("No audio element available");
+          console.error("useTTS: No audio element available");
           resolve();
           return;
         }
         
         const onEnded = () => {
-          console.log("Playback ended, resolving promise");
+          console.log("useTTS: Playback ended, resolving promise");
           audioRef.current?.removeEventListener('ended', onEnded);
           resolve();
         };
@@ -255,7 +327,7 @@ export function useTTS(options: UseTTSOptions = {}) {
         
         // Safety timeout (30 seconds max)
         const safetyTimeout = setTimeout(() => {
-          console.log("Safety timeout reached, resolving promise");
+          console.log("useTTS: Safety timeout reached, resolving promise");
           audioRef.current?.removeEventListener('ended', onEnded);
           resolve();
         }, 30000);
@@ -269,7 +341,7 @@ export function useTTS(options: UseTTSOptions = {}) {
         audioRef.current.addEventListener('ended', clearTimeoutOnEnd);
       });
     } catch (error) {
-      console.error('Error in speak function:', error);
+      console.error('useTTS: Error in speak function:', error);
       setIsPlaying(false);
     }
   }, [selectedVoice, stop]);

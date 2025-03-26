@@ -27,31 +27,44 @@ export function AudioPlayer({
   useEffect(() => {
     // Create audio element if it doesn't exist
     if (!audioRef.current) {
+      console.log('AudioPlayer: Creating new audio element');
       audioRef.current = new Audio();
       
       // Add event listeners
       audioRef.current.addEventListener('play', () => {
-        console.log('Audio started playing');
+        console.log('AudioPlayer: Audio started playing');
         setIsPlaying(true);
         onPlayStateChange?.(true);
       });
       
       audioRef.current.addEventListener('ended', () => {
-        console.log('Audio playback ended');
+        console.log('AudioPlayer: Audio playback ended');
         setIsPlaying(false);
         onPlayStateChange?.(false);
       });
       
       audioRef.current.addEventListener('pause', () => {
-        console.log('Audio paused');
+        console.log('AudioPlayer: Audio paused');
         setIsPlaying(false);
         onPlayStateChange?.(false);
       });
       
       audioRef.current.addEventListener('error', (e) => {
-        console.error('Audio error:', e);
+        console.error('AudioPlayer: Audio error:', e);
+        console.error('AudioPlayer: Error code:', audioRef.current?.error?.code);
+        console.error('AudioPlayer: Error message:', audioRef.current?.error?.message);
         setIsPlaying(false);
         onPlayStateChange?.(false);
+      });
+
+      // Add canplaythrough event for debugging
+      audioRef.current.addEventListener('canplaythrough', () => {
+        console.log('AudioPlayer: Audio can play through without buffering');
+      });
+
+      // Add loadeddata event for debugging
+      audioRef.current.addEventListener('loadeddata', () => {
+        console.log('AudioPlayer: Audio data is loaded');
       });
     }
     
