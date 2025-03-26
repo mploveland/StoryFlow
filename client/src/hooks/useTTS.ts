@@ -44,45 +44,101 @@ export function useTTS(options: UseTTSOptions = {}) {
   }, [currentAudio]);
   
   const speak = useCallback(async (text: string): Promise<void> => {
-    if (!selectedVoice) return;
+    if (!selectedVoice) {
+      console.error('Cannot speak: No voice selected');
+      return;
+    }
+    
+    // Don't process empty text
+    if (!text || text.trim() === '') {
+      console.warn('Cannot speak: Empty text provided');
+      return;
+    }
+    
+    console.log(`Starting speech synthesis with voice "${selectedVoice.name}" (${selectedVoice.provider})`);
+    console.log(`Text to speak (${text.length} chars): "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
     
     try {
       // Stop any currently playing audio
       if (currentAudio) {
+        console.log('Stopping previous audio playback');
         currentAudio();
         setCurrentAudio(null);
       }
       
       setIsPlaying(true);
       
-      // Generate and play the speech
+      // Generate speech from API
+      console.log('Generating speech...');
       const audioDataUrl = await generateSpeechCached(
         text, 
         selectedVoice.id, 
         selectedVoice.provider
       );
       
+      console.log(`Received audio data URL (length: ${audioDataUrl.length})`);
+      
+      // Use our enhanced playAudio function
+      console.log('Starting audio playback');
       const stopAudio = playAudio(audioDataUrl);
+      
       setCurrentAudio(() => {
         return () => {
+          console.log('Cleanup function called');
           stopAudio();
           setIsPlaying(false);
         };
       });
       
-      // Create a promise that resolves when audio finishes playing
+      // Use a separate audio element to track when audio finishes
       return new Promise((resolve) => {
-        const audio = new Audio(audioDataUrl);
+        const audio = new Audio();
+        
+        // Log audio events for debugging
+        audio.addEventListener('canplay', () => console.log('Audio can play'));
+        audio.addEventListener('play', () => console.log('Audio started playing'));
+        audio.addEventListener('error', (e) => console.error('Audio error:', e));
+        
         audio.addEventListener('ended', () => {
+          console.log('Audio playback ended naturally');
           setIsPlaying(false);
           setCurrentAudio(null);
           resolve();
         });
-        audio.play().catch(err => {
-          console.error('Error playing audio:', err);
+        
+        // Set the source after adding listeners
+        audio.src = audioDataUrl;
+        
+        // Add safety timeout to ensure promise resolves
+        const safetyTimeout = setTimeout(() => {
+          console.log('Safety timeout triggered after 30s');
           setIsPlaying(false);
           setCurrentAudio(null);
-          resolve(); // Resolve anyway to prevent hanging promises
+          resolve();
+        }, 30000); // 30 second safety timeout
+        
+        // Clear timeout when audio ends
+        audio.addEventListener('ended', () => clearTimeout(safetyTimeout));
+        
+        // Start playing
+        audio.play().catch(err => {
+          console.error('Error playing audio in tracking element:', err);
+          
+          // Try with user interaction
+          console.log('Attempting fallback play method');
+          document.addEventListener('click', function playOnInteraction() {
+            audio.play().catch(e => console.error('Failed again:', e));
+            document.removeEventListener('click', playOnInteraction);
+          }, { once: true });
+          
+          // Don't wait forever if audio fails
+          setTimeout(() => {
+            console.log('Resolving promise despite playback failure');
+            setIsPlaying(false);
+            setCurrentAudio(null);
+            clearTimeout(safetyTimeout);
+            resolve();
+          }, 1000);
         });
       });
     } catch (error) {

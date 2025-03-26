@@ -55,9 +55,36 @@ export async function generateSpeech(
  * @returns A cleanup function to stop the audio
  */
 export function playAudio(dataUrl: string): () => void {
+  console.log('Creating audio element with data URL length:', dataUrl.length);
   const audio = new Audio(dataUrl);
+  
+  // Set audio context for better compatibility
+  try {
+    // Force audio to be processed and played, even if tab is not active
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContext) {
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaElementSource(audio);
+      source.connect(audioContext.destination);
+      
+      // Resume audio context if it's suspended (required in some browsers)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }
+  } catch (error) {
+    console.warn('Advanced audio context not available, falling back to basic audio', error);
+  }
+  
+  // Play the audio with better error handling
   audio.play().catch(err => {
     console.error('Error playing audio:', err);
+    
+    // Try playing again with user interaction simulation
+    document.addEventListener('click', function playOnClick() {
+      audio.play().catch(e => console.error('Second attempt to play failed:', e));
+      document.removeEventListener('click', playOnClick);
+    }, { once: true });
   });
   
   // Return a cleanup function
