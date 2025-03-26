@@ -104,7 +104,13 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // Auto-scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      // Use setTimeout to ensure the DOM has updated before scrolling
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          console.log("Scrolling to bottom:", scrollRef.current.scrollHeight);
+        }
+      }, 100);
     }
   }, [messages]);
   
@@ -232,15 +238,20 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   const speakMessage = (text: string) => {
     if (!voiceEnabled) return;
     
+    console.log("Speaking message with voice:", selectedVoice);
+    
     // Cancel any ongoing speech
     if (isPlaying) {
+      console.log("Stopping previous speech");
       stopSpeaking();
     }
     
     setIsSpeaking(true);
     speak(text).then(() => {
+      console.log("Speech completed successfully");
       setIsSpeaking(false);
-    }).catch(() => {
+    }).catch((error) => {
+      console.error("Error in speech synthesis:", error);
       setIsSpeaking(false);
     });
   };
