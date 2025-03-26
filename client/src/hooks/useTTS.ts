@@ -8,6 +8,7 @@ interface UseTTSOptions {
 }
 
 export function useTTS(options: UseTTSOptions = {}) {
+  console.log("useTTS hook initialized with options:", options);
   // Default to the first ElevenLabs voice (Rachel)
   const defaultVoiceId = options.defaultVoiceId || '21m00Tcm4TlvDq8ikWAM';
   const defaultProvider = options.defaultProvider || 'elevenlabs';
