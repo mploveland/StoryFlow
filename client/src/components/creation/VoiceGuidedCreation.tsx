@@ -83,10 +83,10 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     continuous: true
   });
   
-  // Speech synthesis setup
+  // Speech synthesis setup - using OpenAI TTS instead of ElevenLabs
   const { speak, isPlaying, stop: stopSpeaking, voices, voicesLoading, selectedVoice, changeVoice, currentAudioUrl } = useTTS({
-    defaultVoiceId: "21m00Tcm4TlvDq8ikWAM", // Rachel from ElevenLabs
-    defaultProvider: "elevenlabs"
+    defaultVoiceId: "alloy", // Use OpenAI's Alloy voice
+    defaultProvider: "openai"
   });
   
   // Log any TTS-related state changes
@@ -117,12 +117,12 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     
     setMessages([initialMessage]);
     
-    // Use the default ElevenLabs voice (Rachel) if available
+    // Use OpenAI's Alloy voice if available
     if (voices.length > 0) {
       const preferredVoice = voices.find(v => 
-        v.id === "21m00Tcm4TlvDq8ikWAM" || // Rachel from ElevenLabs
-        v.name.includes('Rachel') || 
-        v.provider === 'elevenlabs'
+        v.id === "alloy" || // Alloy from OpenAI
+        v.name.includes('Alloy') || 
+        v.provider === 'openai'
       );
       if (preferredVoice) {
         console.log("Setting preferred voice:", preferredVoice.name);
@@ -318,8 +318,8 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     // If we don't have a selected voice yet, try to find one
     if (!selectedVoice && voices.length > 0) {
       console.log("No voice selected, using first available voice");
-      // Prefer ElevenLabs, fall back to any available voice
-      const voice = voices.find(v => v.provider === 'elevenlabs') || voices[0];
+      // Prefer OpenAI, fall back to any available voice
+      const voice = voices.find(v => v.provider === 'openai') || voices[0];
       changeVoice(voice.id, voice.provider);
       console.log(`Selected voice: ${voice.name} (${voice.provider})`);
     }
