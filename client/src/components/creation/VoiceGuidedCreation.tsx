@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Mic, MicOff, Send, RefreshCw, VolumeX, Volume2, Map, User } from 'lucide-react';
+import { Mic, MicOff, Send, RefreshCw, VolumeX, Volume2, Map, User, Sparkles, Wand2, ArrowRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchInteractiveStoryResponse } from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
@@ -104,14 +104,14 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   
   // Track interview stage
   const [interviewStage, setInterviewStage] = useState<
-    'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready'
+    'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready'
   >('genre');
   
   // Initialize with a welcoming AI message
   useEffect(() => {
     const initialMessage: Message = {
       id: Date.now().toString(),
-      content: "Welcome to StoryFlow! I'll help you create an amazing interactive story through our conversation. Let's take some time to explore your ideas before we start. First, what kind of stories do you enjoy, or what themes or genres would you like to explore?",
+      content: "Welcome to StoryFlow! I'll help you create an amazing interactive story through our conversation. We'll follow this process: first exploring genre, then building your world, creating characters, discussing influences, adding details, and finally starting your story. To begin, what kind of stories do you enjoy, or what themes or genres would you like to explore?",
       sender: 'ai',
       timestamp: new Date(),
       interviewStage: 'genre',
@@ -246,7 +246,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         Moving to the ${nextStage} stage after this response.
         If you identify specific inspirations, world elements, or character traits in the user's input, extract them.
         Guide the conversation naturally towards building a complete story world following the interview flow:
-        genre → influences → world → characters → details → ready
+        genre → world → characters → influences → details → ready
       `;
       
       const charactersList = partialCharacters.filter(char => char.name).map(char => ({
@@ -525,19 +525,15 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   
   // Determine the next interview stage based on current stage and user input
   const determineNextStage = (
-    currentStage: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready',
+    currentStage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready',
     userInput: string
-  ): 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready' => {
-    // Progress through the interview stages
+  ): 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready' => {
+    // Progress through the interview stages: genre → world → characters → influences → details → ready
     switch(currentStage) {
       case 'genre':
-        // After getting genre preferences, move to influences
-        return 'influences';
-      
-      case 'influences':
-        // After discussing influences, move to world building
+        // After getting genre preferences, move to world building
         return 'world';
-        
+      
       case 'world':
         // After basic world building, move to characters
         if (partialWorld.name && partialWorld.setting) {
@@ -547,12 +543,16 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         return 'world';
         
       case 'characters':
-        // After basic character creation, move to details
+        // After basic character creation, move to influences/basic plot
         if (partialCharacters.length > 0 && partialCharacters.some(char => char.name)) {
-          return 'details';
+          return 'influences';
         }
         // Stay in character stage if we don't have enough character details
         return 'characters';
+        
+      case 'influences':
+        // After discussing influences, move to details
+        return 'details';
         
       case 'details':
         // After gathering details, if we have enough, move to ready
@@ -574,7 +574,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // Generate contextual suggestions based on the conversation state and interview stage
   const generateSuggestions = (
     userInput: string, 
-    state: {currentStage?: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready', interviewStage?: 'genre' | 'influences' | 'world' | 'characters' | 'details' | 'ready', inspirations: string[], partialWorld: Partial<WorldData>, partialCharacters: Partial<CharacterData>[]}
+    state: {currentStage?: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', interviewStage?: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', inspirations: string[], partialWorld: Partial<WorldData>, partialCharacters: Partial<CharacterData>[]}
   ): string[] => {
     const suggestions: string[] = [];
     const currentStage = state.currentStage || state.interviewStage || 'genre';
@@ -955,11 +955,22 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
                     </div>
                   )}
                   
-                  {/* Show suggestions if available */}
+                  {/* Show suggestions and AI generation options */}
                   {message.sender === 'ai' && message.suggestions && message.suggestions.length > 0 && (
                     <div className="mt-3 pt-2 border-t border-t-muted-foreground/20">
-                      <p className="text-xs font-semibold mb-1">You might say:</p>
-                      <div className="flex flex-wrap gap-1">
+                      <div className="flex justify-between items-center mb-2">
+                        <p className="text-xs font-semibold">Need ideas? Try these:</p>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-xs h-7 gap-1"
+                          onClick={() => useSuggestion(`Can you suggest more ideas for the ${message.interviewStage} stage?`)}
+                        >
+                          <Sparkles className="h-3 w-3" />
+                          More Ideas
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1 mb-2">
                         {message.suggestions.map((suggestion, i) => (
                           <Badge 
                             key={i} 
@@ -970,6 +981,42 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
                             {suggestion}
                           </Badge>
                         ))}
+                      </div>
+                      <div className="flex gap-2 mt-3">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="gap-1 text-xs"
+                          onClick={() => {
+                            const prompt = message.interviewStage === 'world' 
+                              ? "Please create a detailed world for my story" 
+                              : message.interviewStage === 'characters'
+                              ? "Please create an interesting main character for me"
+                              : `Please help me with the ${message.interviewStage} stage, I need AI-generated ideas`;
+                            
+                            useSuggestion(prompt);
+                          }}
+                        >
+                          <Wand2 className="h-3 w-3" />
+                          AI Create For Me
+                        </Button>
+                        {message.interviewStage !== 'ready' && (
+                          <Button 
+                            variant="secondary" 
+                            size="sm"
+                            className="gap-1 text-xs"
+                            onClick={() => {
+                              const nextStagePrompt = message.interviewStage === 'details' 
+                                ? "I think we have enough to start the story now" 
+                                : "Let's move to the next stage";
+                              
+                              useSuggestion(nextStagePrompt);
+                            }}
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                            Continue
+                          </Button>
+                        )}
                       </div>
                     </div>
                   )}
