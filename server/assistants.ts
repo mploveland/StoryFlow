@@ -18,6 +18,9 @@ export interface GenreCreationInput {
   targetAudience?: string;
   inspirations?: string[];
   additionalInfo?: string;
+  // For continuing an existing conversation
+  threadId?: string;
+  previousMessages?: { role: 'user' | 'assistant', content: string }[];
 }
 
 // Interface for a complete genre profile
@@ -191,38 +194,70 @@ export async function createDetailedCharacter(characterInput: CharacterCreationI
  * @param genreInput Basic information about the desired genre
  * @returns A detailed genre profile
  */
-export async function createGenreDetails(genreInput: GenreCreationInput): Promise<GenreDetails> {
+export async function createGenreDetails(genreInput: GenreCreationInput): Promise<GenreDetails & { threadId: string }> {
   try {
-    // Create a thread
-    const thread = await openai.beta.threads.create();
-
-    // Prepare the prompt from the input
-    let promptContent = "I want to create a story with the following genre preferences. Please have a conversation with me about this genre and ask follow-up questions to help me develop it further.\n\n";
+    let thread;
+    let isNewThread = false;
     
-    if (genreInput.userInterests) {
-      promptContent += `User's Interests: ${genreInput.userInterests}\n`;
-    }
-    
-    if (genreInput.themes && genreInput.themes.length > 0) {
-      promptContent += `Themes: ${genreInput.themes.join(', ')}\n`;
-    }
-    
-    if (genreInput.mood) {
-      promptContent += `Mood/Tone: ${genreInput.mood}\n`;
-    }
-    
-    if (genreInput.targetAudience) {
-      promptContent += `Target Audience: ${genreInput.targetAudience}\n`;
-    }
-    
-    if (genreInput.inspirations && genreInput.inspirations.length > 0) {
-      promptContent += `Inspirations: ${genreInput.inspirations.join(', ')}\n`;
-    }
-    
-    if (genreInput.additionalInfo) {
-      promptContent += `Additional Information: ${genreInput.additionalInfo}\n`;
+    // Check if we're continuing an existing conversation
+    if (genreInput.threadId) {
+      console.log(`Continuing conversation in existing thread: ${genreInput.threadId}`);
+      try {
+        // Verify the thread exists by retrieving its messages
+        const existingMessages = await openai.beta.threads.messages.list(genreInput.threadId);
+        thread = { id: genreInput.threadId };
+        console.log(`Found existing thread with ${existingMessages.data.length} messages`);
+      } catch (error) {
+        console.error(`Error accessing thread ${genreInput.threadId}:`, error);
+        // If there's an error accessing the thread, create a new one
+        thread = await openai.beta.threads.create();
+        isNewThread = true;
+        console.log(`Created new thread: ${thread.id}`);
+      }
+    } else {
+      // Create a new thread
+      thread = await openai.beta.threads.create();
+      isNewThread = true;
+      console.log(`Created new thread: ${thread.id}`);
     }
 
+    // Handle the user's message based on whether it's a new thread or continuing conversation
+    let promptContent;
+    
+    if (isNewThread) {
+      // For a new thread, provide context about what we're trying to do
+      promptContent = "I want to create a story with the following genre preferences. Please have a conversation with me about this genre and ask follow-up questions to help me develop it further.\n\n";
+      
+      if (genreInput.userInterests) {
+        promptContent += `User's Interests: ${genreInput.userInterests}\n`;
+      }
+      
+      if (genreInput.themes && genreInput.themes.length > 0) {
+        promptContent += `Themes: ${genreInput.themes.join(', ')}\n`;
+      }
+      
+      if (genreInput.mood) {
+        promptContent += `Mood/Tone: ${genreInput.mood}\n`;
+      }
+      
+      if (genreInput.targetAudience) {
+        promptContent += `Target Audience: ${genreInput.targetAudience}\n`;
+      }
+      
+      if (genreInput.inspirations && genreInput.inspirations.length > 0) {
+        promptContent += `Inspirations: ${genreInput.inspirations.join(', ')}\n`;
+      }
+      
+      if (genreInput.additionalInfo) {
+        promptContent += `Additional Information: ${genreInput.additionalInfo}\n`;
+      }
+    } else {
+      // For an existing conversation, just send the user's new message
+      promptContent = genreInput.userInterests || "Tell me more about this genre.";
+    }
+
+    console.log(`Adding user message to thread: "${promptContent.substring(0, 100)}..."`);
+    
     // Add the message to the thread
     await openai.beta.threads.messages.create(thread.id, {
       role: "user",
@@ -292,7 +327,7 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     // and the assistant's response text as the description
     return {
       name: genreName,
-      description: responseText.substring(0, 200), // Use first part of response as description
+      description: responseText, // Return the full response text
       themes: genreInput.themes || ["Adventure", "Frontier Life", "Justice"],
       tropes: ["Showdowns", "Frontier Justice", "Gold Rush"],
       commonSettings: ["Mining Town", "Saloon", "Wilderness"],
@@ -306,10 +341,22 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       },
       recommendedReading: ["Lonesome Dove", "True Grit"],
       popularExamples: ["The Good, the Bad and the Ugly", "Deadwood"],
-      worldbuildingElements: ["Historical Accuracy", "Frontier Economy", "Social Hierarchy"]
+      worldbuildingElements: ["Historical Accuracy", "Frontier Economy", "Social Hierarchy"],
+      threadId: thread.id // Include the thread ID for continued conversation
     };
   } catch (error) {
     console.error("Error creating genre details:", error);
+    // Create a new thread for fallback responses
+    let fallbackThreadId;
+    try {
+      const fallbackThread = await openai.beta.threads.create();
+      fallbackThreadId = fallbackThread.id;
+      console.log(`Created fallback thread: ${fallbackThreadId}`);
+    } catch (threadError) {
+      console.error("Error creating fallback thread:", threadError);
+      fallbackThreadId = "fallback-thread-error";
+    }
+    
     // Return a fallback genre if something goes wrong
     return {
       name: "Custom Fiction",
@@ -327,7 +374,8 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       },
       recommendedReading: ["Various works in this style"],
       popularExamples: ["Successful titles in this genre"],
-      worldbuildingElements: ["Society", "Culture", "Technology"]
+      worldbuildingElements: ["Society", "Culture", "Technology"],
+      threadId: fallbackThreadId
     };
   }
 }

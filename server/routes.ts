@@ -499,24 +499,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.post("/ai/genre-details", async (req: Request, res: Response) => {
     try {
       console.log("Genre details request received:", req.body);
-      const { userInterests, themes, mood, targetAudience, inspirations, additionalInfo } = req.body;
+      const { 
+        userInterests, 
+        themes, 
+        mood, 
+        targetAudience, 
+        inspirations, 
+        additionalInfo,
+        threadId, // New parameter for continuing conversation
+        previousMessages // New parameter for conversation history
+      } = req.body;
       
+      // Log the request details
       console.log("Creating genre with input:", {
         userInterests,
         themes,
         mood,
         targetAudience,
         inspirations,
-        additionalInfo
+        additionalInfo,
+        threadId: threadId ? `${threadId.substring(0, 10)}...` : undefined // Log partial thread ID for privacy
       });
       
+      // Call assistant with all parameters including thread ID if provided
       const genreDetails = await createGenreDetails({
         userInterests,
         themes,
         mood,
         targetAudience,
         inspirations,
-        additionalInfo
+        additionalInfo,
+        threadId,
+        previousMessages
       });
       
       console.log("Genre created successfully:", genreDetails.name);

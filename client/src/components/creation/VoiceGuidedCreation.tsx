@@ -83,6 +83,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     messages: { role: 'user' | 'assistant', content: string }[];
     isComplete: boolean;
     summary?: GenreDetails;
+    threadId?: string; // Store thread ID for continuous conversation
   }>({
     messages: [],
     isComplete: false
@@ -582,10 +583,16 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       if (currentStage === 'genre') {
         try {
           console.log('Fetching genre details...');
-          // Create genre input based on user message
+          
+          // Create genre input based on user message and existing thread
           const genreInput: GenreCreationInput = {
-            userInterests: inputText
+            userInterests: inputText,
+            threadId: genreConversation.threadId, // Include the thread ID if we have one
+            previousMessages: genreConversation.messages // Include previous conversation messages
           };
+          
+          console.log(`Using thread ID: ${genreInput.threadId || 'none (creating new thread)'}`);
+          console.log(`Previous messages count: ${genreInput.previousMessages?.length || 0}`);
           
           // Add the user message to genre conversation
           setGenreConversation(prev => ({
@@ -597,15 +604,24 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
           const genreDetails = await fetchGenreDetails(genreInput);
           console.log('Received genre details:', genreDetails);
           
-          // Update the genre conversation with the response
-          setGenreConversation(prev => ({
-            messages: [
-              ...prev.messages, 
-              { role: 'assistant', content: `I've created a ${genreDetails.name} genre for you.` }
-            ],
-            isComplete: true,
-            summary: genreDetails
-          }));
+          // Update the genre conversation with the response and store the thread ID
+          setGenreConversation(prev => {
+            // Check if the response indicates completion
+            const isComplete = 
+              genreDetails.description.includes("I've created a") || 
+              genreDetails.description.includes("I have created") || 
+              genreDetails.description.includes("Here is your genre");
+              
+            return {
+              messages: [
+                ...prev.messages, 
+                { role: 'assistant', content: genreDetails.description }
+              ],
+              isComplete: isComplete,
+              summary: genreDetails,
+              threadId: genreDetails.threadId // Save the thread ID for continued conversation
+            };
+          });
           
           console.log("Received full genre details from API:", genreDetails);
           
