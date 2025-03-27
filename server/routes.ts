@@ -19,6 +19,7 @@ import {
 } from "./ai";
 import { createDetailedCharacter } from "./assistants";
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
+import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
@@ -551,6 +552,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("TTS: Error in speech generation route:", error);
       return res.status(500).json({ 
         message: "Failed to generate speech",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
+  // Image generation routes
+  apiRouter.post("/images/generate", async (req: Request, res: Response) => {
+    try {
+      const { prompt, style, aspectRatio, negativePrompt } = req.body as ImageGenerationRequest;
+      
+      if (!prompt) {
+        return res.status(400).json({ message: "Image prompt is required" });
+      }
+      
+      console.log(`Image generation: Generating image with prompt "${prompt.substring(0, 100)}..."`);
+      
+      const imageUrl = await generateImage({
+        prompt,
+        style,
+        aspectRatio,
+        negativePrompt
+      });
+      
+      return res.status(200).json({ imageUrl });
+    } catch (error: any) {
+      console.error("Error generating image:", error);
+      return res.status(500).json({ 
+        message: "Failed to generate image",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
+  apiRouter.post("/images/character-portrait", async (req: Request, res: Response) => {
+    try {
+      const { name, appearance, gender, age, hairDetails, eyeDetails } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Character name is required" });
+      }
+      
+      console.log(`Image generation: Creating portrait for character "${name}"`);
+      
+      const imageUrl = await generateCharacterPortrait({
+        name,
+        appearance,
+        gender,
+        age,
+        hairDetails,
+        eyeDetails
+      });
+      
+      return res.status(200).json({ imageUrl });
+    } catch (error: any) {
+      console.error("Error generating character portrait:", error);
+      return res.status(500).json({ 
+        message: "Failed to generate character portrait",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
+  apiRouter.post("/images/character-scene", async (req: Request, res: Response) => {
+    try {
+      const { name, appearance, typicalAttire, sceneDescription } = req.body;
+      
+      if (!name) {
+        return res.status(400).json({ message: "Character name is required" });
+      }
+      
+      console.log(`Image generation: Creating scene for character "${name}"`);
+      
+      const imageUrl = await generateCharacterScene({
+        name,
+        appearance,
+        typicalAttire
+      }, sceneDescription);
+      
+      return res.status(200).json({ imageUrl });
+    } catch (error: any) {
+      console.error("Error generating character scene:", error);
+      return res.status(500).json({ 
+        message: "Failed to generate character scene",
         error: error.message || "Unknown error"
       });
     }
