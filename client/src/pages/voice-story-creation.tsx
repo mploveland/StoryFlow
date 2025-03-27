@@ -6,8 +6,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WorldData } from '@/components/world/WorldDesigner';
 import { CharacterData } from '@/components/character/CharacterBuilder';
 import StoryExperience from '@/components/story/StoryExperience';
-import VoiceGuidedCreation from '@/components/creation/VoiceGuidedCreation';
+import { VoiceGuidedCreation } from '@/components/creation/VoiceGuidedCreation';
 import { useToast } from '@/hooks/use-toast';
+import { StageSidebar } from '@/components/creation/StageSidebar';
 
 const VoiceStoryCreationPage: React.FC = () => {
   const [, navigate] = useLocation();
@@ -86,36 +87,106 @@ const VoiceStoryCreationPage: React.FC = () => {
     setStoryStarted(false);
   };
   
+  // State to track current creation stage
+  const [currentStage, setCurrentStage] = useState<'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready'>('genre');
+  
+  // State to track completed stages
+  const [stageStatus, setStageStatus] = useState({
+    genre: { isComplete: false, details: null },
+    world: { isComplete: false, details: worldData },
+    characters: { isComplete: false, details: characters },
+    influences: { isComplete: false, items: [] },
+    details: { isComplete: false }
+  });
+  
+  // Handle stage selection
+  const handleStageSelect = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready') => {
+    if (stage === 'genre' && stageStatus.genre.isComplete) {
+      navigate('/genre-details');
+      return;
+    } 
+    
+    if (stage === 'world' && stageStatus.world.isComplete) {
+      navigate('/world-details');
+      return;
+    }
+    
+    if (stage === 'characters' && stageStatus.characters.isComplete) {
+      navigate('/character-details');
+      return;
+    }
+    
+    if (stage === 'ready' && stageStatus.genre.isComplete && stageStatus.world.isComplete && stageStatus.characters.isComplete) {
+      setStoryStarted(true);
+      return;
+    }
+    
+    setCurrentStage(stage);
+  };
+
   return (
-    <div className="min-h-screen bg-neutral-50 flex flex-col">
-      <div className="container mx-auto px-4 py-8 flex-grow">
-        {!storyStarted ? (
-          <VoiceGuidedCreation
-            onWorldCreated={handleWorldCreated}
-            onCharacterCreated={handleCharacterCreated}
-            onStoryReady={handleStoryReady}
+    <div className="h-[calc(100vh-4rem)] bg-neutral-50 flex flex-col">
+      {!storyStarted ? (
+        <div className="flex h-full">
+          {/* Only show StageSidebar in the non-story experience mode */}
+          <StageSidebar 
+            stages={stageStatus}
+            onStageSelect={handleStageSelect}
+            currentStage={currentStage}
           />
-        ) : (
-          <>
-            <div className="flex justify-between items-center mb-4">
-              <h1 className="text-2xl font-bold text-primary">
-                {worldData?.name}: An Interactive Story
-              </h1>
-              <Button variant="outline" onClick={resetStory}>
-                Return to Creation
-              </Button>
-            </div>
-            
-            <div className="h-[80vh] border rounded-lg overflow-hidden bg-white shadow-sm">
-              <StoryExperience 
-                world={worldData as WorldData} 
-                characters={characters}
-                onSaveStory={handleSaveStory}
-              />
-            </div>
-          </>
-        )}
-      </div>
+          
+          <div className="flex-1">
+            <VoiceGuidedCreation
+              onWorldCreated={(world) => {
+                handleWorldCreated(world);
+                setStageStatus(prev => ({
+                  ...prev,
+                  world: { isComplete: true, details: world }
+                }));
+              }}
+              onCharacterCreated={(character) => {
+                handleCharacterCreated(character);
+                setStageStatus(prev => ({
+                  ...prev,
+                  characters: { 
+                    isComplete: true, 
+                    details: [...characters, character] 
+                  }
+                }));
+              }}
+              onStoryReady={(world, chars) => {
+                handleStoryReady(world, chars);
+                setStageStatus(prev => ({
+                  ...prev,
+                  genre: { isComplete: true, details: null },
+                  world: { isComplete: true, details: world },
+                  characters: { isComplete: true, details: chars },
+                  details: { isComplete: true }
+                }));
+              }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="container mx-auto px-4 py-8 flex-grow">
+          <div className="flex justify-between items-center mb-4">
+            <h1 className="text-2xl font-bold text-primary">
+              {worldData?.name}: An Interactive Story
+            </h1>
+            <Button variant="outline" onClick={resetStory}>
+              Return to Creation
+            </Button>
+          </div>
+          
+          <div className="h-[80vh] border rounded-lg overflow-hidden bg-white shadow-sm">
+            <StoryExperience 
+              world={worldData as WorldData} 
+              characters={characters}
+              onSaveStory={handleSaveStory}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

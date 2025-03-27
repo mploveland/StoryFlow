@@ -1,294 +1,255 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, useParams } from 'wouter';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
+import React from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useLocation } from "wouter";
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Badge } from '@/components/ui/badge';
-import { apiRequest } from '@/lib/queryClient';
-
-// Define WorldData interface here since it's specific to this page
-interface WorldData {
-  id?: number;
-  name: string;
-  genre: string;
-  setting: string;
-  timeframe: string;
-  regions: string[];
-  keyConflicts: string[];
-  importantFigures: string[];
-  culturalSetting: string;
-  technology: string;
-  magicSystem?: string;
-  politicalSystem: string;
-  description: string;
-  complexity: number;
-}
+import { WorldData } from '../components/world/WorldDesigner';
+import { Check, Edit, Globe, Landmark, Mountain, Users, Sparkle, Sword, BookOpen } from 'lucide-react';
 
 export default function WorldDetailsPage() {
-  const [, setLocation] = useLocation();
-  const params = useParams();
-  const worldId = params.id;
+  const [_, navigate] = useLocation();
+  const [worldData, setWorldData] = React.useState<WorldData | null>(null);
   
-  const [loading, setLoading] = useState(true);
-  const [world, setWorld] = useState<WorldData | null>(null);
-  const [regions, setRegions] = useState<{
-    name: string;
-    description: string;
-    image?: string;
-    notable_locations?: string[];
-  }[]>([]);
+  // In a real app, we would load this from a server or storage
+  // For now, we'll use a demo value for display purposes
+  React.useEffect(() => {
+    // Check local storage for world details
+    const storedWorld = localStorage.getItem('storyflow_world');
+    if (storedWorld) {
+      try {
+        setWorldData(JSON.parse(storedWorld));
+      } catch (e) {
+        console.error('Error parsing stored world:', e);
+        setWorldData(getDemoWorld());
+      }
+    } else {
+      // Use demo data for now
+      setWorldData(getDemoWorld());
+    }
+  }, []);
   
-  // Fetch world data
-  useEffect(() => {
-    // In a real app, this would fetch from the API
-    // For now, we'll just use mock data based on the world ID
-    
-    // This would be an API call in a production app:
-    // apiRequest(`/api/worlds/${worldId}`)
-    //   .then(data => {
-    //     setWorld(data);
-    //     setLoading(false);
-    //   })
-    //   .catch(err => {
-    //     console.error("Error loading world data", err);
-    //     setLoading(false);
-    //   });
-    
-    // For now, we'll just set some placeholder data
-    setTimeout(() => {
-      const worldData = {
-        id: parseInt(worldId || '1'),
-        name: "Aetheria",
-        genre: "Fantasy",
-        setting: "Medieval fantasy realm with magical elements",
-        timeframe: "Timeless era resembling medieval period",
-        regions: ["Central Kingdoms", "Misty Shores", "Eastern Plains", "Forbidden Mountains"],
-        keyConflicts: ["Power struggle between royal houses", "Magic vs Technology debate", "Ancient evil awakening"],
-        importantFigures: ["The High Council", "The Forgotten King", "The Oracle of the East"],
-        culturalSetting: "Diverse cultures with varying traditions and beliefs around magic",
-        technology: "Mix of medieval technology with magical enhancements",
-        magicSystem: "Elemental magic drawn from nature's power",
-        politicalSystem: "Feudal system with independent regions and a central authority",
-        description: "A vast realm where magic flows through the land itself, creating wonders and dangers in equal measure. Ancient prophecies guide the destiny of its people.",
-        complexity: 4
-      };
-      
-      const regionData = [
-        {
-          name: "Central Kingdoms",
-          description: "The heart of civilization in Aetheria, where the High Council resides and most political decisions are made. Rich farmlands and prosperous cities dot the landscape.",
-          notable_locations: ["Royal City of Caelum", "The High Council Chambers", "Grand Library of Arcana"]
-        },
-        {
-          name: "Misty Shores",
-          description: "A foggy coastal region with mysterious islands offshore. Home to seafaring people who are said to commune with ocean spirits.",
-          notable_locations: ["Port Haven", "The Lighthouse of Souls", "Mermaid's Cove"]
-        },
-        {
-          name: "Eastern Plains",
-          description: "Vast grasslands where nomadic tribes follow ancient traditions. Known for their excellent horses and prophetic seers.",
-          notable_locations: ["The Moving City of Tents", "Oracle's Sanctuary", "Ancestor Stones"]
-        },
-        {
-          name: "Forbidden Mountains",
-          description: "Treacherous peaks where few dare to venture. Rumors speak of hidden valleys where creatures of legend still roam.",
-          notable_locations: ["The Dragon's Spine Peak", "Forgotten Monastery", "Crystal Caves"]
-        }
-      ];
-      
-      setWorld(worldData as WorldData);
-      setRegions(regionData);
-      setLoading(false);
-    }, 1000);
-  }, [worldId]);
-  
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-pulse text-primary">Loading world details...</div>
-      </div>
-    );
+  if (!worldData) {
+    return <div className="p-6">Loading world details...</div>;
   }
-  
-  if (!world) {
-    return (
-      <div className="flex h-screen items-center justify-center flex-col gap-4">
-        <h1 className="text-2xl font-bold">World not found</h1>
-        <p>We couldn't find the world you're looking for.</p>
-        <Button onClick={() => setLocation('/voice-story-creation')}>
-          Create a new story
-        </Button>
-      </div>
-    );
-  }
-  
+
   return (
-    <div className="container mx-auto py-6 max-w-7xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="flex flex-col w-full h-[calc(100vh-4rem)]">
+      <div className="border-b border-border p-4 flex justify-between items-center bg-card">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">{world.name}</h1>
-          <p className="text-muted-foreground">
-            {world.genre} • {world.setting}
-          </p>
+          <h1 className="text-2xl font-bold">{worldData.name}</h1>
+          <p className="text-muted-foreground">{worldData.genre} world</p>
         </div>
-        <Button onClick={() => setLocation('/voice-story-creation')}>
-          Back to Story
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/genre-details')}
+            className="gap-1"
+          >
+            <BookOpen className="h-4 w-4" />
+            Genre Details
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => navigate('/voice-story-creation')}
+            className="gap-1"
+          >
+            <Edit className="h-4 w-4" />
+            Edit in Interview
+          </Button>
+          <Button 
+            onClick={() => navigate('/character-details')}
+            className="gap-1"
+          >
+            Continue to Characters
+            <Check className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="md:col-span-2">
-          <CardHeader>
-            <CardTitle>World Overview</CardTitle>
-            <CardDescription>The key aspects of this world</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium mb-2">Description</h3>
-                <p className="text-muted-foreground">{world.description}</p>
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="font-medium mb-2">Time Period</h3>
-                <p className="text-muted-foreground">{world.timeframe}</p>
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="font-medium mb-2">Key Conflicts</h3>
-                <div className="flex flex-wrap gap-2">
-                  {world.keyConflicts.map((conflict: string, i: number) => (
-                    <Badge key={i} variant="secondary">{conflict}</Badge>
-                  ))}
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div>
-                <h3 className="font-medium mb-2">Important Figures</h3>
-                <div className="flex flex-wrap gap-2">
-                  {world.importantFigures.map((figure: string, i: number) => (
-                    <Badge key={i} variant="outline">{figure}</Badge>
-                  ))}
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="flex flex-1 overflow-hidden">
+        <ScrollArea className="flex-1 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto">
+            {/* Main World Card */}
+            <Card className="md:col-span-2">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Globe className="h-5 w-5" />
+                  World Overview
+                </CardTitle>
+                <CardDescription>
+                  Comprehensive details about your story's world
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-medium mb-2">Cultural Setting</h3>
-                  <p className="text-muted-foreground">{world.culturalSetting}</p>
+                  <h3 className="text-lg font-medium">Description</h3>
+                  <p className="mt-2 text-muted-foreground">{worldData.description}</p>
+                </div>
+                
+                <Separator />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <Mountain className="h-4 w-4" /> 
+                      Setting
+                    </h3>
+                    <p className="mt-1 text-muted-foreground">{worldData.setting}</p>
+                    
+                    <h4 className="mt-3 font-medium">Timeframe</h4>
+                    <p className="text-muted-foreground">{worldData.timeframe}</p>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-medium flex items-center gap-2">
+                      <Sword className="h-4 w-4" /> 
+                      Key Conflicts
+                    </h3>
+                    <ul className="mt-1 pl-5 list-disc space-y-1 text-muted-foreground">
+                      {worldData.keyConflicts.map((conflict, index) => (
+                        <li key={index}>{conflict}</li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
                 
                 <div>
-                  <h3 className="font-medium mb-2">Political System</h3>
-                  <p className="text-muted-foreground">{world.politicalSystem}</p>
-                </div>
-              </div>
-              
-              <Separator />
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h3 className="font-medium mb-2">Technology</h3>
-                  <p className="text-muted-foreground">{world.technology}</p>
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Landmark className="h-4 w-4" /> 
+                    Regions & Geography
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {worldData.regions.map((region, index) => (
+                      <Badge key={index} variant="secondary">{region}</Badge>
+                    ))}
+                  </div>
                 </div>
                 
                 <div>
-                  <h3 className="font-medium mb-2">Magic System</h3>
-                  <p className="text-muted-foreground">{world.magicSystem || "No prevalent magic in this world"}</p>
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Users className="h-4 w-4" /> 
+                    Important Figures
+                  </h3>
+                  <ul className="mt-2 pl-5 list-disc space-y-1 text-muted-foreground">
+                    {worldData.importantFigures.map((figure, index) => (
+                      <li key={index}>{figure}</li>
+                    ))}
+                  </ul>
                 </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader>
-            <CardTitle>Regions</CardTitle>
-            <CardDescription>Explore the different areas of {world.name}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue={regions[0]?.name.toLowerCase().replace(/\s+/g, '-')}>
-              <TabsList className="w-full mb-4">
-                {regions.map((region, i) => (
-                  <TabsTrigger 
-                    key={i} 
-                    value={region.name.toLowerCase().replace(/\s+/g, '-')}
-                    className="flex-1"
-                  >
-                    {region.name.split(' ')[0]}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              
-              {regions.map((region, i) => (
-                <TabsContent 
-                  key={i} 
-                  value={region.name.toLowerCase().replace(/\s+/g, '-')}
-                  className="space-y-4"
-                >
-                  <h3 className="font-medium text-lg">{region.name}</h3>
-                  <p className="text-muted-foreground">{region.description}</p>
-                  
-                  {region.notable_locations && region.notable_locations.length > 0 && (
-                    <>
-                      <h4 className="font-medium mt-4">Notable Locations</h4>
-                      <ul className="list-disc pl-5 space-y-1">
-                        {region.notable_locations.map((location, j) => (
-                          <li key={j} className="text-muted-foreground">{location}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                  
-                  {/* If we had region images, they would go here */}
-                  {/* <div className="aspect-video bg-muted rounded-md mt-4 flex items-center justify-center">
-                    {region.image ? (
-                      <img 
-                        src={region.image} 
-                        alt={region.name} 
-                        className="rounded-md object-cover w-full h-full"
-                      />
-                    ) : (
-                      <div className="text-muted-foreground text-sm">No image available</div>
-                    )}
-                  </div> */}
-                </TabsContent>
-              ))}
-            </Tabs>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <div className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Story Map</CardTitle>
-            <CardDescription>A visualization of {world.name}'s geography</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="aspect-[2/1] bg-muted rounded-md flex items-center justify-center">
-              {/* This would be a map visualization component in a real app */}
-              <div className="text-center p-6">
-                <p className="text-muted-foreground mb-4">
-                  The map of {world.name} will be generated as your story unfolds, revealing new locations
-                  and landmarks as characters travel through the world.
-                </p>
-                <Button variant="outline">Generate World Map</Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+            
+            {/* Societal Elements */}
+            <Card className="h-fit">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Landmark className="h-5 w-5" />
+                  Society & Culture
+                </CardTitle>
+                <CardDescription>
+                  Social structures and cultural elements
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="font-medium">Cultural Setting</h3>
+                  <p className="text-sm text-muted-foreground">{worldData.culturalSetting}</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium">Political System</h3>
+                  <p className="text-sm text-muted-foreground">{worldData.politicalSystem}</p>
+                </div>
+                
+                <div>
+                  <h3 className="font-medium">Technology Level</h3>
+                  <p className="text-sm text-muted-foreground">{worldData.technology}</p>
+                </div>
+                
+                {worldData.magicSystem && (
+                  <div>
+                    <h3 className="font-medium flex items-center gap-1">
+                      <Sparkle className="h-4 w-4" />
+                      Magic System
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{worldData.magicSystem}</p>
+                  </div>
+                )}
+                
+                <Separator />
+                
+                <div className="flex items-center justify-between">
+                  <span className="text-sm">World Complexity</span>
+                  <div className="relative w-24 h-2 bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="absolute top-0 left-0 h-full bg-primary rounded-full"
+                      style={{ width: `${(worldData.complexity / 5) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-sm">{worldData.complexity}/5</span>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Map Placeholder */}
+            <Card className="md:col-span-3">
+              <CardHeader>
+                <CardTitle>World Map</CardTitle>
+                <CardDescription>
+                  Visual representation of your world (placeholder for now)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="aspect-video bg-card border border-dashed border-border rounded-lg flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-muted-foreground mb-2">World map visualization coming soon</p>
+                    <Button size="sm">Generate Map</Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </ScrollArea>
       </div>
     </div>
   );
+}
+
+// Demo world for development and display purposes
+function getDemoWorld(): WorldData {
+  return {
+    id: 1,
+    name: "Aurea",
+    genre: "Western Gold Rush Fiction",
+    setting: "Gold Rush Era California, 1848-1855",
+    timeframe: "Mid 19th century",
+    regions: [
+      "Sierra Nevada Mountains", 
+      "Sacramento Valley", 
+      "San Francisco Bay", 
+      "Mining Camps", 
+      "Boom Towns"
+    ],
+    keyConflicts: [
+      "Land disputes between settlers and native tribes",
+      "Competition for mining claims",
+      "Law vs. lawlessness in frontier towns",
+      "Environmental devastation vs. economic growth"
+    ],
+    importantFigures: [
+      "Governor Mason",
+      "John Sutter",
+      "James Marshall",
+      "Levi Strauss",
+      "Sam Brannan"
+    ],
+    culturalSetting: "Diverse society of Americans, European immigrants, Chinese laborers, Mexican residents, and Native American tribes all converging on California during the gold rush period.",
+    technology: "Mid-19th century technology with specialized mining equipment, steam power starting to emerge, and primitive transportation networks.",
+    magicSystem: undefined,
+    politicalSystem: "Transitional governance from Mexican territory to U.S. statehood, with mining camps establishing their own local laws and claim systems.",
+    description: "Aurea is set during the historical California Gold Rush, portraying a realistic version of this pivotal period in American history. The world captures the chaos, opportunity, and dramatic societal changes brought about by the sudden influx of gold seekers, entrepreneurs, and adventurers from around the world. From primitive mining camps to rapidly growing cities like San Francisco, the setting showcases both the untamed wilderness and emerging civilization of 1850s California.",
+    complexity: 4
+  };
 }

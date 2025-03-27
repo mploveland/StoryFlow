@@ -9,7 +9,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Mic, MicOff, Send, RefreshCw, VolumeX, Volume2, 
   Map, User, Sparkles, Wand2, ArrowRight, 
-  BookText, BookOpen, Scroll, Gamepad 
+  BookText, BookOpen, Scroll, Gamepad, Flame 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { fetchInteractiveStoryResponse, fetchGenreDetails, GenreCreationInput, GenreDetails } from '@/lib/openai';
@@ -18,6 +18,17 @@ import { WorldData } from '../world/WorldDesigner';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
+import { StageSidebar } from './StageSidebar';
+import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface VoiceGuidedCreationProps {
   onWorldCreated: (world: WorldData) => void;
@@ -50,7 +61,7 @@ interface Message {
   showStoryTypeSelector?: boolean;
 }
 
-const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
+export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   onWorldCreated,
   onCharacterCreated,
   onStoryReady
@@ -311,68 +322,68 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       };
       
       // Determine the next interview stage based on current stage and user input
-      let nextStage = determineNextStage(currentStage, inputText);
-      setInterviewStage(nextStage);
-      
-      // Prepare AI response variables
+      let nextStage = currentStage; // Default to staying in current stage
       let responseContent = '';
-      let extractedGenreDetails: GenreDetails | null = null;
       
-      // Handle conversation based on the current stage
-      if (currentStage === 'genre' && !genreConversation.isComplete) {
+      // ========= GENRE STAGE - Use Genre Creator assistant =========
+      if (currentStage === 'genre') {
+        console.log('Genre stage active, using Genre Creator assistant exclusively');
+        
+        // Add user message to the genre conversation history
+        const updatedGenreConversation = {
+          ...genreConversation,
+          messages: [
+            ...genreConversation.messages,
+            { role: 'user' as const, content: inputText }
+          ]
+        };
+        setGenreConversation(updatedGenreConversation);
+        
         try {
-          console.log('Genre stage active, handling with Genre Creator assistant');
-          
-          // Add the user's message to the genre conversation history
-          const updatedGenreConversation = {
-            ...genreConversation,
-            messages: [
-              ...genreConversation.messages,
-              { role: 'user' as const, content: inputText }
-            ]
-          };
-          
-          setGenreConversation(updatedGenreConversation);
-          
-          // Prepare input for the genre creation assistant
+          // Prepare input for the Genre Creator assistant
           let genreInput: GenreCreationInput;
           
           if (updatedGenreConversation.messages.length <= 1) {
-            // First message to the assistant - include context
+            // First message to the assistant - include initial context
             genreInput = {
               userInterests: inputText,
               themes: inspirations.filter(item => !item.toLowerCase().includes('by') && !item.toLowerCase().includes('author')),
               inspirations: inspirations.filter(item => item.toLowerCase().includes('by') || item.toLowerCase().includes('author')),
-              additionalInfo: context
+              additionalInfo: "The user wants to create a new story. Help them develop a detailed genre, asking for their preferences and interests. Once you've gathered enough information to define a genre, include a full genre profile in your response."
             };
           } else {
-            // Continuing conversation - just pass the message history
+            // Continuing conversation - pass the message history as context
             const conversationHistory = updatedGenreConversation.messages
               .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
               .join('\n\n');
               
             genreInput = {
               userInterests: inputText,
-              additionalInfo: conversationHistory
+              additionalInfo: conversationHistory + "\n\nContinue helping the user develop their genre. Once they seem satisfied, provide a complete genre profile."
             };
           }
           
-          // Detect if this might be our final genre message
-          const seemsComplete = 
+          // Check if this could be the final message in the genre stage
+          const seemsFinished = 
             inputText.toLowerCase().includes('sounds good') || 
             inputText.toLowerCase().includes('that works') || 
             inputText.toLowerCase().includes('i like that') ||
             inputText.toLowerCase().includes('move on') ||
             inputText.toLowerCase().includes('next stage') ||
-            inputText.toLowerCase().includes('world') && 
-            (inputText.toLowerCase().includes('build') || inputText.toLowerCase().includes('create'));
+            (inputText.toLowerCase().includes('world') && 
+            (inputText.toLowerCase().includes('build') || inputText.toLowerCase().includes('create')));
           
-          // Call the Genre Creator assistant
-          console.log('Calling Genre Creator assistant with:', genreInput);
+          // If this seems like the final message, tell the assistant to wrap up
+          if (seemsFinished) {
+            genreInput.additionalInfo += "\n\nThe user seems satisfied with the genre. Please provide a complete final genre profile with name, description, themes, tropes, common settings, typical characters, and worldbuilding elements.";
+          }
+          
+          // Call the Genre Creator assistant through the API
+          console.log('Sending to Genre Creator assistant:', genreInput);
           const genreDetails = await fetchGenreDetails(genreInput);
-          console.log('Genre Creator assistant response:', genreDetails);
+          console.log('Received Genre Creator response:', genreDetails);
           
-          // Add the assistant's response to the conversation
+          // Add the assistant's response to the genre conversation
           const finalGenreConversation = {
             ...updatedGenreConversation,
             messages: [
@@ -381,12 +392,12 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             ]
           };
           
-          // If this seems like the final message in this stage, mark complete and save details
-          if (seemsComplete) {
+          // If this was the final message, mark the genre stage as complete
+          if (seemsFinished) {
             finalGenreConversation.isComplete = true;
             finalGenreConversation.summary = genreDetails;
             
-            // Update the world data with genre details
+            // Update the world data with the genre information
             setPartialWorld(prev => ({
               ...prev,
               name: prev.name || `${genreDetails.name} World`,
@@ -397,8 +408,8 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
               culturalSetting: genreDetails.worldbuildingElements.join(', ')
             }));
             
-            // This is the final message from the genre assistant, create a transitional response
-            responseContent = `Perfect! Based on our conversation, I've developed a ${genreDetails.name} genre for your story. 
+            // Create a transitional message and prepare to move to world stage
+            responseContent = `Perfect! Based on our conversation, I've developed the "${genreDetails.name}" genre for your story:
             
 ${genreDetails.description}
 
@@ -410,19 +421,18 @@ This genre typically features:
 
 Now, let's move on to building your world! What kind of setting would you like for your ${genreDetails.name} story?`;
 
-            // Set the stage to world for the next message
+            // Move to the world stage for the next interaction
             nextStage = 'world';
           } else {
-            // This is a continuation of the genre stage conversation
-            responseContent = `${genreDetails.description}`;
+            // Continue the genre conversation with the assistant's response
+            responseContent = genreDetails.description;
           }
           
           setGenreConversation(finalGenreConversation);
           
         } catch (error) {
-          console.error('Error using Genre Creator assistant:', error);
-          // Fall back to regular interactive story response
-          responseContent = 'I had some trouble with the Genre Creator. Let me try a different approach. What kind of genre interests you?';
+          console.error('Error with Genre Creator assistant:', error);
+          responseContent = 'I encountered a problem with our genre creation assistant. Please try again with your genre preferences.';
         }
       }
       
@@ -1218,33 +1228,114 @@ Now, let's move on to creating characters for your world! What kind of protagoni
     }, 3000);
   };
   
+  // Handle navigating to a stage detail page
+  const handleStageSelect = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready') => {
+    if (stage === 'genre' && genreConversation.isComplete) {
+      window.location.href = '/genre-details';
+    } else if (stage === 'world' && worldConversation.isComplete) {
+      window.location.href = '/world-details';
+    } else if (stage === 'characters' && partialCharacters.length > 0) {
+      window.location.href = '/character-details';
+    } else if (stage === 'ready' && genreConversation.isComplete && worldConversation.isComplete && partialCharacters.length > 0) {
+      // Start the story experience
+      const completeWorld: WorldData = {
+        id: 1,
+        name: partialWorld.name!,
+        genre: partialWorld.genre || 'Fantasy',
+        setting: partialWorld.setting || 'Unknown',
+        timeframe: partialWorld.timeframe || 'Present day',
+        regions: partialWorld.regions || ['Various'],
+        keyConflicts: partialWorld.keyConflicts || ['To be determined'],
+        importantFigures: partialWorld.importantFigures || ['Various characters'],
+        culturalSetting: partialWorld.culturalSetting || 'Mixed',
+        technology: partialWorld.technology || 'Standard for setting',
+        magicSystem: partialWorld.magicSystem,
+        politicalSystem: partialWorld.politicalSystem || 'Various',
+        description: partialWorld.description || 'A fascinating world waiting to be explored.',
+        complexity: partialWorld.complexity || 3
+      };
+      
+      const completeCharacters = partialCharacters.map(char => ({
+        id: char.id || Math.floor(Math.random() * 1000),
+        name: char.name!,
+        role: char.role || 'Unknown',
+        background: char.background || 'Mysterious origins.',
+        personality: char.personality || ['Interesting', 'Complex'],
+        goals: char.goals || ['Seeking purpose'],
+        fears: char.fears || ['Uncertainty'],
+        relationships: char.relationships || ['To be developed'],
+        skills: char.skills || ['Various abilities'],
+        appearance: char.appearance || 'Distinctive look',
+        voice: char.voice || 'Unique voice',
+        depth: char.depth || 3
+      }));
+      
+      onStoryReady(completeWorld, completeCharacters);
+    } else {
+      // Set the current stage to the selected one
+      setInterviewStage(stage);
+    }
+  };
+  
+  // Prepare data for the sidebar
+  const sidebarStages = {
+    genre: {
+      isComplete: genreConversation.isComplete,
+      details: genreConversation.summary
+    },
+    world: {
+      isComplete: worldConversation.isComplete,
+      details: worldConversation.isComplete ? partialWorld : undefined
+    },
+    characters: {
+      isComplete: partialCharacters.length > 0 && partialCharacters.every(char => char.name && char.role),
+      details: partialCharacters.length > 0 ? partialCharacters : undefined
+    },
+    influences: {
+      isComplete: inspirations.length > 0,
+      items: inspirations.length > 0 ? inspirations : undefined
+    },
+    details: {
+      isComplete: interviewStage === 'ready'
+    }
+  };
+
   // UI for the voice-guided creation experience
   return (
-    <div className="flex flex-col h-full max-w-4xl mx-auto p-4 gap-4">
-      <div className="flex items-center mb-4 gap-2">
-        <h1 className="text-2xl font-bold flex-1">Create Your Story</h1>
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={toggleVoiceRecognition}
-            className={isListening ? "bg-red-100 dark:bg-red-900" : ""}
-          >
-            {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
-          </Button>
-          <Button 
-            variant="outline" 
-            size="icon" 
-            onClick={toggleVoiceOutput}
-          >
-            {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
-          </Button>
-        </div>
-      </div>
+    <div className="flex h-[calc(100vh-4rem)]">
+      {/* Stage Navigation Sidebar */}
+      <StageSidebar 
+        stages={sidebarStages}
+        onStageSelect={handleStageSelect}
+        currentStage={interviewStage}
+      />
       
-      <Card className="flex-1 overflow-hidden">
-        <ScrollArea className="h-[50vh]" ref={scrollRef}>
-          <CardContent className="p-4 space-y-4">
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col overflow-hidden p-4">
+        <div className="flex items-center mb-4 gap-2">
+          <h1 className="text-2xl font-bold flex-1">Create Your Story</h1>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={toggleVoiceRecognition}
+              className={isListening ? "bg-red-100 dark:bg-red-900" : ""}
+            >
+              {isListening ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              onClick={toggleVoiceOutput}
+            >
+              {voiceEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+            </Button>
+          </div>
+        </div>
+        
+        <Card className="flex-1 overflow-hidden">
+          <ScrollArea className="h-[50vh]" ref={scrollRef}>
+            <CardContent className="p-4 space-y-4">
             {messages.map((message) => (
               <div
                 key={message.id}
@@ -1448,4 +1539,3 @@ Now, let's move on to creating characters for your world! What kind of protagoni
   );
 };
 
-export default VoiceGuidedCreation;
