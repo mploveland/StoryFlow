@@ -17,7 +17,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter, createGenreDetails } from "./assistants";
+import { createDetailedCharacter, createGenreDetails, createWorldDetails } from "./assistants";
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
 
@@ -539,6 +539,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error creating genre details:", error);
       return res.status(500).json({ 
         message: "Failed to create genre details with the OpenAI assistant",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
+  // World details API endpoint
+  apiRouter.post("/ai/world-details", async (req: Request, res: Response) => {
+    try {
+      console.log("World details request received:", req.body);
+      const { 
+        genreContext,    // Pass the genre context from the previous stage
+        setting, 
+        timeframe, 
+        environmentType, 
+        culture, 
+        technology, 
+        conflicts, 
+        additionalInfo,
+        threadId,        // For continuing conversation
+        previousMessages // For conversation history
+      } = req.body;
+      
+      // Log the request details
+      console.log("Creating world with input:", {
+        genreContext: genreContext ? genreContext.substring(0, 50) + "..." : undefined,
+        setting,
+        timeframe,
+        environmentType,
+        culture,
+        technology,
+        conflicts,
+        additionalInfo,
+        threadId: threadId ? `${threadId.substring(0, 10)}...` : undefined // Log partial thread ID for privacy
+      });
+      
+      // Call the World Builder assistant with all parameters
+      const worldDetails = await createWorldDetails({
+        genreContext,
+        setting,
+        timeframe,
+        environmentType,
+        culture,
+        technology,
+        conflicts,
+        additionalInfo,
+        threadId,
+        previousMessages
+      });
+      
+      console.log("World created successfully:", worldDetails.name);
+      return res.status(200).json(worldDetails);
+    } catch (error: any) {
+      console.error("Error creating world details:", error);
+      return res.status(500).json({ 
+        message: "Failed to create world details with the OpenAI assistant",
         error: error.message || "Unknown error"
       });
     }

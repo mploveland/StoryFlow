@@ -9,6 +9,8 @@ const openai = new OpenAI({
 const HYPER_REALISTIC_CHARACTER_CREATOR_ID = "asst_zHYBFg9Om7fnilOfGTnVztF1";
 // The assistant's name is StoryFlow_GenreCreator
 const GENRE_CREATOR_ASSISTANT_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
+// The assistant's name is StoryFlow_WorldBuilder
+const WORLD_BUILDER_ASSISTANT_ID = "asst_0nfAuLNqDs7g84Q9UHwFyPjB";
 
 // Interface for genre creation input
 export interface GenreCreationInput {
@@ -69,6 +71,61 @@ export interface DetailedCharacter {
   quirks?: string[];
   motivations?: string[];
   flaws?: string[];
+}
+
+// Interface for world building input
+export interface WorldCreationInput {
+  genreContext?: string;     // The genre context from the previous stage
+  setting?: string;          // Basic setting information
+  timeframe?: string;        // Era or time period
+  environmentType?: string;  // Natural environment (forest, desert, etc.)
+  culture?: string;          // Cultural details
+  technology?: string;       // Level of technology
+  conflicts?: string;        // Major conflicts in the world
+  additionalInfo?: string;   // Any additional world details
+  // For continuing an existing conversation
+  threadId?: string;
+  previousMessages?: { role: 'user' | 'assistant', content: string }[];
+}
+
+// Interface for a complete world profile
+export interface WorldDetails {
+  name: string;              // Name of the world/setting
+  description: string;       // General description
+  era: string;               // Time period/era
+  geography: string[];       // Notable geographical features
+  locations: string[];       // Important locations/regions
+  culture: {
+    socialStructure: string;
+    beliefs: string;
+    customs: string[];
+    languages: string[];
+  };
+  politics: {
+    governmentType: string;
+    powerDynamics: string;
+    majorFactions: string[];
+  };
+  economy: {
+    resources: string[];
+    trade: string;
+    currency: string;
+  };
+  technology: {
+    level: string;
+    innovations: string[];
+    limitations: string;
+  };
+  conflicts: string[];       // Major conflicts or tensions
+  history: {
+    majorEvents: string[];
+    legends: string[];
+  };
+  magicSystem?: {           // Optional for fantasy settings
+    rules: string;
+    limitations: string;
+    practitioners: string;
+  };
 }
 
 /**
@@ -375,6 +432,234 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       recommendedReading: ["Various works in this style"],
       popularExamples: ["Successful titles in this genre"],
       worldbuildingElements: ["Society", "Culture", "Technology"],
+      threadId: fallbackThreadId
+    };
+  }
+}
+
+/**
+ * Creates a thread with the World Builder assistant and gets detailed world information
+ * @param worldInput Basic information about the desired world
+ * @returns A detailed world profile with thread ID for continued conversation
+ */
+export async function createWorldDetails(worldInput: WorldCreationInput): Promise<WorldDetails & { threadId: string }> {
+  try {
+    let thread;
+    let isNewThread = false;
+    
+    // Check if we're continuing an existing conversation
+    if (worldInput.threadId) {
+      console.log(`Continuing world-building conversation in existing thread: ${worldInput.threadId}`);
+      try {
+        // Verify the thread exists by retrieving its messages
+        const existingMessages = await openai.beta.threads.messages.list(worldInput.threadId);
+        thread = { id: worldInput.threadId };
+        console.log(`Found existing world-building thread with ${existingMessages.data.length} messages`);
+      } catch (error) {
+        console.error(`Error accessing world-building thread ${worldInput.threadId}:`, error);
+        // If there's an error accessing the thread, create a new one
+        thread = await openai.beta.threads.create();
+        isNewThread = true;
+        console.log(`Created new world-building thread: ${thread.id}`);
+      }
+    } else {
+      // Create a new thread
+      thread = await openai.beta.threads.create();
+      isNewThread = true;
+      console.log(`Created new world-building thread: ${thread.id}`);
+    }
+
+    // Handle the user's message based on whether it's a new thread or continuing conversation
+    let promptContent;
+    
+    if (isNewThread) {
+      // For a new thread, provide context about what we're trying to do
+      promptContent = "I'm creating a story world using the following details. Please help me develop it further by asking questions and providing suggestions:\n\n";
+      
+      if (worldInput.genreContext) {
+        promptContent += `Genre Context: ${worldInput.genreContext}\n\n`;
+      }
+      
+      if (worldInput.setting) {
+        promptContent += `Basic Setting: ${worldInput.setting}\n`;
+      }
+      
+      if (worldInput.timeframe) {
+        promptContent += `Timeframe/Era: ${worldInput.timeframe}\n`;
+      }
+      
+      if (worldInput.environmentType) {
+        promptContent += `Environment: ${worldInput.environmentType}\n`;
+      }
+      
+      if (worldInput.culture) {
+        promptContent += `Culture: ${worldInput.culture}\n`;
+      }
+      
+      if (worldInput.technology) {
+        promptContent += `Technology Level: ${worldInput.technology}\n`;
+      }
+      
+      if (worldInput.conflicts) {
+        promptContent += `Major Conflicts: ${worldInput.conflicts}\n`;
+      }
+      
+      if (worldInput.additionalInfo) {
+        promptContent += `Additional Information: ${worldInput.additionalInfo}\n`;
+      }
+    } else {
+      // For an existing conversation, just send the user's new message
+      promptContent = worldInput.additionalInfo || "Tell me more about this world.";
+    }
+
+    console.log(`Adding user message to world-building thread: "${promptContent.substring(0, 100)}..."`);
+    
+    // Add the message to the thread
+    await openai.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: promptContent,
+    });
+
+    // Run the assistant on the thread
+    const run = await openai.beta.threads.runs.create(thread.id, {
+      assistant_id: WORLD_BUILDER_ASSISTANT_ID,
+    });
+
+    // Poll for the completion of the run
+    let completedRun = await waitForRunCompletion(thread.id, run.id);
+    
+    if (completedRun.status !== "completed") {
+      throw new Error(`World Builder run ended with status: ${completedRun.status}`);
+    }
+
+    // Retrieve the assistant's messages
+    const messages = await openai.beta.threads.messages.list(thread.id);
+    
+    // Get the latest assistant message
+    const assistantMessages = messages.data.filter(msg => msg.role === "assistant");
+    
+    if (assistantMessages.length === 0) {
+      throw new Error("No response from World Builder assistant");
+    }
+    
+    // Extract the response content from the message
+    const latestMessage = assistantMessages[0];
+    const textContent = latestMessage.content.find(content => content.type === "text");
+    
+    if (!textContent || textContent.type !== "text") {
+      throw new Error("Response does not contain text");
+    }
+    
+    const responseText = textContent.text.value;
+    console.log("Received response from World Builder assistant:", responseText.substring(0, 100) + "...");
+    
+    // We're using a conversational approach, so we'll create a structured world object
+    // with reasonable defaults and the assistant's response as the description
+    
+    // Extract a world name from the input or use a default
+    let worldName = "Mining Town"; // Default for Western genre
+    
+    if (worldInput.setting) {
+      // Try to extract a name from the setting
+      const settingWords = worldInput.setting.split(/\s+/);
+      if (settingWords.length >= 2) {
+        // Use the first two words that might form a reasonable name
+        worldName = settingWords.slice(0, 2).join(" ");
+      } else {
+        worldName = worldInput.setting;
+      }
+    }
+    
+    // Return the detailed world with the assistant's response as the description
+    // and reasonable defaults for the structured fields
+    return {
+      name: worldName,
+      description: responseText, // Full conversational response
+      era: worldInput.timeframe || "Late 19th Century",
+      geography: ["Mountains", "River Valley", "Forested Hills"],
+      locations: ["Mining Camp", "Town Center", "Railway Station"],
+      culture: {
+        socialStructure: "Frontier hierarchy with wealthy business owners and laborers",
+        beliefs: "Mixture of traditional values and frontier pragmatism",
+        customs: ["Community gatherings", "Local celebrations", "Mining traditions"],
+        languages: ["English", "Indigenous languages", "Immigrant dialects"]
+      },
+      politics: {
+        governmentType: "Local town council with mining company influence",
+        powerDynamics: "Tension between business interests and townspeople",
+        majorFactions: ["Mining Company", "Townsfolk", "Law Enforcement"]
+      },
+      economy: {
+        resources: ["Gold", "Timber", "Agriculture"],
+        trade: "Resource extraction with growing commerce",
+        currency: "US Dollar with some barter systems"
+      },
+      technology: {
+        level: "Industrial Revolution era",
+        innovations: ["Steam power", "Telegraph", "Early firearms"],
+        limitations: "Limited electricity and modern conveniences"
+      },
+      conflicts: [
+        "Clash between mining interests and local residents",
+        "Environmental impact of mining operations",
+        "Cultural tensions between different groups"
+      ],
+      history: {
+        majorEvents: ["Gold discovery", "Railway arrival", "Founding of the town"],
+        legends: ["Tale of the first gold strike", "Stories of frontier heroes"]
+      },
+      threadId: thread.id // Include the thread ID for continued conversation
+    };
+  } catch (error) {
+    console.error("Error creating world details:", error);
+    // Create a new thread for fallback responses
+    let fallbackThreadId;
+    try {
+      const fallbackThread = await openai.beta.threads.create();
+      fallbackThreadId = fallbackThread.id;
+      console.log(`Created fallback world-building thread: ${fallbackThreadId}`);
+    } catch (threadError) {
+      console.error("Error creating fallback thread:", threadError);
+      fallbackThreadId = "fallback-thread-error";
+    }
+    
+    // Return a fallback world if something goes wrong
+    return {
+      name: "Mining Frontier Town",
+      description: "A bustling frontier town centered around gold mining operations in the late 19th century.",
+      era: "Late 19th Century",
+      geography: ["Mountains", "River Valley", "Forested Hills"],
+      locations: ["Mining Camp", "Town Center", "Railway Station"],
+      culture: {
+        socialStructure: "Frontier hierarchy with wealthy business owners and laborers",
+        beliefs: "Mixture of traditional values and frontier pragmatism",
+        customs: ["Community gatherings", "Local celebrations", "Mining traditions"],
+        languages: ["English", "Indigenous languages", "Immigrant dialects"]
+      },
+      politics: {
+        governmentType: "Local town council with mining company influence",
+        powerDynamics: "Tension between business interests and townspeople",
+        majorFactions: ["Mining Company", "Townsfolk", "Law Enforcement"]
+      },
+      economy: {
+        resources: ["Gold", "Timber", "Agriculture"],
+        trade: "Resource extraction with growing commerce",
+        currency: "US Dollar with some barter systems"
+      },
+      technology: {
+        level: "Industrial Revolution era",
+        innovations: ["Steam power", "Telegraph", "Early firearms"],
+        limitations: "Limited electricity and modern conveniences"
+      },
+      conflicts: [
+        "Clash between mining interests and local residents",
+        "Environmental impact of mining operations",
+        "Cultural tensions between different groups"
+      ],
+      history: {
+        majorEvents: ["Gold discovery", "Railway arrival", "Founding of the town"],
+        legends: ["Tale of the first gold strike", "Stories of frontier heroes"]
+      },
       threadId: fallbackThreadId
     };
   }

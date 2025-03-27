@@ -12,7 +12,7 @@ import {
   BookText, BookOpen, Scroll, Gamepad, Flame 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { fetchInteractiveStoryResponse, fetchGenreDetails, GenreCreationInput, GenreDetails } from '@/lib/openai';
+import { fetchInteractiveStoryResponse, fetchGenreDetails, fetchWorldDetails, GenreCreationInput, GenreDetails, WorldCreationInput, WorldDetails } from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
 import { WorldData } from '../world/WorldDesigner';
 import { StageSidebar } from './StageSidebar';
@@ -94,6 +94,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     messages: { role: 'user' | 'assistant', content: string }[];
     isComplete: boolean;
     summary?: Partial<WorldData>;
+    threadId?: string; // Store thread ID for continuous conversation
   }>({
     messages: [],
     isComplete: false
@@ -103,6 +104,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     messages: { role: 'user' | 'assistant', content: string }[];
     isComplete: boolean;
     summary?: Partial<CharacterData>;
+    threadId?: string; // Store thread ID for continuous conversation
   }>({
     messages: [],
     isComplete: false
@@ -653,6 +655,157 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         } catch (error) {
           console.error('Error fetching genre details:', error);
           responseContent = 'I had some trouble creating a genre based on your input. Could you try giving me a bit more detail about what kind of story you want to create?';
+        }
+      } else if (currentStage === 'world') {
+        try {
+          console.log('Fetching world details...');
+          
+          // Include genre context from the previous genre stage
+          const genreContext = genreConversation.summary ? 
+            `Genre: ${genreConversation.summary.name}\n${genreConversation.summary.description}\nThemes: ${genreConversation.summary.themes.join(', ')}\nTropes: ${genreConversation.summary.tropes.join(', ')}` : 
+            undefined;
+          
+          // Create world input based on user message and genre context
+          const worldInput: WorldCreationInput = {
+            genreContext: genreContext,
+            setting: inputText,
+            threadId: worldConversation.threadId, // Include the thread ID if we have one
+            previousMessages: worldConversation.messages // Include previous conversation messages
+          };
+          
+          console.log(`Using world thread ID: ${worldInput.threadId || 'none (creating new thread)'}`);
+          console.log(`Previous world messages count: ${worldInput.previousMessages?.length || 0}`);
+          
+          // Add the user message to world conversation
+          setWorldConversation(prev => ({
+            ...prev,
+            messages: [...prev.messages, { role: 'user', content: inputText }]
+          }));
+          
+          // Call the OpenAI API to get world details
+          const worldDetails = await fetchWorldDetails(worldInput);
+          console.log('Received world details:', worldDetails);
+          
+          // Update the world conversation with the response and store the thread ID
+          setWorldConversation(prev => {
+            // Check if the response indicates completion
+            const isComplete = 
+              worldDetails.description.includes("I've created a world") || 
+              worldDetails.description.includes("I have created") || 
+              worldDetails.description.includes("Here is your world");
+              
+            return {
+              messages: [
+                ...prev.messages, 
+                { role: 'assistant', content: worldDetails.description }
+              ],
+              isComplete: isComplete,
+              threadId: worldDetails.threadId, // Save the thread ID for continued conversation
+              summary: {
+                name: worldDetails.name,
+                description: worldDetails.description,
+                genre: genreConversation.summary?.name || '',
+                setting: worldDetails.locations.join(', '),
+                timeframe: worldDetails.era,
+                regions: worldDetails.geography,
+                keyConflicts: worldDetails.conflicts,
+                importantFigures: worldDetails.politics.majorFactions,
+                culturalSetting: worldDetails.culture.socialStructure,
+                technology: worldDetails.technology.level,
+                magicSystem: worldDetails.magicSystem?.rules,
+                politicalSystem: worldDetails.politics.governmentType,
+                complexity: 3 // Default medium complexity
+              }
+            };
+          });
+          
+          console.log("Received full world details from API:", worldDetails);
+          
+          // Display the actual response from the assistant
+          responseContent = worldDetails.description;
+          
+          // If the response doesn't end with a question mark, add a prompt for the next stage
+          if (!responseContent.trim().endsWith('?')) {
+            responseContent += " Would you like to move on to creating characters for this world now?";
+          }
+        } catch (error) {
+          console.error('Error fetching world details:', error);
+          responseContent = 'I had some trouble creating a world based on your input. Could you try giving me a bit more detail about what kind of setting you want for your story?';
+        }
+      } else if (currentStage === 'characters') {
+        try {
+          console.log('Fetching character details...');
+          
+          // Include genre and world context from the previous stages
+          const genreContext = genreConversation.summary ? 
+            `Genre: ${genreConversation.summary.name}\n${genreConversation.summary.description}` : 
+            undefined;
+            
+          const worldContext = worldConversation.summary ?
+            `World: ${worldConversation.summary.name}\n${worldConversation.summary.description}` :
+            undefined;
+          
+          // Create character input based on user message and context
+          const characterInput: CharacterCreationInput = {
+            name: inputText.split(' ').some(word => word.length > 2) ? inputText : undefined, // Check if the input might be a name
+            genre: genreContext,
+            setting: worldContext,
+            additionalInfo: inputText
+          };
+          
+          console.log('Character creation input:', characterInput);
+          
+          // Add the user message to character conversation
+          setCharacterConversation(prev => ({
+            ...prev,
+            messages: [...prev.messages, { role: 'user', content: inputText }]
+          }));
+          
+          // Call the OpenAI API to get character details
+          const characterDetails = await fetchDetailedCharacter(characterInput);
+          console.log('Received character details:', characterDetails);
+          
+          // Add this character to our collection
+          const newCharacter: Partial<CharacterData> = {
+            name: characterDetails.name,
+            role: characterDetails.role,
+            background: characterDetails.background,
+            personality: characterDetails.personality,
+            goals: characterDetails.goals,
+            fears: characterDetails.fears,
+            relationships: characterDetails.relationships,
+            skills: characterDetails.skills,
+            appearance: characterDetails.appearance,
+            voice: characterDetails.voice,
+            depth: 5 // Fully detailed character
+          };
+          
+          setPartialCharacters(prev => [...prev, newCharacter]);
+          
+          // Update the character conversation with the response
+          setCharacterConversation(prev => {
+            // Check if the response indicates completion
+            const isComplete = 
+              characterDetails.name.length > 0 && 
+              characterDetails.background.length > 20 &&
+              characterDetails.personality.length > 0;
+              
+            return {
+              messages: [
+                ...prev.messages, 
+                { role: 'assistant', content: `I've created ${characterDetails.name}, ${characterDetails.role}. ${characterDetails.background}` }
+              ],
+              isComplete: isComplete,
+              summary: newCharacter
+            };
+          });
+          
+          // Display the actual response from the assistant
+          responseContent = `I've created a character named ${characterDetails.name}, who is ${characterDetails.role}. ${characterDetails.background} Would you like to create another character or move on to the next stage?`;
+          
+        } catch (error) {
+          console.error('Error fetching character details:', error);
+          responseContent = 'I had some trouble creating a character based on your input. Could you try giving me a bit more detail about the character you want for your story?';
         }
       } else {
         // For other stages, use placeholder responses for now

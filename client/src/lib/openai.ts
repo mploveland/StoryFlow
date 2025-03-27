@@ -176,6 +176,60 @@ export interface GenreCreationInput {
   previousMessages?: { role: 'user' | 'assistant', content: string }[]; // Previous messages in the conversation
 }
 
+export interface WorldCreationInput {
+  genreContext?: string;     // The genre context from the previous stage
+  setting?: string;          // Basic setting information
+  timeframe?: string;        // Era or time period
+  environmentType?: string;  // Natural environment (forest, desert, etc.)
+  culture?: string;          // Cultural details
+  technology?: string;       // Level of technology
+  conflicts?: string;        // Major conflicts in the world
+  additionalInfo?: string;   // Any additional world details
+  // For continuing an existing conversation
+  threadId?: string;
+  previousMessages?: { role: 'user' | 'assistant', content: string }[];
+}
+
+export interface WorldDetails {
+  name: string;              // Name of the world/setting
+  description: string;       // General description
+  era: string;               // Time period/era
+  geography: string[];       // Notable geographical features
+  locations: string[];       // Important locations/regions
+  culture: {
+    socialStructure: string;
+    beliefs: string;
+    customs: string[];
+    languages: string[];
+  };
+  politics: {
+    governmentType: string;
+    powerDynamics: string;
+    majorFactions: string[];
+  };
+  economy: {
+    resources: string[];
+    trade: string;
+    currency: string;
+  };
+  technology: {
+    level: string;
+    innovations: string[];
+    limitations: string;
+  };
+  conflicts: string[];       // Major conflicts or tensions
+  history: {
+    majorEvents: string[];
+    legends: string[];
+  };
+  magicSystem?: {           // Optional for fantasy settings
+    rules: string;
+    limitations: string;
+    practitioners: string;
+  };
+  threadId?: string;        // Thread ID for continuing conversation
+}
+
 export interface CharacterCreationInput {
   name?: string;
   role?: string;
@@ -222,6 +276,26 @@ export async function fetchGenreDetails(input: GenreCreationInput): Promise<Genr
     return result;
   } catch (error) {
     console.error("Error creating genre details:", error);
+    throw error; // Propagate the error to be handled by the caller
+  }
+}
+
+export async function fetchWorldDetails(input: WorldCreationInput): Promise<WorldDetails> {
+  try {
+    console.log("Sending world details request with input:", {
+      ...input,
+      genreContext: input.genreContext ? 'provided' : 'none',
+      threadId: input.threadId || 'none (creating new thread)',
+      messagesCount: input.previousMessages?.length || 0
+    });
+    
+    const response = await apiRequest("POST", "/api/ai/world-details", input);
+    const result = await response.json();
+    
+    console.log("Received world details with threadId:", result.threadId);
+    return result;
+  } catch (error) {
+    console.error("Error creating world details:", error);
     throw error; // Propagate the error to be handled by the caller
   }
 }
