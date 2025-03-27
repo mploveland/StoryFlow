@@ -12,7 +12,7 @@ import {
   BookText, BookOpen, Scroll, Gamepad 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { fetchInteractiveStoryResponse } from '@/lib/openai';
+import { fetchInteractiveStoryResponse, fetchGenreDetails, GenreCreationInput, GenreDetails } from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
 import { WorldData } from '../world/WorldDesigner';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -286,37 +286,83 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       let nextStage = determineNextStage(currentStage, inputText);
       setInterviewStage(nextStage);
       
-      // Call the AI for a response with interview context
-      const worldContextStr = `
-        Currently in the ${currentStage} stage of the interview process. 
-        Currently gathered inspirations: ${inspirations.join(', ')}. 
-        Current world building progress: ${JSON.stringify(partialWorld)}. 
-        Current character progress: ${JSON.stringify(partialCharacters)}. 
-        Moving to the ${nextStage} stage after this response.
-        If you identify specific inspirations, world elements, or character traits in the user's input, extract them.
-        Guide the conversation naturally towards building a complete story world following the interview flow:
-        genre → world → characters → influences → details → ready
-      `;
+      // Prepare AI response variables
+      let responseContent = '';
+      let extractedGenreDetails: GenreDetails | null = null;
       
-      const charactersList = partialCharacters.filter(char => char.name).map(char => ({
-        id: char.id || 0,
-        name: char.name || 'Unknown',
-        description: char.background || '',
-        traits: char.personality || [],
-        role: char.role
-      }));
+      // If we're in the genre stage, use the Genre Creator assistant
+      if (currentStage === 'genre') {
+        try {
+          console.log('Calling Genre Creator assistant with input:', inputText);
+          
+          // Prepare genre creation input from user's message
+          const genreInput: GenreCreationInput = {
+            userInterests: inputText,
+            themes: inspirations.filter(item => !item.toLowerCase().includes('by') && !item.toLowerCase().includes('author')),
+            inspirations: inspirations.filter(item => item.toLowerCase().includes('by') || item.toLowerCase().includes('author')),
+            additionalInfo: context
+          };
+          
+          // Call the Genre Creator assistant
+          extractedGenreDetails = await fetchGenreDetails(genreInput);
+          console.log('Genre Creator assistant response:', extractedGenreDetails);
+          
+          // Extract useful data from the genre details to enhance our world
+          if (extractedGenreDetails) {
+            // Update the partial world with genre information
+            setPartialWorld(prev => ({
+              ...prev,
+              genre: extractedGenreDetails?.name || prev.genre,
+              setting: extractedGenreDetails?.commonSettings?.[0] || prev.setting,
+              description: extractedGenreDetails?.description || prev.description
+            }));
+            
+            // Create a response message that introduces the genre
+            responseContent = `Based on your interests, I think a ${extractedGenreDetails.name} story would be perfect! ${extractedGenreDetails.description}\n\nThis genre typically includes themes like ${extractedGenreDetails.themes.join(', ')} and is known for ${extractedGenreDetails.tropes.slice(0, 3).join(', ')} tropes.\n\nNow, let's start building the world for your story. What kind of setting would you like for your ${extractedGenreDetails.name} story?`;
+          }
+        } catch (error) {
+          console.error('Error using Genre Creator assistant:', error);
+          // Fall back to regular interactive story response
+          responseContent = '';
+        }
+      }
       
-      const messageHistoryFormatted = messages.slice(-8).map(msg => ({
-        sender: msg.sender === 'user' ? 'user' : 'story',
-        content: msg.content
-      }));
-      
-      const response = await fetchInteractiveStoryResponse(
-        worldContextStr,
-        charactersList,
-        messageHistoryFormatted,
-        inputText
-      );
+      // If we didn't get a response from the Genre Creator or we're in a different stage,
+      // use the regular interactive story response
+      if (!responseContent) {
+        const worldContextStr = `
+          Currently in the ${currentStage} stage of the interview process. 
+          Currently gathered inspirations: ${inspirations.join(', ')}. 
+          Current world building progress: ${JSON.stringify(partialWorld)}. 
+          Current character progress: ${JSON.stringify(partialCharacters)}. 
+          Moving to the ${nextStage} stage after this response.
+          If you identify specific inspirations, world elements, or character traits in the user's input, extract them.
+          Guide the conversation naturally towards building a complete story world following the interview flow:
+          genre → world → characters → influences → details → ready
+        `;
+        
+        const charactersList = partialCharacters.filter(char => char.name).map(char => ({
+          id: char.id || 0,
+          name: char.name || 'Unknown',
+          description: char.background || '',
+          traits: char.personality || [],
+          role: char.role
+        }));
+        
+        const messageHistoryFormatted = messages.slice(-8).map(msg => ({
+          sender: msg.sender === 'user' ? 'user' : 'story',
+          content: msg.content
+        }));
+        
+        const response = await fetchInteractiveStoryResponse(
+          worldContextStr,
+          charactersList,
+          messageHistoryFormatted,
+          inputText
+        );
+        
+        responseContent = response.content;
+      }
       
       // Process the response to extract structured data
       const extractedInspirations = extractInspirations(inputText);
@@ -355,7 +401,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       // Create AI response message
       const aiMessage: Message = {
         id: Date.now().toString(),
-        content: response.content,
+        content: responseContent,
         sender: 'ai',
         timestamp: new Date(),
         interviewStage: nextStage, // Set the next interview stage
@@ -681,7 +727,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         partialWorld.name && 
         partialWorld.genre && 
         partialWorld.setting && 
-        (partialWorld.regions?.length > 0 || partialWorld.description);
+        ((partialWorld.regions && partialWorld.regions.length > 0) || partialWorld.description);
       
       // Check if we have completed characters
       const hasCompletedCharacters = 
@@ -689,7 +735,7 @@ const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         partialCharacters.every(char => 
           char.name && 
           char.role && 
-          (char.personality?.length > 0 || char.background)
+          ((char.personality && char.personality.length > 0) || char.background)
         );
       
       if (isWorldComplete && hasCompletedCharacters) {

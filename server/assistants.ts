@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 // Assistant IDs
 const HYPER_REALISTIC_CHARACTER_CREATOR_ID = "asst_zHYBFg9Om7fnilOfGTnVztF1";
-const GENRE_CREATOR_ASSISTANT_ID = "asst_genre_creator_id"; // This should be replaced with your real assistant ID
+const GENRE_CREATOR_ASSISTANT_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
 
 // Interface for genre creation input
 export interface GenreCreationInput {
