@@ -13,7 +13,7 @@ import { Story, Foundation } from '@shared/schema';
 
 const Dashboard: React.FC = () => {
   const [, navigate] = useLocation();
-  const { user } = useAuth();
+  const { user, login, register } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isNewStoryModalOpen, setIsNewStoryModalOpen] = useState(false);
@@ -105,12 +105,33 @@ const Dashboard: React.FC = () => {
     },
   });
 
-  const handleCreateFoundation = () => {
-    createFoundationMutation.mutate({
-      name: "New Story Foundation",
-      description: "A collection of related stories, characters, and worlds",
-      genre: "Undecided"
-    });
+  const handleCreateFoundation = async () => {
+    try {
+      // Make sure we have a demo user set up in the database
+      if (!user) {
+        try {
+          // First try to register a new demo user
+          await register('demo', 'password', 'Demo User', 'demo@example.com');
+        } catch (error) {
+          // If that fails (user likely exists), try logging in
+          await login('demo', 'password');
+        }
+      }
+      
+      // Now create the foundation
+      createFoundationMutation.mutate({
+        name: "New Story Foundation",
+        description: "A collection of related stories, characters, and worlds",
+        genre: "Undecided"
+      });
+    } catch (error) {
+      console.error("Error in foundation creation process:", error);
+      toast({
+        title: 'Failed to create foundation',
+        description: 'There was an error setting up your account. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleCreateStory = () => {

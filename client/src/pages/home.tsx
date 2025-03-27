@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 
 const Home: React.FC = () => {
   const [, navigate] = useLocation();
-  const { user, login } = useAuth();
+  const { user, login, register } = useAuth();
   const { toast } = useToast();
 
   React.useEffect(() => {
@@ -67,8 +67,13 @@ const Home: React.FC = () => {
   });
 
   const handleGetStarted = async () => {
-    // For demo purposes, login as demo user
-    await login('demo', 'password');
+    try {
+      // For demo purposes, register as demo user (this will create the user if it doesn't exist)
+      await register('demo', 'password', 'Demo User', 'demo@example.com');
+    } catch (error) {
+      // If registration fails (likely because user already exists), try logging in
+      await login('demo', 'password');
+    }
     
     // Create a new foundation and then a story within it
     createFoundationMutation.mutate();
