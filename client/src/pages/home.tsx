@@ -17,9 +17,37 @@ const Home: React.FC = () => {
     }
   }, [user, navigate]);
 
+  // Create foundation mutation
+  const createFoundationMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/foundations', {
+        userId: user?.id,
+        name: "My First Story Foundation",
+        description: "A foundation for your stories, characters, and world",
+        genre: "Undecided"
+      });
+      return response.json();
+    },
+    onSuccess: (newFoundation) => {
+      // Now create a story in this foundation
+      createStoryMutation.mutate({
+        title: "New Voice Story",
+        genre: "Draft",
+        foundationId: newFoundation.id
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create foundation',
+        description: error.message || 'An error occurred while creating your story foundation.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Create story mutation
   const createStoryMutation = useMutation({
-    mutationFn: async (storyData: { title: string; genre?: string; theme?: string; setting?: string }) => {
+    mutationFn: async (storyData: { title: string; genre?: string; theme?: string; setting?: string; foundationId: number }) => {
       const response = await apiRequest('POST', '/api/stories', {
         ...storyData,
         userId: user?.id,
@@ -27,7 +55,7 @@ const Home: React.FC = () => {
       return response.json();
     },
     onSuccess: (newStory) => {
-      navigate(`/voice-story?storyId=${newStory.id}`);
+      navigate(`/voice-story-creation?storyId=${newStory.id}`);
     },
     onError: (error: any) => {
       toast({
@@ -42,11 +70,8 @@ const Home: React.FC = () => {
     // For demo purposes, login as demo user
     await login('demo', 'password');
     
-    // Create a new story and navigate to it
-    createStoryMutation.mutate({
-      title: "New Voice Story",
-      genre: "Draft"
-    });
+    // Create a new foundation and then a story within it
+    createFoundationMutation.mutate();
   };
 
   return (

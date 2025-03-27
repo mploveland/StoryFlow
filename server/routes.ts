@@ -4,11 +4,14 @@ import { storage } from "./storage";
 import { z } from "zod";
 import {
   insertUserSchema,
+  insertFoundationSchema,
   insertStorySchema,
   insertChapterSchema,
   insertCharacterSchema,
   insertVersionSchema,
-  insertSuggestionSchema
+  insertSuggestionSchema,
+  insertEnvironmentDetailsSchema,
+  insertGenreDetailsSchema
 } from "@shared/schema";
 import {
   getAISuggestions,
@@ -79,8 +82,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Story routes
-  apiRouter.get("/stories", async (req: Request, res: Response) => {
+  // Foundation routes
+  apiRouter.get("/foundations", async (req: Request, res: Response) => {
     try {
       const userId = parseInt(req.query.userId as string);
       
@@ -88,7 +91,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Valid userId is required" });
       }
       
-      const stories = await storage.getStories(userId);
+      const foundations = await storage.getFoundations(userId);
+      return res.status(200).json(foundations);
+    } catch (error) {
+      console.error("Error fetching foundations:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.get("/foundations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const foundation = await storage.getFoundation(id);
+      
+      if (!foundation) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      
+      return res.status(200).json(foundation);
+    } catch (error) {
+      console.error("Error fetching foundation:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.post("/foundations", async (req: Request, res: Response) => {
+    try {
+      const foundationData = insertFoundationSchema.parse(req.body);
+      const newFoundation = await storage.createFoundation(foundationData);
+      return res.status(201).json(newFoundation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors 
+        });
+      }
+      
+      console.error("Error creating foundation:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.put("/foundations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const foundationData = insertFoundationSchema.partial().parse(req.body);
+      
+      const updatedFoundation = await storage.updateFoundation(id, foundationData);
+      
+      if (!updatedFoundation) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      
+      return res.status(200).json(updatedFoundation);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors 
+        });
+      }
+      
+      console.error("Error updating foundation:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.delete("/foundations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteFoundation(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting foundation:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Genre details routes
+  apiRouter.get("/foundations/:foundationId/genre", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+      
+      if (!genreDetails) {
+        return res.status(404).json({ message: "Genre details not found" });
+      }
+      
+      return res.status(200).json(genreDetails);
+    } catch (error) {
+      console.error("Error fetching genre details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Environment details routes
+  apiRouter.get("/foundations/:foundationId/environment", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      const environmentDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+      
+      if (!environmentDetails) {
+        return res.status(404).json({ message: "Environment details not found" });
+      }
+      
+      return res.status(200).json(environmentDetails);
+    } catch (error) {
+      console.error("Error fetching environment details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Story routes
+  apiRouter.get("/stories", async (req: Request, res: Response) => {
+    try {
+      const userId = parseInt(req.query.userId as string);
+      const foundationId = req.query.foundationId ? parseInt(req.query.foundationId as string) : undefined;
+      
+      if (isNaN(userId) && !foundationId) {
+        return res.status(400).json({ message: "Valid userId or foundationId is required" });
+      }
+      
+      let stories;
+      if (foundationId) {
+        stories = await storage.getStoriesByFoundation(foundationId);
+      } else {
+        stories = await storage.getStoriesByUser(userId);
+      }
+      
       return res.status(200).json(stories);
     } catch (error) {
       console.error("Error fetching stories:", error);
@@ -262,10 +398,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.get("/stories/:storyId/characters", async (req: Request, res: Response) => {
     try {
       const storyId = parseInt(req.params.storyId);
-      const characters = await storage.getCharacters(storyId);
+      const characters = await storage.getStoryCharacters(storyId);
       return res.status(200).json(characters);
     } catch (error) {
       console.error("Error fetching characters:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.get("/foundations/:foundationId/characters", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      const characters = await storage.getCharactersByFoundation(foundationId);
+      return res.status(200).json(characters);
+    } catch (error) {
+      console.error("Error fetching characters by foundation:", error);
       return res.status(500).json({ message: "Server error" });
     }
   });
