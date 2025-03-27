@@ -89,7 +89,21 @@ const Dashboard: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-neutral-800">My Stories</h2>
           <div className="flex space-x-3">
-            <Button onClick={() => navigate("/voice-story")} variant="outline" className="bg-gradient-to-r from-primary-500 to-violet-500 text-white hover:from-primary-600 hover:to-violet-600 border-0">
+            <Button 
+              onClick={() => {
+                createStoryMutation.mutate({
+                  title: "New Voice Story",
+                  genre: "Draft"
+                }, {
+                  onSuccess: (newStory) => {
+                    navigate(`/voice-story?storyId=${newStory.id}`);
+                  }
+                });
+              }} 
+              variant="outline" 
+              className="bg-gradient-to-r from-primary-500 to-violet-500 text-white hover:from-primary-600 hover:to-violet-600 border-0"
+              disabled={createStoryMutation.isPending}
+            >
               <Sparkles className="h-4 w-4 mr-2" />
               Voice Story
             </Button>
@@ -144,7 +158,19 @@ const Dashboard: React.FC = () => {
                 <p className="text-neutral-600 mb-6">
                   Create your first story to get started with StoryFlow.
                 </p>
-                <Button onClick={() => navigate("/voice-story")}>
+                <Button 
+                  onClick={() => {
+                    createStoryMutation.mutate({
+                      title: "My First Story",
+                      genre: "Draft"
+                    }, {
+                      onSuccess: (newStory) => {
+                        navigate(`/voice-story?storyId=${newStory.id}`);
+                      }
+                    });
+                  }}
+                  disabled={createStoryMutation.isPending}
+                >
                   <Sparkles className="h-4 w-4 mr-2" />
                   Create Your First Story with Voice
                 </Button>

@@ -43,14 +43,34 @@ const shouldShowStage = (
   const currentIndex = stageOrder.indexOf(currentStage);
   const stageIndex = stageOrder.indexOf(stageName);
   
-  // Show if: 
-  // 1. It's the current stage
-  // 2. It's a previous stage that has been completed
-  // 3. It's the next stage in the sequence
-  return stageName === currentStage || 
-         (stageIndex < currentIndex) || 
-         (stageIndex === currentIndex + 1) ||
-         stages[stageName]?.isComplete;
+  // Strict progressive reveal - only show:
+  // 1. The current stage
+  // 2. Previous completed stages
+  // 3. The next stage only if all previous stages are complete
+  
+  // Current stage is always visible
+  if (stageName === currentStage) {
+    return true;
+  }
+  
+  // Previous stages that are complete are visible
+  if (stageIndex < currentIndex && stages[stageName]?.isComplete) {
+    return true;
+  }
+  
+  // Next stage is only visible if all previous stages are complete
+  if (stageIndex === currentIndex + 1) {
+    // Check if all previous stages are complete
+    const previousStages = stageOrder.slice(0, stageIndex);
+    const allPreviousComplete = previousStages.every(stage => 
+      stages[stage as keyof typeof stages]?.isComplete
+    );
+    
+    return allPreviousComplete;
+  }
+  
+  // Otherwise, don't show the stage
+  return false;
 };
 
 export function StageSidebar({ stages, onStageSelect, currentStage }: StageSidebarProps) {

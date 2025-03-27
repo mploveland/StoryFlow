@@ -2,10 +2,14 @@ import React from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/queryClient';
+import { useToast } from '@/hooks/use-toast';
 
 const Home: React.FC = () => {
   const [, navigate] = useLocation();
   const { user, login } = useAuth();
+  const { toast } = useToast();
 
   React.useEffect(() => {
     if (user) {
@@ -13,10 +17,36 @@ const Home: React.FC = () => {
     }
   }, [user, navigate]);
 
+  // Create story mutation
+  const createStoryMutation = useMutation({
+    mutationFn: async (storyData: { title: string; genre?: string; theme?: string; setting?: string }) => {
+      const response = await apiRequest('POST', '/api/stories', {
+        ...storyData,
+        userId: user?.id,
+      });
+      return response.json();
+    },
+    onSuccess: (newStory) => {
+      navigate(`/voice-story?storyId=${newStory.id}`);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to create story',
+        description: error.message || 'An error occurred while creating your story.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleGetStarted = async () => {
     // For demo purposes, login as demo user
     await login('demo', 'password');
-    navigate('/voice-story');
+    
+    // Create a new story and navigate to it
+    createStoryMutation.mutate({
+      title: "New Voice Story",
+      genre: "Draft"
+    });
   };
 
   return (

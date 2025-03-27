@@ -27,6 +27,10 @@ export const stories = pgTable("stories", {
   genre: text("genre"),
   theme: text("theme"),
   setting: text("setting"),
+  worldData: text("world_data"), // JSON string of world data
+  characters: text("characters"), // JSON string of characters array
+  creationProgress: text("creation_progress"), // JSON string of creation progress state
+  status: varchar("status", { length: 20 }), // 'draft', 'in-progress', 'ready', 'published'
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -37,6 +41,10 @@ export const insertStorySchema = createInsertSchema(stories).pick({
   genre: true,
   theme: true,
   setting: true,
+  worldData: true,
+  characters: true,
+  creationProgress: true,
+  status: true,
 });
 
 // Chapter schema

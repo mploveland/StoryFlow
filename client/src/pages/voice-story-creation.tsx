@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -9,17 +9,111 @@ import StoryExperience from '@/components/story/StoryExperience';
 import { VoiceGuidedCreation } from '@/components/creation/VoiceGuidedCreation';
 import { useToast } from '@/hooks/use-toast';
 import { StageSidebar } from '@/components/creation/StageSidebar';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { apiRequest, queryClient } from '@/lib/queryClient';
 
 const VoiceStoryCreationPage: React.FC = () => {
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const { toast } = useToast();
   const [worldData, setWorldData] = useState<Partial<WorldData> | undefined>(undefined);
   const [characters, setCharacters] = useState<CharacterData[]>([]);
   const [storyStarted, setStoryStarted] = useState(false);
   
+  // Get storyId from URL params
+  const params = new URLSearchParams(window.location.search);
+  const storyId = params.get('storyId');
+  
+  // Define the story data interface
+  interface StoryData {
+    id: number;
+    title: string;
+    genre?: string;
+    theme?: string;
+    setting?: string;
+    worldData?: string; // JSON string of WorldData
+    characters?: string; // JSON string of CharacterData[]
+    creationProgress?: string; // JSON string of creation progress
+    status?: string;
+    userId: number;
+    createdAt?: string;
+    updatedAt?: string;
+  }
+  
+  // Fetch story data if we have an ID
+  const { data: storyData, isLoading } = useQuery<StoryData>({
+    queryKey: [storyId ? `/api/stories/${storyId}` : null],
+    enabled: !!storyId,
+  });
+  
+  // Update story mutation
+  const updateStoryMutation = useMutation({
+    mutationFn: async (updateData: any) => {
+      if (!storyId) throw new Error('No story ID to update');
+      
+      const response = await apiRequest('PUT', `/api/stories/${storyId}`, updateData);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/stories/${storyId}`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to save story progress',
+        description: error.message || 'An error occurred',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  // Load story data when available
+  useEffect(() => {
+    if (storyData) {
+      // Initialize state from saved story data
+      if (storyData.worldData) {
+        try {
+          setWorldData(JSON.parse(storyData.worldData));
+        } catch (e) {
+          console.error('Error parsing world data', e);
+        }
+      }
+      
+      if (storyData.characters) {
+        try {
+          setCharacters(JSON.parse(storyData.characters));
+        } catch (e) {
+          console.error('Error parsing characters data', e);
+        }
+      }
+      
+      // If we have saved stage data
+      if (storyData.creationProgress) {
+        try {
+          const progress = JSON.parse(storyData.creationProgress);
+          setCurrentStage(progress.currentStage || 'genre');
+          setStageStatus(progress.stageStatus || {
+            genre: { isComplete: false, details: undefined },
+            world: { isComplete: false, details: undefined },
+            characters: { isComplete: false, details: undefined },
+            influences: { isComplete: false, items: [] },
+            details: { isComplete: false }
+          });
+        } catch (e) {
+          console.error('Error parsing creation progress data', e);
+        }
+      }
+    }
+  }, [storyData]);
+  
   // Handle world creation from voice guidance
   const handleWorldCreated = (world: WorldData) => {
     setWorldData(world);
+    
+    // Save to database if we have a story ID
+    if (storyId) {
+      updateStoryMutation.mutate({
+        worldData: JSON.stringify(world)
+      });
+    }
     
     toast({
       title: 'World Created',
@@ -47,6 +141,17 @@ const VoiceStoryCreationPage: React.FC = () => {
       return [...prev, character];
     });
     
+    // Save updated characters list to database
+    if (storyId) {
+      const updatedCharacters = characters.some(c => c.name === character.name) 
+        ? characters.map(c => c.name === character.name ? character : c)
+        : [...characters, character];
+        
+      updateStoryMutation.mutate({
+        characters: JSON.stringify(updatedCharacters)
+      });
+    }
+    
     toast({
       title: 'Character Created',
       description: `${character.name} has been added to your story.`,
@@ -66,6 +171,15 @@ const VoiceStoryCreationPage: React.FC = () => {
     // Begin the story
     setStoryStarted(true);
     
+    // Save story progress
+    if (storyId) {
+      updateStoryMutation.mutate({
+        status: 'ready',
+        worldData: JSON.stringify(world),
+        characters: JSON.stringify(storyCharacters)
+      });
+    }
+    
     toast({
       title: 'Story Ready',
       description: 'Your interactive story is ready to begin!',
@@ -74,6 +188,18 @@ const VoiceStoryCreationPage: React.FC = () => {
   
   // Handle saving the story
   const handleSaveStory = () => {
+    if (storyId) {
+      // Save current progress to database
+      updateStoryMutation.mutate({
+        worldData: worldData ? JSON.stringify(worldData) : null,
+        characters: characters.length > 0 ? JSON.stringify(characters) : null,
+        creationProgress: JSON.stringify({
+          currentStage,
+          stageStatus
+        })
+      });
+    }
+    
     toast({
       title: 'Story Bookmarked',
       description: 'Your current progress has been saved.',
@@ -96,6 +222,18 @@ const VoiceStoryCreationPage: React.FC = () => {
     influences: { isComplete: false, items: [] },
     details: { isComplete: false }
   });
+  
+  // Save progress whenever stage status changes
+  useEffect(() => {
+    if (storyId && !isLoading) {
+      updateStoryMutation.mutate({
+        creationProgress: JSON.stringify({
+          currentStage,
+          stageStatus
+        })
+      });
+    }
+  }, [currentStage, stageStatus]);
   
   // Handle stage selection
   const handleStageSelect = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready') => {
