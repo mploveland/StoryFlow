@@ -1245,6 +1245,7 @@ Common character types in this genre include: ${genreConversation.summary?.typic
           skills: char.skills || [],
           appearance: char.appearance || '',
           voice: char.voice || '',
+          depth: char.depth || 3, // Default depth if not specified
           ...char as any
         }));
         
@@ -1255,7 +1256,8 @@ Common character types in this genre include: ${genreConversation.summary?.typic
           {
             messages: genreConversation.messages,
             isComplete: true,
-            summary: genreConversation.summary
+            summary: genreConversation.summary,
+            threadId: genreConversation.threadId
           },
           {
             messages: worldConversation.messages,
