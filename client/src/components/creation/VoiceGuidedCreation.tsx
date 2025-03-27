@@ -607,7 +607,16 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             summary: genreDetails
           }));
           
-          responseContent = `I've created a custom "${genreDetails.name}" genre for your story! This genre is ${genreDetails.description} Would you like to move on to creating your world now?`;
+          console.log("Received full genre details from API:", genreDetails);
+          
+          // Display the actual response from the assistant, which should be a question
+          // or continue the conversation
+          responseContent = genreDetails.description;
+          
+          // If the response doesn't end with a question mark, add a prompt for the next stage
+          if (!responseContent.trim().endsWith('?')) {
+            responseContent += " Would you like to move on to creating your world now?";
+          }
         } catch (error) {
           console.error('Error fetching genre details:', error);
           responseContent = 'I had some trouble creating a genre based on your input. Could you try giving me a bit more detail about what kind of story you want to create?';

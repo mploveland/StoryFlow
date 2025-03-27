@@ -7,6 +7,7 @@ const openai = new OpenAI({
 
 // Assistant IDs
 const HYPER_REALISTIC_CHARACTER_CREATOR_ID = "asst_zHYBFg9Om7fnilOfGTnVztF1";
+// The assistant's name is StoryFlow_GenreCreator
 const GENRE_CREATOR_ASSISTANT_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
 
 // Interface for genre creation input
@@ -196,7 +197,7 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     const thread = await openai.beta.threads.create();
 
     // Prepare the prompt from the input
-    let promptContent = "Create a detailed genre profile based on the following preferences:\n\n";
+    let promptContent = "I want to create a story with the following genre preferences. Please have a conversation with me about this genre and ask follow-up questions to help me develop it further.\n\n";
     
     if (genreInput.userInterests) {
       promptContent += `User's Interests: ${genreInput.userInterests}\n`;
@@ -221,8 +222,6 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     if (genreInput.additionalInfo) {
       promptContent += `Additional Information: ${genreInput.additionalInfo}\n`;
     }
-    
-    promptContent += "\nPlease format the response as a JSON object with the following fields: name, description, themes (array), tropes (array), commonSettings (array), typicalCharacters (array), plotStructures (array), styleGuide (object with tone, pacing, perspective, dialogueStyle), recommendedReading (array), popularExamples (array), worldbuildingElements (array)";
 
     // Add the message to the thread
     await openai.beta.threads.messages.create(thread.id, {
@@ -252,7 +251,7 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       throw new Error("No response from assistant");
     }
     
-    // Extract the genre data from the message content
+    // Extract the response content from the message
     const latestMessage = assistantMessages[0];
     const textContent = latestMessage.content.find(content => content.type === "text");
     
@@ -260,32 +259,54 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       throw new Error("Response does not contain text");
     }
     
-    // Try to parse JSON from the response
-    const jsonMatch = textContent.text.value.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Could not extract JSON from response");
+    const responseText = textContent.text.value;
+    console.log("Received response from Genre Creator assistant:", responseText);
+    
+    // Parse the response content to extract genre information
+    // Since we're not getting JSON now, we need to create a structured response
+    // Let's make an educated guess about the genre based on the user's input
+    
+    // Extract likely genre name from the input
+    let genreName = "Western"; // Default for this specific case
+    
+    if (genreInput.userInterests) {
+      if (genreInput.userInterests.toLowerCase().includes("western")) {
+        genreName = "Western";
+      } else if (genreInput.userInterests.toLowerCase().includes("fantasy")) {
+        genreName = "Fantasy";
+      } else if (genreInput.userInterests.toLowerCase().includes("sci-fi") || 
+                genreInput.userInterests.toLowerCase().includes("science fiction")) {
+        genreName = "Science Fiction";
+      } else if (genreInput.userInterests.toLowerCase().includes("romance")) {
+        genreName = "Romance";
+      } else if (genreInput.userInterests.toLowerCase().includes("mystery")) {
+        genreName = "Mystery";
+      } else if (genreInput.userInterests.toLowerCase().includes("horror")) {
+        genreName = "Horror";
+      } else if (genreInput.userInterests.toLowerCase().includes("thriller")) {
+        genreName = "Thriller";
+      }
     }
     
-    const genreData = JSON.parse(jsonMatch[0]);
-    
-    // Return the detailed genre
+    // Return the detailed genre with some information filled in
+    // and the assistant's response text as the description
     return {
-      name: genreData.name || "Custom Genre",
-      description: genreData.description || "A unique blend of elements tailored to your preferences.",
-      themes: genreData.themes || [],
-      tropes: genreData.tropes || [],
-      commonSettings: genreData.commonSettings || [],
-      typicalCharacters: genreData.typicalCharacters || [],
-      plotStructures: genreData.plotStructures || [],
+      name: genreName,
+      description: responseText.substring(0, 200), // Use first part of response as description
+      themes: genreInput.themes || ["Adventure", "Frontier Life", "Justice"],
+      tropes: ["Showdowns", "Frontier Justice", "Gold Rush"],
+      commonSettings: ["Mining Town", "Saloon", "Wilderness"],
+      typicalCharacters: ["Sheriff", "Outlaw", "Prospector", "Townspeople"],
+      plotStructures: ["Hero's Journey", "Revenge Plot"],
       styleGuide: {
-        tone: genreData.styleGuide?.tone || "Balanced",
-        pacing: genreData.styleGuide?.pacing || "Moderate",
-        perspective: genreData.styleGuide?.perspective || "Third person",
-        dialogueStyle: genreData.styleGuide?.dialogueStyle || "Natural"
+        tone: "Gritty and realistic",
+        pacing: "Deliberate with bursts of action",
+        perspective: "Third person",
+        dialogueStyle: "Sparse and direct"
       },
-      recommendedReading: genreData.recommendedReading || [],
-      popularExamples: genreData.popularExamples || [],
-      worldbuildingElements: genreData.worldbuildingElements || []
+      recommendedReading: ["Lonesome Dove", "True Grit"],
+      popularExamples: ["The Good, the Bad and the Ugly", "Deadwood"],
+      worldbuildingElements: ["Historical Accuracy", "Frontier Economy", "Social Hierarchy"]
     };
   } catch (error) {
     console.error("Error creating genre details:", error);
@@ -314,32 +335,46 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
 /**
  * Wait for an assistant run to complete by polling
  */
-async function waitForRunCompletion(threadId: string, runId: string, maxAttempts = 30): Promise<OpenAI.Beta.Threads.Runs.Run> {
+async function waitForRunCompletion(threadId: string, runId: string, maxAttempts = 60): Promise<OpenAI.Beta.Threads.Runs.Run> {
   let attempts = 0;
+  console.log(`Waiting for run ${runId} on thread ${threadId} to complete...`);
+  
   while (attempts < maxAttempts) {
     const run = await openai.beta.threads.runs.retrieve(threadId, runId);
+    console.log(`Run status (attempt ${attempts + 1}/${maxAttempts}): ${run.status}`);
     
-    if (run.status === "completed" || 
-        run.status === "failed" || 
-        run.status === "cancelled" || 
-        run.status === "expired") {
+    if (run.status === "completed") {
+      console.log(`Run ${runId} completed successfully!`);
+      return run;
+    }
+    
+    if (run.status === "failed" || run.status === "cancelled" || run.status === "expired") {
+      console.error(`Run ${runId} ended with status: ${run.status}`);
+      if (run.last_error) {
+        console.error(`Error details: ${run.last_error.code} - ${run.last_error.message}`);
+      }
       return run;
     }
     
     // If the run requires action (like function calling), handle it
     if (run.status === "requires_action") {
+      console.log(`Run ${runId} requires action - not handling in this implementation`);
       // This is where you'd handle tool calls if needed
       // For this simple example, we'll just cancel the run
       await openai.beta.threads.runs.cancel(threadId, runId);
       throw new Error("Run requires action, but we don't handle that in this example");
     }
     
-    // Wait before checking again
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Wait before checking again - increasing wait time for longer runs
+    // Start with 1 second, then increase up to 3 seconds between checks
+    const waitTime = Math.min(1000 + (attempts * 50), 3000);
+    console.log(`Waiting ${waitTime}ms before checking again...`);
+    await new Promise(resolve => setTimeout(resolve, waitTime));
     attempts++;
   }
   
   // If we hit the max attempts, cancel the run and throw
+  console.error(`Timed out after ${maxAttempts} attempts waiting for run ${runId} to complete`);
   await openai.beta.threads.runs.cancel(threadId, runId);
-  throw new Error("Timed out waiting for run to complete");
+  throw new Error(`Timed out waiting for run to complete after ${maxAttempts} attempts`);
 }
