@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -116,6 +116,104 @@ export const insertSuggestionSchema = createInsertSchema(suggestions).pick({
   used: true,
 });
 
+// Genre details schema
+export const genreDetails = pgTable("genre_details", {
+  id: serial("id").primaryKey(),
+  storyId: integer("story_id").notNull().references(() => stories.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  themes: text("themes").array(),
+  tropes: text("tropes").array(),
+  commonSettings: text("common_settings").array(),
+  typicalCharacters: text("typical_characters").array(),
+  plotStructures: text("plot_structures").array(),
+  styleGuide: jsonb("style_guide"),
+  recommendedReading: text("recommended_reading").array(),
+  popularExamples: text("popular_examples").array(),
+  worldbuildingElements: text("worldbuilding_elements").array(),
+  threadId: text("thread_id"),
+  // Embeddings will be implemented later with pgvector
+  embeddingJson: jsonb("embedding_json"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertGenreDetailsSchema = createInsertSchema(genreDetails).pick({
+  storyId: true,
+  name: true,
+  description: true,
+  themes: true,
+  tropes: true,
+  commonSettings: true,
+  typicalCharacters: true,
+  plotStructures: true,
+  styleGuide: true,
+  recommendedReading: true,
+  popularExamples: true,
+  worldbuildingElements: true,
+  threadId: true,
+  embeddingJson: true,
+});
+
+// World details schema
+export const worldDetails = pgTable("world_details", {
+  id: serial("id").primaryKey(),
+  storyId: integer("story_id").notNull().references(() => stories.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  era: text("era"),
+  geography: text("geography").array(),
+  locations: text("locations").array(),
+  culture: jsonb("culture"),
+  politics: jsonb("politics"),
+  economy: jsonb("economy"),
+  technology: jsonb("technology"),
+  conflicts: text("conflicts").array(),
+  history: jsonb("history"),
+  magicSystem: jsonb("magic_system"),
+  threadId: text("thread_id"),
+  // Embeddings will be implemented later with pgvector
+  embeddingJson: jsonb("embedding_json"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWorldDetailsSchema = createInsertSchema(worldDetails).pick({
+  storyId: true,
+  name: true,
+  description: true,
+  era: true,
+  geography: true,
+  locations: true,
+  culture: true,
+  politics: true,
+  economy: true,
+  technology: true,
+  conflicts: true,
+  history: true,
+  magicSystem: true,
+  threadId: true,
+  embeddingJson: true,
+});
+
+// Narrative vector store for semantic search
+export const narrativeVectors = pgTable("narrative_vectors", {
+  id: serial("id").primaryKey(),
+  storyId: integer("story_id").notNull().references(() => stories.id),
+  chapterId: integer("chapter_id").references(() => chapters.id),
+  segment: text("segment").notNull(),
+  metadata: jsonb("metadata"),
+  // Embeddings will be implemented later with pgvector
+  embeddingJson: jsonb("embedding_json"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertNarrativeVectorSchema = createInsertSchema(narrativeVectors).pick({
+  storyId: true,
+  chapterId: true,
+  segment: true,
+  metadata: true,
+  embeddingJson: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -134,3 +232,12 @@ export type InsertVersion = z.infer<typeof insertVersionSchema>;
 
 export type Suggestion = typeof suggestions.$inferSelect;
 export type InsertSuggestion = z.infer<typeof insertSuggestionSchema>;
+
+export type GenreDetails = typeof genreDetails.$inferSelect;
+export type InsertGenreDetails = z.infer<typeof insertGenreDetailsSchema>;
+
+export type WorldDetails = typeof worldDetails.$inferSelect;
+export type InsertWorldDetails = z.infer<typeof insertWorldDetailsSchema>;
+
+export type NarrativeVector = typeof narrativeVectors.$inferSelect;
+export type InsertNarrativeVector = z.infer<typeof insertNarrativeVectorSchema>;
