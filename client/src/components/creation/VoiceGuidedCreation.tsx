@@ -12,7 +12,18 @@ import {
   BookText, BookOpen, Scroll, Gamepad, Flame 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { fetchInteractiveStoryResponse, fetchGenreDetails, fetchWorldDetails, GenreCreationInput, GenreDetails, WorldCreationInput, WorldDetails } from '@/lib/openai';
+import { 
+  fetchInteractiveStoryResponse, 
+  fetchGenreDetails, 
+  fetchWorldDetails, 
+  fetchDetailedCharacter,
+  GenreCreationInput, 
+  GenreDetails, 
+  WorldCreationInput, 
+  WorldDetails,
+  CharacterCreationInput,
+  DetailedCharacter
+} from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
 import { WorldData } from '../world/WorldDesigner';
 import { StageSidebar } from './StageSidebar';
@@ -745,11 +756,15 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             `World: ${worldConversation.summary.name}\n${worldConversation.summary.description}` :
             undefined;
           
-          // Create character input based on user message and context
+          // Create a detailed character input with comprehensive context from both genre and world
           const characterInput: CharacterCreationInput = {
             name: inputText.split(' ').some(word => word.length > 2) ? inputText : undefined, // Check if the input might be a name
             genre: genreContext,
             setting: worldContext,
+            story: `This story takes place in a ${worldConversation.summary?.name || 'world'} with the following details:
+${worldConversation.summary?.description || ''}
+The story is in the ${genreConversation.summary?.name || ''} genre, which includes themes like ${genreConversation.summary?.themes?.join(', ') || ''}.
+Common character types in this genre include: ${genreConversation.summary?.typicalCharacters?.join(', ') || ''}.`,
             additionalInfo: inputText
           };
           
