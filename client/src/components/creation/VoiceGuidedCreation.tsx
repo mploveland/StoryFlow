@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { fetchInteractiveStoryResponse, fetchGenreDetails, GenreCreationInput, GenreDetails } from '@/lib/openai';
 import { CharacterData } from '../character/CharacterBuilder';
 import { WorldData } from '../world/WorldDesigner';
+import { StageSidebar } from './StageSidebar';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
@@ -274,15 +275,31 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   
   // Auto-scroll to bottom when messages change
   useEffect(() => {
-    if (scrollRef.current) {
-      // Use setTimeout to ensure the DOM has updated before scrolling
-      setTimeout(() => {
-        if (scrollRef.current) {
-          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-          console.log("Scrolling to bottom:", scrollRef.current.scrollHeight);
-        }
-      }, 100);
-    }
+    const scrollToBottom = () => {
+      if (scrollRef.current) {
+        const scrollElement = scrollRef.current;
+        
+        // Force a layout calculation to ensure the scrollHeight is accurate
+        const scrollHeight = scrollElement.scrollHeight;
+        
+        // Use RAF for smoother animation and to ensure DOM is ready
+        requestAnimationFrame(() => {
+          scrollElement.scrollTo({
+            top: scrollHeight,
+            behavior: 'smooth'
+          });
+          console.log("Scrolling to bottom:", scrollHeight);
+        });
+      }
+    };
+    
+    // Immediate scroll
+    scrollToBottom();
+    
+    // Also add a small delay to ensure content has fully rendered
+    const delayedScroll = setTimeout(scrollToBottom, 150);
+    
+    return () => clearTimeout(delayedScroll);
   }, [messages]);
   
   // Utility function to speak a message using TTS
@@ -719,8 +736,38 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   };
   
   // UI for the voice-guided creation experience
+  // Prepare data for the stage sidebar
+  const stageData = {
+    genre: {
+      isComplete: genreConversation.isComplete,
+      details: genreConversation.summary
+    },
+    world: {
+      isComplete: worldConversation.isComplete,
+      details: worldConversation.summary
+    },
+    characters: {
+      isComplete: characterConversation.isComplete,
+      details: partialCharacters.length > 0 ? partialCharacters : undefined
+    },
+    influences: {
+      isComplete: inspirations.length > 0,
+      items: inspirations.length > 0 ? inspirations : undefined
+    },
+    details: {
+      isComplete: false // This will be updated when details are complete
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-4rem)]">
+      {/* Stage Sidebar */}
+      <StageSidebar 
+        stages={stageData}
+        onStageSelect={handleStageSelect}
+        currentStage={interviewStage}
+      />
+      
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden p-4">
         <div className="flex items-center mb-4 gap-2">
