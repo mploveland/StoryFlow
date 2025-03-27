@@ -18,7 +18,6 @@ import { WorldData } from '../world/WorldDesigner';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
-import { StageSidebar } from './StageSidebar';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -633,13 +632,6 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // UI for the voice-guided creation experience
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      {/* Stage Navigation Sidebar */}
-      <StageSidebar 
-        stages={sidebarStages}
-        onStageSelect={handleStageSelect}
-        currentStage={interviewStage}
-      />
-      
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden p-4">
         <div className="flex items-center mb-4 gap-2">
@@ -735,7 +727,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             </CardContent>
           </ScrollArea>
           
-          <div className="p-4 border-t flex gap-2 items-center">
+          <div className="p-4 border-t flex flex-col gap-2">
             {currentAudioUrl && (
               <div className="w-full mb-2">
                 <AudioPlayer 
@@ -745,25 +737,65 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
               </div>
             )}
             
-            <Textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={isListening ? 'Listening...' : 'Type your message...'}
-              className="resize-none flex-1"
-              disabled={isProcessing}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
-            <Button
-              onClick={handleSendMessage}
-              disabled={isProcessing || inputText.trim() === ''}
-            >
-              {isProcessing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
+            <div className="flex gap-2 items-center">
+              <Textarea
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder={isListening ? 'Listening...' : 'Type your message...'}
+                className="resize-none flex-1"
+                disabled={isProcessing}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+              />
+              <Button
+                onClick={handleSendMessage}
+                disabled={isProcessing || inputText.trim() === ''}
+              >
+                {isProcessing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              </Button>
+            </div>
+            
+            {/* Controls for voice interaction */}
+            <div className="flex gap-2 mt-2 justify-center">
+              {/* Button to replay the last AI message */}
+              <Button 
+                variant="outline" 
+                className="flex-1"
+                onClick={() => {
+                  const lastAiMessage = [...messages].reverse().find(msg => msg.sender === 'ai');
+                  if (lastAiMessage) {
+                    speakMessage(lastAiMessage.content);
+                  }
+                }}
+                disabled={isSpeaking}
+              >
+                <Volume2 className="h-4 w-4 mr-2" />
+                Replay Last Message
+              </Button>
+              
+              {/* Button to toggle speech recognition */}
+              <Button 
+                variant={isListening ? "default" : "outline"}
+                className="flex-1"
+                onClick={toggleVoiceRecognition}
+              >
+                {isListening ? (
+                  <>
+                    <MicOff className="h-4 w-4 mr-2" />
+                    Disable Speech Recognition
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-4 w-4 mr-2" />
+                    Enable Speech Recognition
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </Card>
       </div>
