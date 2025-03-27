@@ -58,7 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
 
   const filteredStories = stories.filter(story => 
-    story.title.toLowerCase().includes(searchQuery.toLowerCase())
+    story && story.title ? story.title.toLowerCase().includes(searchQuery.toLowerCase()) : false
   );
 
   return (
@@ -105,7 +105,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 ) : (
                   <BookIcon className="h-4 w-4 mr-2" />
                 )}
-                <span className={story.isActive ? "font-medium" : ""}>{story.title}</span>
+                <span className={story.isActive ? "font-medium" : ""}>{story.title || "Untitled Story"}</span>
               </a>
             </Link>
           ))}
@@ -136,7 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                       ? "font-medium text-primary-700" 
                       : "text-neutral-700"
                   )}>
-                    {chapter.order}. {chapter.title}
+                    {chapter.order || '?'}. {chapter.title || 'Untitled Chapter'}
                   </span>
                   <div className="opacity-0 group-hover:opacity-100">
                     <Button 
@@ -174,9 +174,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                   >
                     <div 
                       className="w-4 h-4 rounded-full mr-2" 
-                      style={{ backgroundColor: character.color }}
+                      style={{ backgroundColor: character.color || '#cccccc' }}
                     />
-                    <span>{character.name}</span>
+                    <span>{character.name || 'Unnamed Character'}</span>
                   </div>
                 ))}
                 
