@@ -33,6 +33,26 @@ interface StageSidebarProps {
   currentStage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready';
 }
 
+// Helper function to determine if a stage should be visible
+const shouldShowStage = (
+  stageName: 'genre' | 'world' | 'characters' | 'influences' | 'details',
+  currentStage: string,
+  stages: StageSidebarProps['stages']
+) => {
+  const stageOrder = ['genre', 'world', 'characters', 'influences', 'details', 'ready'];
+  const currentIndex = stageOrder.indexOf(currentStage);
+  const stageIndex = stageOrder.indexOf(stageName);
+  
+  // Show if: 
+  // 1. It's the current stage
+  // 2. It's a previous stage that has been completed
+  // 3. It's the next stage in the sequence
+  return stageName === currentStage || 
+         (stageIndex < currentIndex) || 
+         (stageIndex === currentIndex + 1) ||
+         stages[stageName]?.isComplete;
+};
+
 export function StageSidebar({ stages, onStageSelect, currentStage }: StageSidebarProps) {
   return (
     <div className="w-64 border-r border-border bg-card h-[calc(100vh-4rem)] flex flex-col">
@@ -43,7 +63,7 @@ export function StageSidebar({ stages, onStageSelect, currentStage }: StageSideb
       
       <ScrollArea className="flex-1 px-2">
         <div className="space-y-3 py-3">
-          {/* Genre Stage Card */}
+          {/* Genre Stage Card - Always visible as it's the first stage */}
           <StageCard 
             icon={<BookOpen className="h-5 w-5" />}
             title="Genre"
@@ -57,57 +77,65 @@ export function StageSidebar({ stages, onStageSelect, currentStage }: StageSideb
             ] : []}
           />
           
-          {/* World Stage Card */}
-          <StageCard 
-            icon={<Map className="h-5 w-5" />}
-            title="World"
-            description={stages.world?.details?.name || "Build your story world"}
-            isComplete={stages.world?.isComplete || false}
-            isActive={currentStage === 'world'}
-            onClick={() => onStageSelect('world')}
-            details={stages.world?.details?.name ? [
-              `Name: ${stages.world.details.name}`,
-              `Setting: ${stages.world.details.setting || 'Various'}`,
-              stages.world.details.regions ? `Regions: ${stages.world.details.regions.slice(0, 2).join(', ')}...` : '',
-            ].filter(Boolean) : []}
-          />
+          {/* World Stage Card - Only show if we're at or past genre stage */}
+          {shouldShowStage('world', currentStage, stages) && (
+            <StageCard 
+              icon={<Map className="h-5 w-5" />}
+              title="World"
+              description={stages.world?.details?.name || "Build your story world"}
+              isComplete={stages.world?.isComplete || false}
+              isActive={currentStage === 'world'}
+              onClick={() => onStageSelect('world')}
+              details={stages.world?.details?.name ? [
+                `Name: ${stages.world.details.name}`,
+                `Setting: ${stages.world.details.setting || 'Various'}`,
+                stages.world.details.regions ? `Regions: ${stages.world.details.regions.slice(0, 2).join(', ')}...` : '',
+              ].filter(Boolean) : []}
+            />
+          )}
           
-          {/* Characters Stage Card */}
-          <StageCard 
-            icon={<Users className="h-5 w-5" />}
-            title="Characters"
-            description={`${stages.characters?.details?.length || 0} character(s) created`}
-            isComplete={stages.characters?.isComplete || false}
-            isActive={currentStage === 'characters'}
-            onClick={() => onStageSelect('characters')}
-            details={stages.characters?.details?.length ? 
-              stages.characters.details.slice(0, 2).map(char => 
-                `${char.name || 'Unnamed'} (${char.role || 'Unknown role'})`
-              ) : []}
-          />
+          {/* Characters Stage Card - Only show if we're at or past world stage */}
+          {shouldShowStage('characters', currentStage, stages) && (
+            <StageCard 
+              icon={<Users className="h-5 w-5" />}
+              title="Characters"
+              description={`${stages.characters?.details?.length || 0} character(s) created`}
+              isComplete={stages.characters?.isComplete || false}
+              isActive={currentStage === 'characters'}
+              onClick={() => onStageSelect('characters')}
+              details={stages.characters?.details?.length ? 
+                stages.characters.details.slice(0, 2).map(char => 
+                  `${char.name || 'Unnamed'} (${char.role || 'Unknown role'})`
+                ) : []}
+            />
+          )}
           
-          {/* Influences Stage Card */}
-          <StageCard 
-            icon={<Sparkles className="h-5 w-5" />}
-            title="Influences"
-            description="Story inspirations & references"
-            isComplete={stages.influences?.isComplete || false}
-            isActive={currentStage === 'influences'}
-            onClick={() => onStageSelect('influences')}
-            details={stages.influences?.items?.length ? 
-              stages.influences.items.slice(0, 3).map(item => `• ${item}`) : []}
-          />
+          {/* Influences Stage Card - Only show if we're at or past characters stage */}
+          {shouldShowStage('influences', currentStage, stages) && (
+            <StageCard 
+              icon={<Sparkles className="h-5 w-5" />}
+              title="Influences"
+              description="Story inspirations & references"
+              isComplete={stages.influences?.isComplete || false}
+              isActive={currentStage === 'influences'}
+              onClick={() => onStageSelect('influences')}
+              details={stages.influences?.items?.length ? 
+                stages.influences.items.slice(0, 3).map(item => `• ${item}`) : []}
+            />
+          )}
           
-          {/* Final Details Stage Card */}
-          <StageCard 
-            icon={<Flame className="h-5 w-5" />}
-            title="Details"
-            description="Final story elements"
-            isComplete={stages.details?.isComplete || false}
-            isActive={currentStage === 'details'}
-            onClick={() => onStageSelect('details')}
-            details={[]}
-          />
+          {/* Final Details Stage Card - Only show if we're at or past influences stage */}
+          {shouldShowStage('details', currentStage, stages) && (
+            <StageCard 
+              icon={<Flame className="h-5 w-5" />}
+              title="Details"
+              description="Final story elements"
+              isComplete={stages.details?.isComplete || false}
+              isActive={currentStage === 'details'}
+              onClick={() => onStageSelect('details')}
+              details={[]}
+            />
+          )}
         </div>
       </ScrollArea>
       
