@@ -285,6 +285,261 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     }
   }, [messages]);
   
+  // Utility function to speak a message using TTS
+  const speakMessage = async (text: string) => {
+    if (!voiceEnabled) return;
+    
+    console.log("Speaking message:", text.slice(0, 50) + "...");
+    setIsSpeaking(true);
+    
+    try {
+      // Use the speak function from useTTS hook (with OpenAI's voice)
+      await speak(text);
+    } catch (error) {
+      console.error("Error speaking message:", error);
+      toast({
+        title: "Voice Error",
+        description: "Could not play voice. Text-to-speech service might be unavailable.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSpeaking(false);
+    }
+  };
+  
+  // Toggle voice recognition on/off
+  const toggleVoiceRecognition = () => {
+    if (isListening) {
+      console.log("Stopping voice recognition");
+      stopRecognition();
+    } else {
+      console.log("Starting voice recognition");
+      startRecognition();
+    }
+  };
+  
+  // Toggle voice output on/off
+  const toggleVoiceOutput = () => {
+    setVoiceEnabled(!voiceEnabled);
+    if (isPlaying) {
+      stopSpeaking();
+    }
+  };
+  
+  // Handle stage selection (from sidebar)
+  const handleStageSelect = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready') => {
+    console.log("Selected stage:", stage);
+    setInterviewStage(stage);
+    
+    // Generate appropriate AI message for the selected stage
+    let stageMessage = '';
+    let suggestions: string[] = [];
+    
+    switch (stage) {
+      case 'genre':
+        stageMessage = "Let's explore the genre for your story. What kind of stories do you enjoy reading or watching?";
+        suggestions = [
+          "I love fantasy stories with magic and adventure",
+          "I'm interested in sci-fi exploring future technology",
+          "I enjoy mysteries and detective stories",
+          "I'd like a story about personal growth and discovery"
+        ];
+        break;
+      case 'world':
+        stageMessage = "Now, let's build the world for your story. What kind of setting do you envision?";
+        suggestions = [
+          "A medieval kingdom with castles and forests",
+          "A futuristic city with advanced technology",
+          "A modern-day setting but with secret magic",
+          "A post-apocalyptic world being rebuilt"
+        ];
+        break;
+      case 'characters':
+        stageMessage = "Let's create some characters for your story. Who would you like the main character to be?";
+        suggestions = [
+          "Someone who discovers they have special abilities",
+          "A person seeking redemption from past mistakes",
+          "An ordinary person thrust into extraordinary circumstances",
+          "Someone challenging the established order"
+        ];
+        break;
+      case 'influences':
+        stageMessage = "What books, movies, or other stories have influenced your taste? Mention any that you'd like to draw inspiration from.";
+        suggestions = [
+          "I love the worldbuilding in Lord of the Rings",
+          "The character depth in stories by Jane Austen",
+          "The plot twists in Agatha Christie's mysteries",
+          "The emotional journey in Pixar films"
+        ];
+        break;
+      case 'details':
+        stageMessage = "Let's add some final details to your story. What themes or messages would you like to explore?";
+        suggestions = [
+          "The importance of friendship and loyalty",
+          "Overcoming personal fears and limitations",
+          "Finding balance between technology and nature",
+          "The complexity of moral choices"
+        ];
+        break;
+      case 'ready':
+        stageMessage = "Great! We have all we need to start your interactive story. Are you ready to begin?";
+        suggestions = [
+          "Yes, let's start the story!",
+          "I'd like to review the details first",
+          "Can we make some final adjustments?",
+          "Tell me how the interactive part works"
+        ];
+        break;
+    }
+    
+    // Add the AI message to the conversation
+    const stageChangeMessage: Message = {
+      id: Date.now().toString(),
+      content: stageMessage,
+      sender: 'ai',
+      timestamp: new Date(),
+      interviewStage: stage,
+      suggestions
+    };
+    
+    setMessages(prev => [...prev, stageChangeMessage]);
+    
+    // Speak the stage message
+    speakMessage(stageMessage);
+  };
+  
+  // Handle story type selection
+  const handleStoryTypeSelect = (type: StoryType) => {
+    setStoryType(type);
+    console.log("Selected story type:", type);
+    
+    const selectedType = storyTypeOptions.find(t => t.id === type);
+    
+    // Add a message acknowledging the choice
+    const typeMessage: Message = {
+      id: Date.now().toString(),
+      content: `You've selected a ${selectedType?.name}. ${selectedType?.description || ''} Let's start building your world. What kind of setting did you have in mind?`,
+      sender: 'ai',
+      timestamp: new Date(),
+      interviewStage: 'world',
+      suggestions: [
+        "A medieval fantasy kingdom",
+        "A futuristic space colony",
+        "A modern city with supernatural elements",
+        "A post-apocalyptic wasteland"
+      ]
+    };
+    
+    setMessages(prev => [...prev, typeMessage]);
+    setInterviewStage('world');
+    
+    // Speak the message
+    speakMessage(typeMessage.content);
+  };
+  
+  // Determine the next stage based on user input and current stage
+  const determineNextStage = (currentStage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', userInput: string): 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready' => {
+    const input = userInput.toLowerCase();
+    
+    // Check for explicit stage transition requests
+    if (input.includes('next stage') || input.includes('move on') || input.includes('continue')) {
+      switch (currentStage) {
+        case 'genre': return 'world';
+        case 'world': return 'characters';
+        case 'characters': return 'influences';
+        case 'influences': return 'details';
+        case 'details': return 'ready';
+        default: return currentStage;
+      }
+    }
+    
+    // Look for stage-specific completion indicators
+    if (currentStage === 'genre' && 
+        (input.includes('world') || input.includes('setting') || input.includes('place'))) {
+      return 'world';
+    }
+    
+    if (currentStage === 'world' && 
+        (input.includes('character') || input.includes('person') || input.includes('people'))) {
+      return 'characters';
+    }
+    
+    if (currentStage === 'characters' && 
+        (input.includes('inspire') || input.includes('influence') || input.includes('like'))) {
+      return 'influences';
+    }
+    
+    if (currentStage === 'influences' && 
+        (input.includes('detail') || input.includes('more') || input.includes('add'))) {
+      return 'details';
+    }
+    
+    if (currentStage === 'details' && 
+        (input.includes('start') || input.includes('begin') || input.includes('ready'))) {
+      return 'ready';
+    }
+    
+    return currentStage; // Stay at the current stage if there's no clear indicator
+  };
+  
+  // Generate suggestions based on the current stage and conversation
+  const generateSuggestions = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', worldData: Partial<WorldData>, characters: Partial<CharacterData>[]) => {
+    let suggestions: string[] = [];
+    
+    switch (stage) {
+      case 'genre':
+        suggestions = [
+          "I enjoy epic fantasy stories",
+          "I'd like a science fiction setting",
+          "I prefer mystery and suspense",
+          "Can we create a romantic story?"
+        ];
+        break;
+      case 'world':
+        suggestions = [
+          "A medieval kingdom with castles and forests",
+          "A futuristic space colony on a distant planet",
+          "A modern city with hidden supernatural elements",
+          "A mysterious island with ancient secrets"
+        ];
+        break;
+      case 'characters':
+        suggestions = [
+          "A hero with a mysterious past",
+          "Someone discovering special abilities",
+          "A reluctant leader forced into action",
+          "A character seeking redemption"
+        ];
+        break;
+      case 'influences':
+        suggestions = [
+          "I love the style of Harry Potter",
+          "Game of Thrones has amazing character work",
+          "The storytelling in The Last of Us",
+          "The world-building of Star Wars"
+        ];
+        break;
+      case 'details':
+        suggestions = [
+          "I'd like to explore themes of friendship",
+          "Can we add some political intrigue?",
+          "I want moral dilemmas as a central theme",
+          "I'd like humor to balance the serious parts"
+        ];
+        break;
+      case 'ready':
+        suggestions = [
+          "Yes, I'm ready to start my story!",
+          "Let's review what we've created first",
+          "Can we make some final adjustments?",
+          "How will the interactive parts work?"
+        ];
+        break;
+    }
+    
+    return suggestions;
+  };
+  
   // Handle sending a user message
   const handleSendMessage = async () => {
     if (inputText.trim() === '' || isProcessing) return;
@@ -306,978 +561,53 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     setIsProcessing(true);
     
     try {
-      // Combine message history for context
-      const context = messages
-        .slice(-8) // Only last 8 messages for context
-        .map(msg => `${msg.sender === 'user' ? 'User' : 'AI'}: ${msg.content}`)
-        .join('\n');
+      // Process the message based on the current stage
+      const nextStage = determineNextStage(currentStage, inputText);
       
-      // Current state data
-      const currentState = {
-        currentStage,
-        interviewStage,
-        inspirations,
-        partialWorld,
-        partialCharacters
-      };
-      
-      // Determine the next interview stage based on current stage and user input
-      let nextStage = currentStage; // Default to staying in current stage
-      let responseContent = '';
-      
-      // ========= GENRE STAGE - Use Genre Creator assistant =========
-      if (currentStage === 'genre') {
-        console.log('Genre stage active, using Genre Creator assistant exclusively');
-        
-        // Add user message to the genre conversation history
-        const updatedGenreConversation = {
-          ...genreConversation,
-          messages: [
-            ...genreConversation.messages,
-            { role: 'user' as const, content: inputText }
-          ]
-        };
-        setGenreConversation(updatedGenreConversation);
-        
-        try {
-          // Prepare input for the Genre Creator assistant
-          let genreInput: GenreCreationInput;
-          
-          if (updatedGenreConversation.messages.length <= 1) {
-            // First message to the assistant - include initial context
-            genreInput = {
-              userInterests: inputText,
-              themes: inspirations.filter(item => !item.toLowerCase().includes('by') && !item.toLowerCase().includes('author')),
-              inspirations: inspirations.filter(item => item.toLowerCase().includes('by') || item.toLowerCase().includes('author')),
-              additionalInfo: "The user wants to create a new story. Help them develop a detailed genre, asking for their preferences and interests. Once you've gathered enough information to define a genre, include a full genre profile in your response."
-            };
-          } else {
-            // Continuing conversation - pass the message history as context
-            const conversationHistory = updatedGenreConversation.messages
-              .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-              .join('\n\n');
-              
-            genreInput = {
-              userInterests: inputText,
-              additionalInfo: conversationHistory + "\n\nContinue helping the user develop their genre. Once they seem satisfied, provide a complete genre profile."
-            };
-          }
-          
-          // Check if this could be the final message in the genre stage
-          const seemsFinished = 
-            inputText.toLowerCase().includes('sounds good') || 
-            inputText.toLowerCase().includes('that works') || 
-            inputText.toLowerCase().includes('i like that') ||
-            inputText.toLowerCase().includes('move on') ||
-            inputText.toLowerCase().includes('next stage') ||
-            (inputText.toLowerCase().includes('world') && 
-            (inputText.toLowerCase().includes('build') || inputText.toLowerCase().includes('create')));
-          
-          // If this seems like the final message, tell the assistant to wrap up
-          if (seemsFinished) {
-            genreInput.additionalInfo += "\n\nThe user seems satisfied with the genre. Please provide a complete final genre profile with name, description, themes, tropes, common settings, typical characters, and worldbuilding elements.";
-          }
-          
-          // Call the Genre Creator assistant through the API
-          console.log('Sending to Genre Creator assistant:', genreInput);
-          const genreDetails = await fetchGenreDetails(genreInput);
-          console.log('Received Genre Creator response:', genreDetails);
-          
-          // Add the assistant's response to the genre conversation
-          const finalGenreConversation = {
-            ...updatedGenreConversation,
-            messages: [
-              ...updatedGenreConversation.messages,
-              { role: 'assistant' as const, content: genreDetails.description }
-            ]
-          };
-          
-          // If this was the final message, mark the genre stage as complete
-          if (seemsFinished) {
-            finalGenreConversation.isComplete = true;
-            finalGenreConversation.summary = genreDetails;
-            
-            // Update the world data with the genre information
-            setPartialWorld(prev => ({
-              ...prev,
-              name: prev.name || `${genreDetails.name} World`,
-              genre: genreDetails.name,
-              setting: genreDetails.commonSettings[0] || prev.setting,
-              description: genreDetails.description,
-              regions: genreDetails.commonSettings,
-              culturalSetting: genreDetails.worldbuildingElements.join(', ')
-            }));
-            
-            // Create a transitional message and prepare to move to world stage
-            responseContent = `Perfect! Based on our conversation, I've developed the "${genreDetails.name}" genre for your story:
-            
-${genreDetails.description}
-
-This genre typically features:
-• Themes: ${genreDetails.themes.join(', ')}
-• Common tropes: ${genreDetails.tropes.join(', ')}
-• Typical settings: ${genreDetails.commonSettings.join(', ')}
-• Key character types: ${genreDetails.typicalCharacters.join(', ')}
-
-Now, let's move on to building your world! What kind of setting would you like for your ${genreDetails.name} story?`;
-
-            // Move to the world stage for the next interaction
-            nextStage = 'world';
-          } else {
-            // Continue the genre conversation with the assistant's response
-            responseContent = genreDetails.description;
-          }
-          
-          setGenreConversation(finalGenreConversation);
-          
-        } catch (error) {
-          console.error('Error with Genre Creator assistant:', error);
-          responseContent = 'I encountered a problem with our genre creation assistant. Please try again with your genre preferences.';
-        }
-      }
-      
-      // Handle world building stage
-      if (currentStage === 'world' && !worldConversation.isComplete && genreConversation.isComplete) {
-        try {
-          console.log('World stage active, handling with World Creator assistant');
-          
-          // Add the user's message to the world conversation history
-          const updatedWorldConversation = {
-            ...worldConversation,
-            messages: [
-              ...worldConversation.messages,
-              { role: 'user' as const, content: inputText }
-            ]
-          };
-          
-          setWorldConversation(updatedWorldConversation);
-          
-          // Prepare context for the world creation
-          let worldContextStr = '';
-          
-          if (updatedWorldConversation.messages.length <= 1) {
-            // First message to the world assistant - include genre summary
-            const genreSummary = genreConversation.summary;
-            worldContextStr = `
-              You are now helping the user create a world for their ${genreSummary?.name} story.
-              Here's what we know about this genre:
-              - Description: ${genreSummary?.description}
-              - Themes: ${genreSummary?.themes.join(', ')}
-              - Common settings: ${genreSummary?.commonSettings.join(', ')}
-              - Typical characters: ${genreSummary?.typicalCharacters.join(', ')}
-              - Worldbuilding elements: ${genreSummary?.worldbuildingElements.join(', ')}
-              
-              The user's first input about the world they want to create is: "${inputText}"
-              
-              Guide them through creating a detailed and cohesive world for their story. Ask about geography, cultures, history, 
-              magic/technology systems, conflicts, and other important world elements.
-            `;
-          } else {
-            // Continuing conversation - include previous messages
-            const conversationHistory = updatedWorldConversation.messages
-              .map(msg => `${msg.role === 'user' ? 'User' : 'AI'}: ${msg.content}`)
-              .join('\n\n');
-              
-            worldContextStr = `
-              Continue helping the user create their story world.
-              Previous conversation:
-              ${conversationHistory}
-              
-              Make sure to guide them through important world-building aspects like geography, cultures, 
-              magic/technology, conflicts, and other key elements. If they've covered enough details, you 
-              can suggest moving on to character creation.
-            `;
-          }
-          
-          // Detect if this might be our final world building message
-          const seemsComplete = 
-            inputText.toLowerCase().includes('sounds good') || 
-            inputText.toLowerCase().includes('that works') || 
-            inputText.toLowerCase().includes('i like that') ||
-            inputText.toLowerCase().includes('move on') ||
-            inputText.toLowerCase().includes('next stage') ||
-            inputText.toLowerCase().includes('character') && 
-            (inputText.toLowerCase().includes('create') || inputText.toLowerCase().includes('add'));
-          
-          // Create message history for the regular interactive story response
-          const charactersList = partialCharacters.filter(char => char.name).map(char => ({
-            id: char.id || 0,
-            name: char.name || 'Unknown',
-            description: char.background || '',
-            traits: char.personality || [],
-            role: char.role
-          }));
-          
-          const messageHistoryFormatted = messages.slice(-8).map(msg => ({
-            sender: msg.sender === 'user' ? 'user' : 'story',
-            content: msg.content
-          }));
-          
-          // Call the interactive story response for now (will replace with World Creator assistant later)
-          const response = await fetchInteractiveStoryResponse(
-            worldContextStr,
-            charactersList,
-            messageHistoryFormatted,
-            inputText
-          );
-          
-          // Add the assistant's response to the conversation
-          const finalWorldConversation = {
-            ...updatedWorldConversation,
-            messages: [
-              ...updatedWorldConversation.messages,
-              { role: 'assistant' as const, content: response.content }
-            ]
-          };
-          
-          // Extract world data from response if possible
-          const extractedWorldData = extractWorldDataFromResponse(response.content);
-          if (extractedWorldData && Object.keys(extractedWorldData).length > 0) {
-            setPartialWorld(prev => ({...prev, ...extractedWorldData}));
-          }
-          
-          // If this seems like the final message in this stage, mark complete and save details
-          if (seemsComplete) {
-            finalWorldConversation.isComplete = true;
-            finalWorldConversation.summary = partialWorld;
-            
-            // Create a transitional response summarizing the world
-            responseContent = `Perfect! I've captured the details of your world:
-            
-Name: ${partialWorld.name || "Your fascinating world"}
-Genre: ${partialWorld.genre || "Custom genre"}
-Setting: ${partialWorld.setting || "A unique setting"}
-${partialWorld.regions && partialWorld.regions.length > 0 ? `Regions: ${partialWorld.regions.join(', ')}` : ''}
-${partialWorld.keyConflicts && partialWorld.keyConflicts.length > 0 ? `Key Conflicts: ${partialWorld.keyConflicts.join(', ')}` : ''}
-${partialWorld.description ? `\nDescription: ${partialWorld.description}` : ''}
-
-Now, let's move on to creating characters for your world! What kind of protagonist would you like to see in this story?`;
-
-            // Set the stage to characters for the next message
-            nextStage = 'characters';
-          } else {
-            // This is a continuation of the world stage conversation
-            responseContent = response.content;
-          }
-          
-          setWorldConversation(finalWorldConversation);
-          
-        } catch (error) {
-          console.error('Error in World Creator stage:', error);
-          responseContent = 'I had some trouble with the World Creator. Let\'s try a different approach. Tell me more about the world you envision for your story.';
-        }
-      }
-      
-      // If we didn't get a response from any specialized assistant,
-      // use the regular interactive story response
-      if (!responseContent) {
-        try {
-          const worldContextStr = `
-            Currently in the ${currentStage} stage of the interview process. 
-            Currently gathered inspirations: ${inspirations.join(', ')}. 
-            Current world building progress: ${JSON.stringify(partialWorld)}. 
-            Current character progress: ${JSON.stringify(partialCharacters)}. 
-            Moving to the ${nextStage} stage after this response.
-            If you identify specific inspirations, world elements, or character traits in the user's input, extract them.
-            Guide the conversation naturally towards building a complete story world following the interview flow:
-            genre → world → characters → influences → details → ready
-          `;
-          
-          const charactersList = partialCharacters.filter(char => char.name).map(char => ({
-            id: char.id || 0,
-            name: char.name || 'Unknown',
-            description: char.background || '',
-            traits: char.personality || [],
-            role: char.role
-          }));
-          
-          const messageHistoryFormatted = messages.slice(-8).map(msg => ({
-            sender: msg.sender === 'user' ? 'user' : 'story',
-            content: msg.content
-          }));
-          
-          const response = await fetchInteractiveStoryResponse(
-            worldContextStr,
-            charactersList,
-            messageHistoryFormatted,
-            inputText
-          );
-          
-          responseContent = response.content;
-        } catch (error) {
-          console.error('Error with fallback interactive story response:', error);
-          responseContent = 'I encountered a problem with our conversation. Let\'s try again. What would you like to discuss about your story?';
-        }
-      }
-      
-      // Process the response to extract structured data
-      const extractedInspirations = extractInspirations(inputText);
-      if (extractedInspirations.length > 0) {
-        setInspirations(prev => [...prev, ...extractedInspirations]);
-      }
-      
-      // Extract world-building elements if they appear in the conversation
-      const extractedWorldData = extractWorldData(inputText);
-      if (extractedWorldData && Object.keys(extractedWorldData).length > 0) {
-        setPartialWorld(prev => ({...prev, ...extractedWorldData}));
-      }
-      
-      // Extract character elements if they appear in the conversation
-      const extractedCharacterData = extractCharacterData(inputText);
-      if (extractedCharacterData && Object.keys(extractedCharacterData).length > 0) {
-        setPartialCharacters(prev => {
-          // If we have a name, try to update an existing character
-          if (extractedCharacterData.name) {
-            const existingIndex = prev.findIndex(c => c.name === extractedCharacterData.name);
-            if (existingIndex >= 0) {
-              const updated = [...prev];
-              updated[existingIndex] = {...updated[existingIndex], ...extractedCharacterData};
-              return updated;
-            }
-          }
-          
-          // Otherwise add as a new character
-          return [...prev, extractedCharacterData];
-        });
-      }
-      
-      // Generate suggestions based on the current conversation
-      const suggestions = generateSuggestions(inputText, currentState);
-      
-      // Create AI response message
-      const aiMessage: Message = {
+      // Create the AI response
+      const aiResponse: Message = {
         id: Date.now().toString(),
-        content: responseContent,
+        content: `Processing your input about: "${inputText.substring(0, 30)}..."`,
         sender: 'ai',
         timestamp: new Date(),
-        interviewStage: nextStage, // Set the next interview stage
-        inspiration: extractedInspirations.length > 0 ? extractedInspirations : undefined,
-        suggestions: suggestions,
-        worldData: extractedWorldData && Object.keys(extractedWorldData).length > 0 ? extractedWorldData : undefined,
-        characterData: extractedCharacterData && Object.keys(extractedCharacterData).length > 0 ? extractedCharacterData : undefined
+        interviewStage: nextStage,
+        suggestions: generateSuggestions(nextStage, partialWorld, partialCharacters)
       };
       
-      setMessages(prev => [...prev, aiMessage]);
+      // Add placeholder response while processing
+      setMessages(prev => [...prev, aiResponse]);
       
-      // Speak the AI's response if voice is enabled
-      if (voiceEnabled) {
-        speakMessage(aiMessage.content);
-      }
+      // Process the user's input and generate a real response
+      // This would integrate with your OpenAI or other AI services
       
-      // Check if we have enough information to create a world or character
-      checkCreationProgress();
+      // For now, simulate a delay
+      setTimeout(() => {
+        // Update with actual response
+        // This is where you would integrate the AI response processing
+        setIsProcessing(false);
+        
+        // Update the interview stage
+        setInterviewStage(nextStage);
+      }, 1000);
       
     } catch (error) {
-      console.error('Error getting AI response:', error);
-      toast({
-        title: "Communication Error",
-        description: "I couldn't process your message. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-  
-  // Speak a message using speech synthesis
-  const speakMessage = (text: string) => {
-    if (!voiceEnabled) {
-      console.log("Voice is disabled, not speaking text");
-      return;
-    }
-    
-    // Don't try to speak empty text
-    if (!text || text.trim() === '') {
-      console.warn("Cannot speak empty text");
-      return;
-    }
-    
-    console.log(`Speaking message (${text.length} chars): "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`);
-    console.log("Current voice:", selectedVoice?.name || "None selected");
-    
-    // Cancel any ongoing speech
-    if (isPlaying) {
-      console.log("Stopping previous speech");
-      stopSpeaking();
-    }
-    
-    // If we don't have a selected voice yet, try to find one
-    if (!selectedVoice && voices.length > 0) {
-      console.log("No voice selected, using first available voice");
-      // Always prefer OpenAI voices
-      const voice = voices.find(v => v.provider === 'openai' && v.id === 'alloy') || 
-                   voices.find(v => v.provider === 'openai') || 
-                   voices[0];
-      changeVoice(voice.id, voice.provider);
-      console.log(`Selected voice: ${voice.name} (${voice.provider})`);
-    }
-    
-    setIsSpeaking(true);
-    
-    // Start speaking immediately, no delay needed
-    speak(text)
-      .then(() => {
-        console.log("Speech completed successfully");
-        setIsSpeaking(false);
-        
-        // Auto-restart speech recognition if needed
-        if (voiceEnabled && !isListening) {
-          console.log("Auto-restarting speech recognition after speaking");
-          setTimeout(() => startRecognition(), 500);
-        }
-      })
-      .catch((error) => {
-        console.error("Error in speech synthesis:", error);
-        setIsSpeaking(false);
-        
-        // Try again with a different OpenAI voice if this fails
-        if (selectedVoice?.provider === 'openai') {
-          const alternateVoice = voices.find(v => 
-            v.provider === 'openai' && v.id !== selectedVoice.id
-          );
-          
-          if (alternateVoice) {
-            console.log(`Retrying with alternate voice: ${alternateVoice.name}`);
-            changeVoice(alternateVoice.id, 'openai');
-            setTimeout(() => speakMessage(text), 500);
-            return;
-          }
-        }
-        
-        toast({
-          title: 'Text-to-Speech Issue',
-          description: 'There was a problem speaking that message. I\'ll continue in text mode.',
-          variant: 'default'
-        });
-      });
-  };
-  
-  // Toggle voice recognition on/off
-  const toggleVoiceRecognition = () => {
-    if (isListening) {
-      console.log("Stopping voice recognition");
-      stopRecognition();
-    } else {
-      console.log("Starting voice recognition");
-      startRecognition();
-    }
-  };
-  
-  // Toggle voice output on/off
-  const toggleVoiceOutput = () => {
-    setVoiceEnabled(!voiceEnabled);
-    if (isPlaying && !voiceEnabled) {
-      stopSpeaking();
-    }
-  };
-  
-  // Extract potential inspirations from user input
-  const extractInspirations = (text: string): string[] => {
-    // This is a simple extraction example - in a real app, this would use more sophisticated NLP
-    const extracted: string[] = [];
-    
-    // Look for book titles (words in quotes)
-    const bookTitleMatch = text.match(/"([^"]+)"/g);
-    if (bookTitleMatch) {
-      bookTitleMatch.forEach(match => {
-        extracted.push(match.replace(/"/g, '').trim());
-      });
-    }
-    
-    // Look for authors (prefixed with "by" or "author")
-    const authorMatch = text.match(/(?:by|author|writer)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/g);
-    if (authorMatch) {
-      authorMatch.forEach(match => {
-        extracted.push(match.trim());
-      });
-    }
-    
-    // Look for genres (simple list of common genres)
-    const genres = ['fantasy', 'sci-fi', 'science fiction', 'mystery', 'romance', 'horror', 'thriller', 'adventure', 'historical fiction', 'dystopian'];
-    genres.forEach(genre => {
-      if (text.toLowerCase().includes(genre)) {
-        extracted.push(genre);
-      }
-    });
-    
-    return extracted;
-  };
-  
-  // Extract world-building elements from user input
-  const extractWorldData = (text: string): Partial<WorldData> | null => {
-    // Very basic extraction - in a real app, this would use more sophisticated NLP or AI
-    const worldData: Partial<WorldData> = {};
-    
-    // Extract world name if it follows a pattern like "world called X" or "world named X"
-    const worldNameMatch = text.match(/world (?:called|named) ([\w\s]+)/i);
-    if (worldNameMatch && worldNameMatch[1]) {
-      worldData.name = worldNameMatch[1].trim();
-    }
-    
-    // Extract setting if mentioned
-    const settingMatch = text.match(/(?:set in|takes place in|setting is) ([\w\s,]+)/i);
-    if (settingMatch && settingMatch[1]) {
-      worldData.setting = settingMatch[1].trim();
-    }
-    
-    // Extract genre if mentioned
-    const genreMatch = text.match(/(?:genre is|in the genre of) ([\w\s-]+)/i);
-    if (genreMatch && genreMatch[1]) {
-      worldData.genre = genreMatch[1].trim();
-    }
-    
-    return Object.keys(worldData).length > 0 ? worldData : null;
-  };
-  
-  // Extract world-building elements from AI response
-  const extractWorldDataFromResponse = (text: string): Partial<WorldData> | null => {
-    // This function attempts to extract structured world data from the AI's response
-    const worldData: Partial<WorldData> = {};
-    
-    // Try to extract a world name
-    const worldNameMatch = text.match(/(?:world called|world named|world of|setting called|setting named) ([\w\s'-]+)/i);
-    if (worldNameMatch && worldNameMatch[1]) {
-      worldData.name = worldNameMatch[1].trim();
-    }
-    
-    // Try to extract the setting type
-    const settingMatch = text.match(/(?:set in|takes place in|a (?:medieval|futuristic|modern|fantasy|sci-fi|dystopian|utopian|post-apocalyptic|ancient|prehistoric|historical|contemporary)) ([\w\s,-]+)/i);
-    if (settingMatch && settingMatch[1]) {
-      worldData.setting = settingMatch[1].trim();
-    }
-    
-    // Try to extract regions if mentioned
-    const regionMatch = text.match(/(?:regions include|areas like|regions like|regions such as|places like) ([\w\s,'-]+)/i);
-    if (regionMatch && regionMatch[1]) {
-      worldData.regions = regionMatch[1].split(',').map(region => region.trim());
-    }
-    
-    // Try to extract conflicts
-    const conflictMatch = text.match(/(?:conflict between|struggles|war between|tension between|conflict with) ([\w\s,'-]+)/i);
-    if (conflictMatch && conflictMatch[1]) {
-      worldData.keyConflicts = conflictMatch[1].split(',').map(conflict => conflict.trim());
-    }
-    
-    // Try to extract cultural elements
-    const cultureMatch = text.match(/(?:culture is|cultural elements include|society is|civilization is) ([\w\s,'-]+)/i);
-    if (cultureMatch && cultureMatch[1]) {
-      worldData.culturalSetting = cultureMatch[1].trim();
-    }
-    
-    // Try to extract technology level
-    const techMatch = text.match(/(?:technology level is|tech level is|technological development is) ([\w\s,'-]+)/i);
-    if (techMatch && techMatch[1]) {
-      worldData.technology = techMatch[1].trim();
-    }
-    
-    // Try to extract magic system
-    const magicMatch = text.match(/(?:magic system|magical elements|supernatural powers) ([\w\s,'-]+)/i);
-    if (magicMatch && magicMatch[1]) {
-      worldData.magicSystem = magicMatch[1].trim();
-    }
-    
-    return Object.keys(worldData).length > 0 ? worldData : null;
-  };
-  
-  // Extract character elements from user input
-  const extractCharacterData = (text: string): Partial<CharacterData> | null => {
-    // Basic extraction - in a real app, this would use more sophisticated NLP or AI
-    const characterData: Partial<CharacterData> = {};
-    
-    // Extract character name if it follows a pattern like "character named X" or "character called X"
-    const characterNameMatch = text.match(/character (?:called|named) ([\w\s]+)/i);
-    if (characterNameMatch && characterNameMatch[1]) {
-      characterData.name = characterNameMatch[1].trim();
-    }
-    
-    // Extract role if mentioned
-    const roleMatch = text.match(/(?:who is|role is|a) ([\w\s]+?) (?:who|that|and)/i);
-    if (roleMatch && roleMatch[1]) {
-      characterData.role = roleMatch[1].trim();
-    }
-    
-    // Extract personality traits (simple comma-separated list)
-    const personalityMatch = text.match(/personality:? ([\w\s,]+)/i);
-    if (personalityMatch && personalityMatch[1]) {
-      characterData.personality = personalityMatch[1].split(',').map(trait => trait.trim());
-    }
-    
-    return Object.keys(characterData).length > 0 ? characterData : null;
-  };
-  
-  const determineNextStage = (
-    currentStage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready',
-    userInput: string
-  ): 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready' => {
-    // If we're at the final stage, stay there
-    if (currentStage === 'ready') {
-      return 'ready';
-    }
-    
-    // Look for explicit mentions of wanting to move to a specific stage
-    if (userInput.toLowerCase().includes('world') && 
-        (userInput.toLowerCase().includes('create') || userInput.toLowerCase().includes('build'))) {
-      return 'world';
-    }
-    
-    if (userInput.toLowerCase().includes('character') && 
-        (userInput.toLowerCase().includes('create') || userInput.toLowerCase().includes('add'))) {
-      return 'characters';
-    }
-    
-    // Sequential advancement through stages
-    switch (currentStage) {
-      case 'genre':
-        return 'world';
-      case 'world':
-        return 'characters';
-      case 'characters':
-        return 'influences';
-      case 'influences':
-        return 'details';
-      case 'details':
-        return 'ready';
-      default:
-        return currentStage; // Stay at the current stage if there's no clear indicator
-    }
-  };
-  
-  const generateSuggestions = (
-    userInput: string, 
-    state: { 
-      currentStage: string; 
-      inspirations: string[]; 
-      partialWorld: Partial<WorldData>; 
-      partialCharacters: Partial<CharacterData>[];
-    }
-  ): string[] => {
-    // Generate contextual suggestions based on current state and user input
-    const suggestions: string[] = [];
-    const { currentStage, inspirations, partialWorld, partialCharacters } = state;
-    
-    // If user seems stuck or isn't providing much, offer help
-    if (userInput.length < 20) {
-      suggestions.push("I need some help getting started");
-      suggestions.push("Can you give me some suggestions?");
-    }
-    
-    // Stage-specific suggestions
-    switch (currentStage) {
-      case 'genre':
-        suggestions.push("I'm interested in fantasy with magical elements");
-        suggestions.push("I'd like to explore a science fiction setting");
-        suggestions.push("I enjoy mystery stories with unexpected twists");
-        break;
-        
-      case 'world':
-        if (!partialWorld.name) {
-          suggestions.push("Let's create a world with floating islands");
-          suggestions.push("I imagine a post-apocalyptic setting");
-        } else {
-          suggestions.push(`Tell me more about the geography of ${partialWorld.name}`);
-          suggestions.push(`What kind of magic system exists in ${partialWorld.name}?`);
-        }
-        break;
-        
-      case 'characters':
-        if (partialCharacters.length === 0) {
-          suggestions.push("I want to create a protagonist who's a reluctant hero");
-          suggestions.push("Let's add a character who's hiding a dark secret");
-        } else {
-          const character = partialCharacters[0];
-          suggestions.push(`Tell me more about ${character.name}'s background`);
-          suggestions.push(`What are ${character.name}'s main goals and motivations?`);
-        }
-        break;
-        
-      case 'influences':
-        suggestions.push("I'm inspired by the writing style of Stephen King");
-        suggestions.push("I like the world-building in Lord of the Rings");
-        suggestions.push("I want something with the mood of Blade Runner");
-        break;
-        
-      case 'details':
-        suggestions.push("I want to focus on themes of redemption");
-        suggestions.push("The story should have a bittersweet ending");
-        suggestions.push("Let's add a plot twist involving betrayal");
-        break;
-        
-      case 'ready':
-        suggestions.push("I'm ready to start my story");
-        suggestions.push("Can we review what we've created so far?");
-        suggestions.push("Let's begin with the first chapter");
-        break;
-    }
-    
-    // Add AI creation option to every stage
-    suggestions.push("Create the rest for me with AI");
-    
-    return suggestions;
-  };
-  
-  const checkCreationProgress = () => {
-    // Check if we have enough information to move to the next stage
-    if (interviewStage === 'ready') {
-      // Check if we have completed a world
-      const isWorldComplete = 
-        partialWorld.name && 
-        partialWorld.genre && 
-        partialWorld.setting && 
-        ((partialWorld.regions && partialWorld.regions.length > 0) || partialWorld.description);
-      
-      // Check if we have completed characters
-      const hasCompletedCharacters = 
-        partialCharacters.length > 0 && 
-        partialCharacters.every(char => 
-          char.name && 
-          char.role && 
-          ((char.personality && char.personality.length > 0) || char.background)
-        );
-      
-      if (isWorldComplete && hasCompletedCharacters) {
-        // We have enough to start the story
-        const completeWorld: WorldData = {
-          id: 1,
-          name: partialWorld.name!,
-          genre: partialWorld.genre || 'Fantasy',
-          setting: partialWorld.setting || 'Unknown',
-          timeframe: partialWorld.timeframe || 'Present day',
-          regions: partialWorld.regions || ['Various'],
-          keyConflicts: partialWorld.keyConflicts || ['To be determined'],
-          importantFigures: partialWorld.importantFigures || ['Various characters'],
-          culturalSetting: partialWorld.culturalSetting || 'Mixed',
-          technology: partialWorld.technology || 'Standard for setting',
-          magicSystem: partialWorld.magicSystem,
-          politicalSystem: partialWorld.politicalSystem || 'Various',
-          description: partialWorld.description || 'A fascinating world waiting to be explored.',
-          complexity: partialWorld.complexity || 3
-        };
-        
-        const completeCharacters = partialCharacters.map(char => ({
-          id: char.id || 1,
-          name: char.name!,
-          role: char.role || 'Unknown',
-          background: char.background || 'Mysterious origins.',
-          personality: char.personality || ['Interesting', 'Complex'],
-          goals: char.goals || ['Seeking purpose'],
-          fears: char.fears || ['Uncertainty'],
-          relationships: char.relationships || ['To be developed'],
-          skills: char.skills || ['Various abilities'],
-          appearance: char.appearance || 'Distinctive look',
-          voice: char.voice || 'Unique voice',
-          depth: char.depth || 3
-        }));
-        
-        // Either pass this to the parent component or render the experience directly
-        onStoryReady(completeWorld, completeCharacters);
-      }
-    }
-  };
-  
-  // Handle direct selection of a story type
-  const handleStoryTypeSelect = (type: StoryType) => {
-    setStoryType(type);
-    
-    // Reflect this in the conversation
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: `I'd like to create a ${type.replace('_', ' ')}`,
-      sender: 'user',
-      timestamp: new Date(),
-      interviewStage: interviewStage
-    };
-    
-    const aiResponse: Message = {
-      id: (Date.now() + 1).toString(),
-      content: `Great choice! A ${type.replace('_', ' ')} is perfect. Let's continue building your world and characters.`,
-      sender: 'ai',
-      timestamp: new Date(),
-      interviewStage: interviewStage
-    };
-    
-    setMessages(prev => [...prev, userMessage, aiResponse]);
-    
-    // Speak the response if voice is enabled
-    if (voiceEnabled) {
-      speakMessage(aiResponse.content);
-    }
-  };
-  
-  // Handle AI generation of the entire story
-  const handleAICreate = () => {
-    setIsProcessing(true);
-    
-    // Create a default world if we don't have one yet
-    const worldForAI = partialWorld.name ? partialWorld : {
-      name: "Mystara",
-      genre: "Fantasy",
-      setting: "Medieval kingdom with magical elements",
-      timeframe: "Ancient era",
-      regions: ["Forest of Whispers", "Crystalline Mountains", "Coastal Cities"],
-      keyConflicts: ["Rising darkness", "Power struggle", "Ancient prophecy"],
-      importantFigures: ["The Seer", "Queen Elara", "Dark Lord Vormyx"],
-      culturalSetting: "Diverse cultures with magic-based social hierarchy",
-      technology: "Medieval with magical innovations",
-      magicSystem: "Elemental magic drawn from nature",
-      politicalSystem: "Monarchy with magical council advisors",
-      description: "A world where magic flows through all living things, creating both harmony and conflict.",
-      complexity: 4
-    };
-    
-    // Create default characters if we don't have any yet
-    const charactersForAI = partialCharacters.length > 0 ? partialCharacters : [
-      {
-        name: "Lyra Moonshadow",
-        role: "Reluctant hero",
-        background: "Orphaned at a young age, Lyra discovered her magical abilities while surviving in the Forest of Whispers.",
-        personality: ["Determined", "Compassionate", "Cautious"],
-        goals: ["Discover her true heritage", "Master her unique magic", "Protect those she cares about"],
-        fears: ["Losing control of her powers", "Being alone", "The darkness that calls to her"],
-        relationships: ["Mentor relationship with The Seer", "Rivalry with Queen's son", "Bond with forest creatures"],
-        skills: ["Nature magic", "Survival", "Animal communication"],
-        appearance: "Silver-haired young woman with violet eyes that glow when using magic",
-        voice: "Soft but confident, with a slight accent from the forest regions",
-        depth: 4
-      },
-      {
-        name: "Thorn Blackwood",
-        role: "Mysterious ally/potential love interest",
-        background: "Former assassin for the royal court who fled after discovering a dark conspiracy",
-        personality: ["Reserved", "Strategic", "Protective"],
-        goals: ["Redemption", "Expose the conspiracy", "Find peace"],
-        fears: ["His past catching up to him", "Betrayal", "Caring too deeply"],
-        relationships: ["Complicated history with Queen Elara", "Reluctant respect for Lyra", "Enemy of Dark Lord"],
-        skills: ["Shadow magic", "Combat expertise", "Information gathering"],
-        appearance: "Tall with dark features and a scar across his right eye, always dressed in dark clothing",
-        voice: "Deep and measured, speaks rarely but meaningfully",
-        depth: 3
-      }
-    ];
-    
-    // Complete world and character data
-    const completeWorld: WorldData = {
-      id: 1,
-      name: worldForAI.name!,
-      genre: worldForAI.genre || 'Fantasy',
-      setting: worldForAI.setting || 'Magical realm',
-      timeframe: worldForAI.timeframe || 'Ancient era',
-      regions: worldForAI.regions || ['Various regions'],
-      keyConflicts: worldForAI.keyConflicts || ['Power struggle'],
-      importantFigures: worldForAI.importantFigures || ['Key characters'],
-      culturalSetting: worldForAI.culturalSetting || 'Diverse cultures',
-      technology: worldForAI.technology || 'Varies by region',
-      magicSystem: worldForAI.magicSystem || 'Elemental magic',
-      politicalSystem: worldForAI.politicalSystem || 'Various systems',
-      description: worldForAI.description || 'A rich and detailed world full of possibility.',
-      complexity: worldForAI.complexity || 4
-    };
-    
-    const completeCharacters = charactersForAI.map(char => ({
-      id: char.id || Math.floor(Math.random() * 1000),
-      name: char.name!,
-      role: char.role || 'Important character',
-      background: char.background || 'Rich and complex history.',
-      personality: char.personality || ['Multifaceted', 'Intriguing'],
-      goals: char.goals || ['Personal objectives'],
-      fears: char.fears || ['Internal struggles'],
-      relationships: char.relationships || ['Complex connections'],
-      skills: char.skills || ['Unique abilities'],
-      appearance: char.appearance || 'Distinctive appearance',
-      voice: char.voice || 'Characteristic voice',
-      depth: char.depth || 4
-    }));
-    
-    // Add a message indicating AI is creating the world
-    const creationMessage: Message = {
-      id: Date.now().toString(),
-      content: "I'll create a complete world and set of characters for your story. Just a moment while I prepare everything...",
-      sender: 'ai',
-      timestamp: new Date(),
-      interviewStage: 'ready'
-    };
-    
-    setMessages(prev => [...prev, creationMessage]);
-    
-    // Speak the message if voice is enabled
-    if (voiceEnabled) {
-      speakMessage(creationMessage.content);
-    }
-    
-    // Simulate a brief delay to make it feel like AI is working
-    setTimeout(() => {
+      console.error('Error processing message:', error);
       setIsProcessing(false);
       
-      // Call the completion callback
-      onStoryReady(completeWorld, completeCharacters);
-      
-      // Add a completion message
-      const completionMessage: Message = {
+      // Add error message
+      const errorMessage: Message = {
         id: Date.now().toString(),
-        content: `Your ${storyType.replace('_', ' ')} is ready! I've created the world of ${completeWorld.name} and characters including ${completeCharacters.map(c => c.name).join(', ')}. Let's start exploring your story!`,
+        content: 'Sorry, I had trouble processing that. Could you try again?',
         sender: 'ai',
         timestamp: new Date(),
-        interviewStage: 'ready'
+        interviewStage: currentStage
       };
       
-      setMessages(prev => [...prev, completionMessage]);
-      
-      // Speak the completion message if voice is enabled
-      if (voiceEnabled) {
-        speakMessage(completionMessage.content);
-      }
-    }, 3000);
-  };
-  
-  // Handle navigating to a stage detail page
-  const handleStageSelect = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready') => {
-    if (stage === 'genre' && genreConversation.isComplete) {
-      window.location.href = '/genre-details';
-    } else if (stage === 'world' && worldConversation.isComplete) {
-      window.location.href = '/world-details';
-    } else if (stage === 'characters' && partialCharacters.length > 0) {
-      window.location.href = '/character-details';
-    } else if (stage === 'ready' && genreConversation.isComplete && worldConversation.isComplete && partialCharacters.length > 0) {
-      // Start the story experience
-      const completeWorld: WorldData = {
-        id: 1,
-        name: partialWorld.name!,
-        genre: partialWorld.genre || 'Fantasy',
-        setting: partialWorld.setting || 'Unknown',
-        timeframe: partialWorld.timeframe || 'Present day',
-        regions: partialWorld.regions || ['Various'],
-        keyConflicts: partialWorld.keyConflicts || ['To be determined'],
-        importantFigures: partialWorld.importantFigures || ['Various characters'],
-        culturalSetting: partialWorld.culturalSetting || 'Mixed',
-        technology: partialWorld.technology || 'Standard for setting',
-        magicSystem: partialWorld.magicSystem,
-        politicalSystem: partialWorld.politicalSystem || 'Various',
-        description: partialWorld.description || 'A fascinating world waiting to be explored.',
-        complexity: partialWorld.complexity || 3
-      };
-      
-      const completeCharacters = partialCharacters.map(char => ({
-        id: char.id || Math.floor(Math.random() * 1000),
-        name: char.name!,
-        role: char.role || 'Unknown',
-        background: char.background || 'Mysterious origins.',
-        personality: char.personality || ['Interesting', 'Complex'],
-        goals: char.goals || ['Seeking purpose'],
-        fears: char.fears || ['Uncertainty'],
-        relationships: char.relationships || ['To be developed'],
-        skills: char.skills || ['Various abilities'],
-        appearance: char.appearance || 'Distinctive look',
-        voice: char.voice || 'Unique voice',
-        depth: char.depth || 3
-      }));
-      
-      onStoryReady(completeWorld, completeCharacters);
-    } else {
-      // Set the current stage to the selected one
-      setInterviewStage(stage);
+      setMessages(prev => [...prev, errorMessage]);
     }
   };
   
-  // Prepare data for the sidebar
+  // Prepare the stages for the sidebar display
   const sidebarStages = {
     genre: {
       isComplete: genreConversation.isComplete,
@@ -1285,10 +615,10 @@ Now, let's move on to creating characters for your world! What kind of protagoni
     },
     world: {
       isComplete: worldConversation.isComplete,
-      details: worldConversation.isComplete ? partialWorld : undefined
+      details: partialWorld
     },
     characters: {
-      isComplete: partialCharacters.length > 0 && partialCharacters.every(char => char.name && char.role),
+      isComplete: partialCharacters.length > 0,
       details: partialCharacters.length > 0 ? partialCharacters : undefined
     },
     influences: {
@@ -1299,7 +629,7 @@ Now, let's move on to creating characters for your world! What kind of protagoni
       isComplete: interviewStage === 'ready'
     }
   };
-
+  
   // UI for the voice-guided creation experience
   return (
     <div className="flex h-[calc(100vh-4rem)]">
@@ -1374,168 +704,69 @@ Now, let's move on to creating characters for your world! What kind of protagoni
                     </div>
                   )}
                   
-                  {/* Show extracted world/character data if available */}
-                  {message.worldData && Object.keys(message.worldData).length > 0 && (
-                    <div className="mt-2 text-sm">
-                      <div className="font-semibold">World Details:</div>
-                      <ul className="list-disc list-inside">
-                        {Object.entries(message.worldData).map(([key, value]) => (
-                          <li key={key}>
-                            {key}: {Array.isArray(value) ? value.join(', ') : value}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  {message.characterData && Object.keys(message.characterData).length > 0 && (
-                    <div className="mt-2 text-sm">
-                      <div className="font-semibold">Character Details:</div>
-                      <ul className="list-disc list-inside">
-                        {Object.entries(message.characterData).map(([key, value]) => (
-                          <li key={key}>
-                            {key}: {Array.isArray(value) ? value.join(', ') : value}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  
-                  {/* Show inspirations if available */}
-                  {message.inspiration && message.inspiration.length > 0 && (
-                    <div className="mt-2">
-                      <span className="text-xs font-medium">Inspirations:</span>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {message.inspiration.map((item, idx) => (
-                          <Badge key={idx} variant="outline" className="text-xs">
-                            {item}
-                          </Badge>
-                        ))}
-                      </div>
+                  {/* Show suggestions if available */}
+                  {message.sender === 'ai' && message.suggestions && message.suggestions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {message.suggestions.map((suggestion, i) => (
+                        <Badge
+                          key={i}
+                          variant="secondary"
+                          className="cursor-pointer hover:bg-secondary/80 transition-colors p-1.5"
+                          onClick={() => {
+                            setInputText(suggestion);
+                            // Auto-submit after a brief delay
+                            setTimeout(() => {
+                              handleSendMessage();
+                            }, 500);
+                          }}
+                        >
+                          {suggestion}
+                        </Badge>
+                      ))}
                     </div>
                   )}
                 </div>
                 
-                {/* Suggestions from AI */}
-                {message.sender === 'ai' && message.suggestions && message.suggestions.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1 max-w-[90%]">
-                    {message.suggestions.map((suggestion, idx) => (
-                      <Button
-                        key={idx}
-                        variant="ghost"
-                        size="sm"
-                        className="h-auto py-1 px-2 text-xs rounded-full bg-muted/50"
-                        onClick={() => {
-                          setInputText(suggestion);
-                          // If it's an AI creation suggestion, handle it directly
-                          if (suggestion === "Create the rest for me with AI") {
-                            handleAICreate();
-                          }
-                        }}
-                      >
-                        {suggestion}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-                
-                <span className="text-xs text-muted-foreground mt-1">
-                  {message.sender === 'user' ? 'You' : 'AI'} · {new Date(message.timestamp).toLocaleTimeString()}
-                </span>
+                <div className="text-xs text-muted-foreground mt-1 px-2">
+                  {message.sender === 'user' ? 'You' : 'AI'} · {message.timestamp.toLocaleTimeString()}
+                </div>
               </div>
             ))}
-            
-            {isProcessing && (
-              <div className="flex items-center space-x-2">
-                <RefreshCw className="h-4 w-4 animate-spin" />
-                <span className="text-sm">Thinking...</span>
-              </div>
-            )}
-          </CardContent>
-        </ScrollArea>
-      </Card>
-      
-      {/* Input area with voice input indicator */}
-      <div className="flex flex-col gap-2">
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={handleAICreate}
-            className="flex items-center gap-1"
-          >
-            <Wand2 className="h-4 w-4" />
-            <span>AI Create For Me</span>
-          </Button>
+            </CardContent>
+          </ScrollArea>
           
-          <Button 
-            variant="default"
-            disabled={interviewStage !== 'ready'}
-            onClick={() => checkCreationProgress()}
-            className="flex items-center gap-1"
-          >
-            <ArrowRight className="h-4 w-4" />
-            <span>Continue</span>
-          </Button>
-        </div>
-        
-        <div className="relative">
-          <Textarea
-            value={inputText}
-            onChange={(e) => setInputText(e.target.value)}
-            placeholder={isListening ? "Listening... (speak or type)" : "Type your message..."}
-            className={`w-full pr-10 ${isListening ? 'border-red-400 dark:border-red-600' : ''}`}
-            rows={3}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-          />
-          <div className="absolute right-3 bottom-3 flex gap-2">
-            {isListening && (
-              <div className="flex items-center justify-center h-6 w-6">
-                <div className="relative h-4 w-4">
-                  <div className="absolute top-0 left-0 h-4 w-4 rounded-full bg-red-500 animate-ping opacity-75"></div>
-                  <div className="absolute top-0 left-0 h-4 w-4 rounded-full bg-red-500"></div>
-                </div>
+          <div className="p-4 border-t flex gap-2 items-center">
+            {currentAudioUrl && (
+              <div className="w-full mb-2">
+                <AudioPlayer 
+                  audioUrl={currentAudioUrl} 
+                  onPlayStateChange={(isPlaying) => setIsSpeaking(isPlaying)}
+                />
               </div>
             )}
-            <Button 
-              size="icon" 
-              variant="ghost" 
+            
+            <Textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder={isListening ? 'Listening...' : 'Type your message...'}
+              className="resize-none flex-1"
+              disabled={isProcessing}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
+            <Button
               onClick={handleSendMessage}
-              disabled={inputText.trim() === '' || isProcessing}
+              disabled={isProcessing || inputText.trim() === ''}
             >
-              <Send className="h-4 w-4" />
+              {isProcessing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
-        </div>
-        
-        {/* Voice status indicator */}
-        {isListening && (
-          <div className="text-xs text-muted-foreground animate-pulse">
-            Listening... {transcript ? `"${transcript}"` : ''}
-          </div>
-        )}
-        {isSpeaking && (
-          <div className="text-xs text-muted-foreground animate-pulse">
-            Speaking...
-          </div>
-        )}
-        
-        {/* Current TTS audio (fallback if useTTS hook integration fails) */}
-        {currentAudioUrl && (
-          <div className="mt-2">
-            <AudioPlayer audioUrl={currentAudioUrl} autoPlay={true} onPlayStateChange={(isPlaying) => {
-              if (!isPlaying) {
-                setIsSpeaking(false);
-              }
-            }} />
-          </div>
-        )}
+        </Card>
       </div>
     </div>
   );
 };
-

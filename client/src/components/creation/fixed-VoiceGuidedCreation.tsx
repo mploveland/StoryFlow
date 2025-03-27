@@ -438,7 +438,10 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   };
   
   // Determine the next stage based on user input and current stage
-  const determineNextStage = (currentStage: string, userInput: string) => {
+  const determineNextStage = (
+    currentStage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', 
+    userInput: string
+  ): 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready' => {
     const input = userInput.toLowerCase();
     
     // Check for explicit stage transition requests
@@ -483,7 +486,11 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   };
   
   // Generate suggestions based on the current stage and conversation
-  const generateSuggestions = (stage: string, worldData: Partial<WorldData>, characters: Partial<CharacterData>[]) => {
+  const generateSuggestions = (
+    stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', 
+    worldData: Partial<WorldData>, 
+    characters: Partial<CharacterData>[]
+  ) => {
     let suggestions: string[] = [];
     
     switch (stage) {

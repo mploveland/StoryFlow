@@ -9,23 +9,23 @@ import { CharacterData } from '../character/CharacterBuilder';
 
 interface StageSidebarProps {
   stages: {
-    genre?: {
+    genre: {
       isComplete: boolean;
       details?: GenreDetails;
     };
-    world?: {
+    world: {
       isComplete: boolean;
       details?: Partial<WorldData>;
     };
-    characters?: {
+    characters: {
       isComplete: boolean;
-      details?: Partial<CharacterData>[];
+      details?: Partial<CharacterData>[] | CharacterData[];
     };
-    influences?: {
+    influences: {
       isComplete: boolean;
       items?: string[];
     };
-    details?: {
+    details: {
       isComplete: boolean;
     };
   };

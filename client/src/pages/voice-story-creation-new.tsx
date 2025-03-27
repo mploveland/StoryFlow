@@ -1,7 +1,7 @@
 import React from 'react';
 import { CharacterData } from '@/components/character/CharacterBuilder';
 import { WorldData } from '@/components/world/WorldDesigner';
-import VoiceGuidedCreation from '@/components/creation/VoiceGuidedCreation';
+import { VoiceGuidedCreation } from '@/components/creation/VoiceGuidedCreation';
 import { StageSidebar } from '@/components/creation/StageSidebar';
 
 // This component will be a wrapper around VoiceGuidedCreation that includes the StageSidebar

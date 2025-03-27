@@ -13,7 +13,7 @@ import { StageSidebar } from '@/components/creation/StageSidebar';
 const VoiceStoryCreationPage: React.FC = () => {
   const [, navigate] = useLocation();
   const { toast } = useToast();
-  const [worldData, setWorldData] = useState<WorldData | null>(null);
+  const [worldData, setWorldData] = useState<Partial<WorldData> | undefined>(undefined);
   const [characters, setCharacters] = useState<CharacterData[]>([]);
   const [storyStarted, setStoryStarted] = useState(false);
   
@@ -56,9 +56,7 @@ const VoiceStoryCreationPage: React.FC = () => {
   // Start the story experience when ready
   const handleStoryReady = (world: WorldData, storyCharacters: CharacterData[]) => {
     // Make sure we have the world
-    if (!worldData) {
-      setWorldData(world);
-    }
+    setWorldData(world);
     
     // Ensure all characters are in the state
     storyCharacters.forEach(char => {
@@ -92,9 +90,9 @@ const VoiceStoryCreationPage: React.FC = () => {
   
   // State to track completed stages
   const [stageStatus, setStageStatus] = useState({
-    genre: { isComplete: false, details: null },
+    genre: { isComplete: false, details: undefined },
     world: { isComplete: false, details: worldData },
-    characters: { isComplete: false, details: characters },
+    characters: { isComplete: false, details: characters.length > 0 ? characters : undefined },
     influences: { isComplete: false, items: [] },
     details: { isComplete: false }
   });
@@ -158,7 +156,7 @@ const VoiceStoryCreationPage: React.FC = () => {
                 handleStoryReady(world, chars);
                 setStageStatus(prev => ({
                   ...prev,
-                  genre: { isComplete: true, details: null },
+                  genre: { isComplete: true, details: undefined },
                   world: { isComplete: true, details: world },
                   characters: { isComplete: true, details: chars },
                   details: { isComplete: true }
@@ -179,11 +177,19 @@ const VoiceStoryCreationPage: React.FC = () => {
           </div>
           
           <div className="h-[80vh] border rounded-lg overflow-hidden bg-white shadow-sm">
-            <StoryExperience 
-              world={worldData as WorldData} 
-              characters={characters}
-              onSaveStory={handleSaveStory}
-            />
+            {worldData && characters.length > 0 ? (
+              <StoryExperience 
+                world={worldData as WorldData} 
+                characters={characters}
+                onSaveStory={handleSaveStory}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <p className="text-lg text-muted-foreground">
+                  Loading story experience...
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
