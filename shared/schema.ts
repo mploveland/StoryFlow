@@ -1,6 +1,7 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, json, jsonb, varchar, pgEnum } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // User schema
 export const users = pgTable("users", {
@@ -19,16 +20,33 @@ export const insertUserSchema = createInsertSchema(users).pick({
   email: true,
 });
 
-// Story schema
-export const stories = pgTable("stories", {
+// World schema (container for stories and characters)
+export const worlds = pgTable("worlds", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").notNull().references(() => users.id),
-  title: text("title").notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
   genre: text("genre"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertWorldSchema = createInsertSchema(worlds).pick({
+  userId: true,
+  name: true,
+  description: true,
+  genre: true,
+});
+
+// Story schema - now referencing worlds instead of directly containing world data
+export const stories = pgTable("stories", {
+  id: serial("id").primaryKey(),
+  worldId: integer("world_id").notNull().references(() => worlds.id),
+  userId: integer("user_id").notNull().references(() => users.id),
+  title: text("title").notNull(),
+  synopsis: text("synopsis"),
   theme: text("theme"),
   setting: text("setting"),
-  worldData: text("world_data"), // JSON string of world data
-  characters: text("characters"), // JSON string of characters array
   creationProgress: text("creation_progress"), // JSON string of creation progress state
   status: varchar("status", { length: 20 }), // 'draft', 'in-progress', 'ready', 'published'
   createdAt: timestamp("created_at").defaultNow(),
@@ -36,16 +54,41 @@ export const stories = pgTable("stories", {
 });
 
 export const insertStorySchema = createInsertSchema(stories).pick({
+  worldId: true,
   userId: true,
   title: true,
-  genre: true,
-  theme: true,
+  synopsis: true,
+  theme: true, 
   setting: true,
-  worldData: true,
-  characters: true,
   creationProgress: true,
   status: true,
 });
+
+// Relations for worlds
+export const worldsRelations = relations(worlds, ({ one, many }) => ({
+  user: one(users, {
+    fields: [worlds.userId],
+    references: [users.id],
+  }),
+  stories: many(stories),
+  characters: many(characters),
+  worldDetails: one(worldDetails),
+  genreDetails: one(genreDetails),
+}));
+
+// Relations for stories
+export const storiesRelations = relations(stories, ({ one, many }) => ({
+  world: one(worlds, {
+    fields: [stories.worldId],
+    references: [worlds.id],
+  }),
+  user: one(users, {
+    fields: [stories.userId],
+    references: [users.id],
+  }),
+  chapters: many(chapters),
+  storyCharacters: many(storyCharacters),
+}));
 
 // Chapter schema
 export const chapters = pgTable("chapters", {
@@ -67,28 +110,180 @@ export const insertChapterSchema = createInsertSchema(chapters).pick({
   wordCount: true,
 });
 
-// Character schema
+// Relations for chapters
+export const chaptersRelations = relations(chapters, ({ one, many }) => ({
+  story: one(stories, {
+    fields: [chapters.storyId],
+    references: [stories.id],
+  }),
+  versions: many(versions),
+  suggestions: many(suggestions),
+  narrativeVectors: many(narrativeVectors),
+}));
+
+// Character schema - now associated with worlds, not stories
 export const characters = pgTable("characters", {
   id: serial("id").primaryKey(),
-  storyId: integer("story_id").notNull().references(() => stories.id),
+  worldId: integer("world_id").notNull().references(() => worlds.id),
   name: text("name").notNull(),
   role: text("role"),
-  description: text("description"),
-  traits: text("traits").array(),
+  background: text("background"),
+  personality: text("personality").array(),
+  goals: text("goals").array(),
+  fears: text("fears").array(),
+  skills: text("skills").array(),
+  appearance: text("appearance"),
+  voice: text("voice"),
   secrets: text("secrets"),
-  color: text("color"),
+  quirks: text("quirks").array(),
+  motivations: text("motivations").array(),
+  flaws: text("flaws").array(),
+  threadId: text("thread_id"),
+  // Track character evolution over time
+  evolutionStage: integer("evolution_stage").default(1),
+  significantEvents: jsonb("significant_events").default([]),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertCharacterSchema = createInsertSchema(characters).pick({
-  storyId: true,
+  worldId: true,
   name: true,
   role: true,
-  description: true,
-  traits: true,
+  background: true,
+  personality: true,
+  goals: true,
+  fears: true,
+  skills: true,
+  appearance: true,
+  voice: true,
   secrets: true,
-  color: true,
+  quirks: true,
+  motivations: true,
+  flaws: true,
+  threadId: true,
 });
+
+// Relationship types enum
+export const relationshipTypeEnum = pgEnum('relationship_type', [
+  'friend', 'enemy', 'family', 'ally', 'rival', 'love_interest', 'mentor', 'student', 'acquaintance', 'other'
+]);
+
+// Character relationships - tracks relationships between characters
+export const characterRelationships = pgTable("character_relationships", {
+  id: serial("id").primaryKey(),
+  characterId: integer("character_id").notNull().references(() => characters.id),
+  relatedCharacterId: integer("related_character_id").notNull().references(() => characters.id),
+  relationshipType: relationshipTypeEnum("relationship_type").notNull(),
+  description: text("description"),
+  intensity: integer("intensity").default(5), // 1-10 scale for relationship intensity
+  history: text("history"), // Historical context of the relationship
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCharacterRelationshipSchema = createInsertSchema(characterRelationships).pick({
+  characterId: true,
+  relatedCharacterId: true,
+  relationshipType: true,
+  description: true,
+  intensity: true,
+  history: true,
+});
+
+// Story characters - tracks which characters appear in which stories
+export const storyCharacters = pgTable("story_characters", {
+  id: serial("id").primaryKey(),
+  storyId: integer("story_id").notNull().references(() => stories.id),
+  characterId: integer("character_id").notNull().references(() => characters.id),
+  role: text("role"), // 'protagonist', 'antagonist', 'supporting', etc.
+  importance: integer("importance").default(5), // 1-10 scale
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertStoryCharacterSchema = createInsertSchema(storyCharacters).pick({
+  storyId: true,
+  characterId: true,
+  role: true,
+  importance: true,
+});
+
+// Character event history - tracks significant events in a character's life
+export const characterEvents = pgTable("character_events", {
+  id: serial("id").primaryKey(),
+  characterId: integer("character_id").notNull().references(() => characters.id),
+  storyId: integer("story_id").references(() => stories.id), // Optional - event might not be tied to a specific story
+  chapterId: integer("chapter_id").references(() => chapters.id), // Optional - event might not be tied to a specific chapter
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  impact: text("impact").notNull(), // How this event changed the character
+  date: text("date"), // In-universe date
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCharacterEventSchema = createInsertSchema(characterEvents).pick({
+  characterId: true,
+  storyId: true,
+  chapterId: true,
+  title: true,
+  description: true,
+  impact: true,
+  date: true,
+});
+
+// Relations for characters
+export const charactersRelations = relations(characters, ({ one, many }) => ({
+  world: one(worlds, {
+    fields: [characters.worldId],
+    references: [worlds.id],
+  }),
+  relationships: many(characterRelationships, { relationName: 'primary_character' }),
+  relatedTo: many(characterRelationships, { relationName: 'related_character' }),
+  appearances: many(storyCharacters),
+  events: many(characterEvents),
+}));
+
+// Relations for character relationships
+export const characterRelationshipsRelations = relations(characterRelationships, ({ one }) => ({
+  character: one(characters, {
+    fields: [characterRelationships.characterId],
+    references: [characters.id],
+    relationName: 'primary_character',
+  }),
+  relatedCharacter: one(characters, {
+    fields: [characterRelationships.relatedCharacterId],
+    references: [characters.id],
+    relationName: 'related_character',
+  }),
+}));
+
+// Relations for story characters
+export const storyCharactersRelations = relations(storyCharacters, ({ one }) => ({
+  story: one(stories, {
+    fields: [storyCharacters.storyId],
+    references: [stories.id],
+  }),
+  character: one(characters, {
+    fields: [storyCharacters.characterId],
+    references: [characters.id],
+  }),
+}));
+
+// Relations for character events
+export const characterEventsRelations = relations(characterEvents, ({ one }) => ({
+  character: one(characters, {
+    fields: [characterEvents.characterId],
+    references: [characters.id],
+  }),
+  story: one(stories, {
+    fields: [characterEvents.storyId],
+    references: [stories.id],
+  }),
+  chapter: one(chapters, {
+    fields: [characterEvents.chapterId],
+    references: [chapters.id],
+  }),
+}));
 
 // Version history schema
 export const versions = pgTable("versions", {
@@ -107,6 +302,14 @@ export const insertVersionSchema = createInsertSchema(versions).pick({
   type: true,
 });
 
+// Relations for versions
+export const versionsRelations = relations(versions, ({ one }) => ({
+  chapter: one(chapters, {
+    fields: [versions.chapterId],
+    references: [chapters.id],
+  }),
+}));
+
 // AI Suggestion schema
 export const suggestions = pgTable("suggestions", {
   id: serial("id").primaryKey(),
@@ -124,10 +327,18 @@ export const insertSuggestionSchema = createInsertSchema(suggestions).pick({
   used: true,
 });
 
+// Relations for suggestions
+export const suggestionsRelations = relations(suggestions, ({ one }) => ({
+  chapter: one(chapters, {
+    fields: [suggestions.chapterId],
+    references: [chapters.id],
+  }),
+}));
+
 // Genre details schema
 export const genreDetails = pgTable("genre_details", {
   id: serial("id").primaryKey(),
-  storyId: integer("story_id").notNull().references(() => stories.id),
+  worldId: integer("world_id").notNull().references(() => worlds.id),
   name: text("name").notNull(),
   description: text("description"),
   themes: text("themes").array(),
@@ -146,7 +357,7 @@ export const genreDetails = pgTable("genre_details", {
 });
 
 export const insertGenreDetailsSchema = createInsertSchema(genreDetails).pick({
-  storyId: true,
+  worldId: true,
   name: true,
   description: true,
   themes: true,
@@ -162,10 +373,18 @@ export const insertGenreDetailsSchema = createInsertSchema(genreDetails).pick({
   embeddingJson: true,
 });
 
+// Relations for genre details
+export const genreDetailsRelations = relations(genreDetails, ({ one }) => ({
+  world: one(worlds, {
+    fields: [genreDetails.worldId],
+    references: [worlds.id],
+  }),
+}));
+
 // World details schema
 export const worldDetails = pgTable("world_details", {
   id: serial("id").primaryKey(),
-  storyId: integer("story_id").notNull().references(() => stories.id),
+  worldId: integer("world_id").notNull().references(() => worlds.id),
   name: text("name").notNull(),
   description: text("description"),
   era: text("era"),
@@ -182,10 +401,11 @@ export const worldDetails = pgTable("world_details", {
   // Embeddings will be implemented later with pgvector
   embeddingJson: jsonb("embedding_json"),
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertWorldDetailsSchema = createInsertSchema(worldDetails).pick({
-  storyId: true,
+  worldId: true,
   name: true,
   description: true,
   era: true,
@@ -201,6 +421,14 @@ export const insertWorldDetailsSchema = createInsertSchema(worldDetails).pick({
   threadId: true,
   embeddingJson: true,
 });
+
+// Relations for world details
+export const worldDetailsRelations = relations(worldDetails, ({ one }) => ({
+  world: one(worlds, {
+    fields: [worldDetails.worldId],
+    references: [worlds.id],
+  }),
+}));
 
 // Narrative vector store for semantic search
 export const narrativeVectors = pgTable("narrative_vectors", {
@@ -222,9 +450,24 @@ export const insertNarrativeVectorSchema = createInsertSchema(narrativeVectors).
   embeddingJson: true,
 });
 
+// Relations for narrative vectors
+export const narrativeVectorsRelations = relations(narrativeVectors, ({ one }) => ({
+  story: one(stories, {
+    fields: [narrativeVectors.storyId],
+    references: [stories.id],
+  }),
+  chapter: one(chapters, {
+    fields: [narrativeVectors.chapterId],
+    references: [chapters.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+
+export type World = typeof worlds.$inferSelect;
+export type InsertWorld = z.infer<typeof insertWorldSchema>;
 
 export type Story = typeof stories.$inferSelect;
 export type InsertStory = z.infer<typeof insertStorySchema>;
@@ -234,6 +477,15 @@ export type InsertChapter = z.infer<typeof insertChapterSchema>;
 
 export type Character = typeof characters.$inferSelect;
 export type InsertCharacter = z.infer<typeof insertCharacterSchema>;
+
+export type CharacterRelationship = typeof characterRelationships.$inferSelect;
+export type InsertCharacterRelationship = z.infer<typeof insertCharacterRelationshipSchema>;
+
+export type StoryCharacter = typeof storyCharacters.$inferSelect;
+export type InsertStoryCharacter = z.infer<typeof insertStoryCharacterSchema>;
+
+export type CharacterEvent = typeof characterEvents.$inferSelect;
+export type InsertCharacterEvent = z.infer<typeof insertCharacterEventSchema>;
 
 export type Version = typeof versions.$inferSelect;
 export type InsertVersion = z.infer<typeof insertVersionSchema>;

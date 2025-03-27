@@ -1,8 +1,12 @@
 import { 
   users, type User, type InsertUser,
+  worlds, type World, type InsertWorld,
   stories, type Story, type InsertStory,
   chapters, type Chapter, type InsertChapter,
   characters, type Character, type InsertCharacter,
+  characterRelationships, type CharacterRelationship, type InsertCharacterRelationship,
+  storyCharacters, type StoryCharacter, type InsertStoryCharacter,
+  characterEvents, type CharacterEvent, type InsertCharacterEvent,
   versions, type Version, type InsertVersion,
   suggestions, type Suggestion, type InsertSuggestion,
   genreDetails, type GenreDetails, type InsertGenreDetails,
@@ -18,8 +22,16 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   
+  // World operations
+  getWorlds(userId: number): Promise<World[]>;
+  getWorld(id: number): Promise<World | undefined>;
+  createWorld(world: InsertWorld): Promise<World>;
+  updateWorld(id: number, world: Partial<InsertWorld>): Promise<World | undefined>;
+  deleteWorld(id: number): Promise<boolean>;
+  
   // Story operations
-  getStories(userId: number): Promise<Story[]>;
+  getStoriesByUser(userId: number): Promise<Story[]>;
+  getStoriesByWorld(worldId: number): Promise<Story[]>;
   getStory(id: number): Promise<Story | undefined>;
   createStory(story: InsertStory): Promise<Story>;
   updateStory(id: number, story: Partial<InsertStory>): Promise<Story | undefined>;
@@ -33,11 +45,34 @@ export interface IStorage {
   deleteChapter(id: number): Promise<boolean>;
   
   // Character operations
-  getCharacters(storyId: number): Promise<Character[]>;
+  getCharactersByWorld(worldId: number): Promise<Character[]>;
   getCharacter(id: number): Promise<Character | undefined>;
   createCharacter(character: InsertCharacter): Promise<Character>;
   updateCharacter(id: number, character: Partial<InsertCharacter>): Promise<Character | undefined>;
   deleteCharacter(id: number): Promise<boolean>;
+  
+  // Character relationship operations
+  getCharacterRelationships(characterId: number): Promise<CharacterRelationship[]>;
+  getCharacterRelationship(id: number): Promise<CharacterRelationship | undefined>;
+  createCharacterRelationship(relationship: InsertCharacterRelationship): Promise<CharacterRelationship>;
+  updateCharacterRelationship(id: number, relationship: Partial<InsertCharacterRelationship>): Promise<CharacterRelationship | undefined>;
+  deleteCharacterRelationship(id: number): Promise<boolean>;
+  
+  // Story character operations
+  getStoryCharacters(storyId: number): Promise<StoryCharacter[]>;
+  getStoryCharactersByCharacter(characterId: number): Promise<StoryCharacter[]>;
+  getStoryCharacter(id: number): Promise<StoryCharacter | undefined>;
+  createStoryCharacter(storyCharacter: InsertStoryCharacter): Promise<StoryCharacter>;
+  updateStoryCharacter(id: number, storyCharacter: Partial<InsertStoryCharacter>): Promise<StoryCharacter | undefined>;
+  deleteStoryCharacter(id: number): Promise<boolean>;
+  
+  // Character event operations
+  getCharacterEvents(characterId: number): Promise<CharacterEvent[]>;
+  getCharacterEventsByStory(storyId: number): Promise<CharacterEvent[]>;
+  getCharacterEvent(id: number): Promise<CharacterEvent | undefined>;
+  createCharacterEvent(event: InsertCharacterEvent): Promise<CharacterEvent>;
+  updateCharacterEvent(id: number, event: Partial<InsertCharacterEvent>): Promise<CharacterEvent | undefined>;
+  deleteCharacterEvent(id: number): Promise<boolean>;
   
   // Version operations
   getVersions(chapterId: number): Promise<Version[]>;
@@ -52,12 +87,12 @@ export interface IStorage {
   deleteSuggestion(id: number): Promise<boolean>;
   
   // Genre details operations
-  getGenreDetails(storyId: number): Promise<GenreDetails | undefined>;
+  getGenreDetailsByWorld(worldId: number): Promise<GenreDetails | undefined>;
   createGenreDetails(genreDetails: InsertGenreDetails): Promise<GenreDetails>;
   updateGenreDetails(id: number, genreDetails: Partial<InsertGenreDetails>): Promise<GenreDetails | undefined>;
   
   // World details operations
-  getWorldDetails(storyId: number): Promise<WorldDetails | undefined>;
+  getWorldDetailsByWorld(worldId: number): Promise<WorldDetails | undefined>;
   createWorldDetails(worldDetails: InsertWorldDetails): Promise<WorldDetails>;
   updateWorldDetails(id: number, worldDetails: Partial<InsertWorldDetails>): Promise<WorldDetails | undefined>;
   
@@ -84,9 +119,42 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
   
+  // World operations
+  async getWorlds(userId: number): Promise<World[]> {
+    return db.select().from(worlds).where(eq(worlds.userId, userId));
+  }
+  
+  async getWorld(id: number): Promise<World | undefined> {
+    const [world] = await db.select().from(worlds).where(eq(worlds.id, id));
+    return world;
+  }
+  
+  async createWorld(insertWorld: InsertWorld): Promise<World> {
+    const [world] = await db.insert(worlds).values(insertWorld).returning();
+    return world;
+  }
+  
+  async updateWorld(id: number, worldUpdate: Partial<InsertWorld>): Promise<World | undefined> {
+    const [world] = await db
+      .update(worlds)
+      .set({ ...worldUpdate, updatedAt: new Date() })
+      .where(eq(worlds.id, id))
+      .returning();
+    return world;
+  }
+  
+  async deleteWorld(id: number): Promise<boolean> {
+    const [deleted] = await db.delete(worlds).where(eq(worlds.id, id)).returning();
+    return !!deleted;
+  }
+  
   // Story operations
-  async getStories(userId: number): Promise<Story[]> {
+  async getStoriesByUser(userId: number): Promise<Story[]> {
     return db.select().from(stories).where(eq(stories.userId, userId));
+  }
+  
+  async getStoriesByWorld(worldId: number): Promise<Story[]> {
+    return db.select().from(stories).where(eq(stories.worldId, worldId));
   }
   
   async getStory(id: number): Promise<Story | undefined> {
@@ -147,8 +215,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Character operations
-  async getCharacters(storyId: number): Promise<Character[]> {
-    return db.select().from(characters).where(eq(characters.storyId, storyId));
+  async getCharactersByWorld(worldId: number): Promise<Character[]> {
+    return db.select().from(characters).where(eq(characters.worldId, worldId));
   }
   
   async getCharacter(id: number): Promise<Character | undefined> {
@@ -164,7 +232,7 @@ export class DatabaseStorage implements IStorage {
   async updateCharacter(id: number, characterUpdate: Partial<InsertCharacter>): Promise<Character | undefined> {
     const [character] = await db
       .update(characters)
-      .set(characterUpdate)
+      .set({ ...characterUpdate, updatedAt: new Date() })
       .where(eq(characters.id, id))
       .returning();
     return character;
@@ -172,6 +240,101 @@ export class DatabaseStorage implements IStorage {
   
   async deleteCharacter(id: number): Promise<boolean> {
     const [deleted] = await db.delete(characters).where(eq(characters.id, id)).returning();
+    return !!deleted;
+  }
+  
+  // Character relationship operations
+  async getCharacterRelationships(characterId: number): Promise<CharacterRelationship[]> {
+    return db.select().from(characterRelationships).where(eq(characterRelationships.characterId, characterId));
+  }
+  
+  async getCharacterRelationship(id: number): Promise<CharacterRelationship | undefined> {
+    const [relationship] = await db.select().from(characterRelationships).where(eq(characterRelationships.id, id));
+    return relationship;
+  }
+  
+  async createCharacterRelationship(insertRelationship: InsertCharacterRelationship): Promise<CharacterRelationship> {
+    const [relationship] = await db.insert(characterRelationships).values(insertRelationship).returning();
+    return relationship;
+  }
+  
+  async updateCharacterRelationship(id: number, relationshipUpdate: Partial<InsertCharacterRelationship>): Promise<CharacterRelationship | undefined> {
+    const [relationship] = await db
+      .update(characterRelationships)
+      .set({ ...relationshipUpdate, updatedAt: new Date() })
+      .where(eq(characterRelationships.id, id))
+      .returning();
+    return relationship;
+  }
+  
+  async deleteCharacterRelationship(id: number): Promise<boolean> {
+    const [deleted] = await db.delete(characterRelationships).where(eq(characterRelationships.id, id)).returning();
+    return !!deleted;
+  }
+  
+  // Story character operations
+  async getStoryCharacters(storyId: number): Promise<StoryCharacter[]> {
+    return db.select().from(storyCharacters).where(eq(storyCharacters.storyId, storyId));
+  }
+  
+  async getStoryCharactersByCharacter(characterId: number): Promise<StoryCharacter[]> {
+    return db.select().from(storyCharacters).where(eq(storyCharacters.characterId, characterId));
+  }
+  
+  async getStoryCharacter(id: number): Promise<StoryCharacter | undefined> {
+    const [storyCharacter] = await db.select().from(storyCharacters).where(eq(storyCharacters.id, id));
+    return storyCharacter;
+  }
+  
+  async createStoryCharacter(insertStoryCharacter: InsertStoryCharacter): Promise<StoryCharacter> {
+    const [storyCharacter] = await db.insert(storyCharacters).values(insertStoryCharacter).returning();
+    return storyCharacter;
+  }
+  
+  async updateStoryCharacter(id: number, storyCharacterUpdate: Partial<InsertStoryCharacter>): Promise<StoryCharacter | undefined> {
+    const [storyCharacter] = await db
+      .update(storyCharacters)
+      .set(storyCharacterUpdate)
+      .where(eq(storyCharacters.id, id))
+      .returning();
+    return storyCharacter;
+  }
+  
+  async deleteStoryCharacter(id: number): Promise<boolean> {
+    const [deleted] = await db.delete(storyCharacters).where(eq(storyCharacters.id, id)).returning();
+    return !!deleted;
+  }
+  
+  // Character event operations
+  async getCharacterEvents(characterId: number): Promise<CharacterEvent[]> {
+    return db.select().from(characterEvents).where(eq(characterEvents.characterId, characterId));
+  }
+  
+  async getCharacterEventsByStory(storyId: number): Promise<CharacterEvent[]> {
+    return db.select().from(characterEvents).where(eq(characterEvents.storyId, storyId));
+  }
+  
+  async getCharacterEvent(id: number): Promise<CharacterEvent | undefined> {
+    const [event] = await db.select().from(characterEvents).where(eq(characterEvents.id, id));
+    return event;
+  }
+  
+  async createCharacterEvent(insertEvent: InsertCharacterEvent): Promise<CharacterEvent> {
+    const [event] = await db.insert(characterEvents).values(insertEvent).returning();
+    return event;
+  }
+  
+  async updateCharacterEvent(id: number, eventUpdate: Partial<InsertCharacterEvent>): Promise<CharacterEvent | undefined> {
+    const [event] = await db
+      .update(characterEvents)
+      .set(eventUpdate)
+      .where(eq(characterEvents.id, id))
+      .returning();
+    return event;
+  }
+  
+  async deleteCharacterEvent(id: number): Promise<boolean> {
+    const [deleted] = await db.delete(characterEvents).where(eq(characterEvents.id, id)).returning();
     return !!deleted;
   }
   
@@ -224,8 +387,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   // Genre details operations
-  async getGenreDetails(storyId: number): Promise<GenreDetails | undefined> {
-    const [details] = await db.select().from(genreDetails).where(eq(genreDetails.storyId, storyId));
+  async getGenreDetailsByWorld(worldId: number): Promise<GenreDetails | undefined> {
+    const [details] = await db.select().from(genreDetails).where(eq(genreDetails.worldId, worldId));
     return details;
   }
   
@@ -244,8 +407,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   // World details operations
-  async getWorldDetails(storyId: number): Promise<WorldDetails | undefined> {
-    const [details] = await db.select().from(worldDetails).where(eq(worldDetails.storyId, storyId));
+  async getWorldDetailsByWorld(worldId: number): Promise<WorldDetails | undefined> {
+    const [details] = await db.select().from(worldDetails).where(eq(worldDetails.worldId, worldId));
     return details;
   }
   
@@ -280,9 +443,13 @@ export class DatabaseStorage implements IStorage {
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
+  private worlds: Map<number, World>;
   private stories: Map<number, Story>;
   private chapters: Map<number, Chapter>;
   private characters: Map<number, Character>;
+  private characterRelationships: Map<number, CharacterRelationship>;
+  private storyCharacters: Map<number, StoryCharacter>;
+  private characterEvents: Map<number, CharacterEvent>;
   private versions: Map<number, Version>;
   private suggestions: Map<number, Suggestion>;
   private genreDetails: Map<number, GenreDetails>;
@@ -290,9 +457,13 @@ export class MemStorage implements IStorage {
   private narrativeVectors: Map<number, NarrativeVector>;
   
   private userId: number;
+  private worldId: number;
   private storyId: number;
   private chapterId: number;
   private characterId: number;
+  private relationshipId: number;
+  private storyCharacterId: number;
+  private eventId: number;
   private versionId: number;
   private suggestionId: number;
   private genreDetailsId: number;
@@ -301,9 +472,13 @@ export class MemStorage implements IStorage {
   
   constructor() {
     this.users = new Map();
+    this.worlds = new Map();
     this.stories = new Map();
     this.chapters = new Map();
     this.characters = new Map();
+    this.characterRelationships = new Map();
+    this.storyCharacters = new Map();
+    this.characterEvents = new Map();
     this.versions = new Map();
     this.suggestions = new Map();
     this.genreDetails = new Map();
@@ -311,9 +486,13 @@ export class MemStorage implements IStorage {
     this.narrativeVectors = new Map();
     
     this.userId = 1;
+    this.worldId = 1;
     this.storyId = 1;
     this.chapterId = 1;
     this.characterId = 1;
+    this.relationshipId = 1;
+    this.storyCharacterId = 1;
+    this.eventId = 1;
     this.versionId = 1;
     this.suggestionId = 1;
     this.genreDetailsId = 1;
@@ -350,10 +529,58 @@ export class MemStorage implements IStorage {
     return user;
   }
   
+  // World operations
+  async getWorlds(userId: number): Promise<World[]> {
+    return Array.from(this.worlds.values()).filter(
+      (world) => world.userId === userId,
+    );
+  }
+  
+  async getWorld(id: number): Promise<World | undefined> {
+    return this.worlds.get(id);
+  }
+  
+  async createWorld(insertWorld: InsertWorld): Promise<World> {
+    const id = this.worldId++;
+    const now = new Date();
+    const world: World = {
+      ...insertWorld,
+      id,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.worlds.set(id, world);
+    return world;
+  }
+  
+  async updateWorld(id: number, worldUpdate: Partial<InsertWorld>): Promise<World | undefined> {
+    const world = this.worlds.get(id);
+    if (!world) return undefined;
+    
+    const updatedWorld: World = {
+      ...world,
+      ...worldUpdate,
+      updatedAt: new Date(),
+    };
+    
+    this.worlds.set(id, updatedWorld);
+    return updatedWorld;
+  }
+  
+  async deleteWorld(id: number): Promise<boolean> {
+    return this.worlds.delete(id);
+  }
+  
   // Story operations
-  async getStories(userId: number): Promise<Story[]> {
+  async getStoriesByUser(userId: number): Promise<Story[]> {
     return Array.from(this.stories.values()).filter(
       (story) => story.userId === userId,
+    );
+  }
+  
+  async getStoriesByWorld(worldId: number): Promise<Story[]> {
+    return Array.from(this.stories.values()).filter(
+      (story) => story.worldId === worldId,
     );
   }
   
@@ -431,9 +658,9 @@ export class MemStorage implements IStorage {
   }
   
   // Character operations
-  async getCharacters(storyId: number): Promise<Character[]> {
+  async getCharactersByWorld(worldId: number): Promise<Character[]> {
     return Array.from(this.characters.values()).filter(
-      (character) => character.storyId === storyId,
+      (character) => character.worldId === worldId,
     );
   }
   
@@ -447,7 +674,10 @@ export class MemStorage implements IStorage {
     const character: Character = { 
       ...insertCharacter, 
       id, 
-      createdAt: now 
+      createdAt: now,
+      updatedAt: now,
+      evolutionStage: 1,
+      significantEvents: []
     };
     
     this.characters.set(id, character);
@@ -460,7 +690,8 @@ export class MemStorage implements IStorage {
     
     const updatedCharacter: Character = { 
       ...character, 
-      ...characterUpdate
+      ...characterUpdate,
+      updatedAt: new Date()
     };
     
     this.characters.set(id, updatedCharacter);
@@ -469,6 +700,143 @@ export class MemStorage implements IStorage {
   
   async deleteCharacter(id: number): Promise<boolean> {
     return this.characters.delete(id);
+  }
+  
+  // Character relationship operations
+  async getCharacterRelationships(characterId: number): Promise<CharacterRelationship[]> {
+    return Array.from(this.characterRelationships.values()).filter(
+      (relationship) => relationship.characterId === characterId,
+    );
+  }
+  
+  async getCharacterRelationship(id: number): Promise<CharacterRelationship | undefined> {
+    return this.characterRelationships.get(id);
+  }
+  
+  async createCharacterRelationship(insertRelationship: InsertCharacterRelationship): Promise<CharacterRelationship> {
+    const id = this.relationshipId++;
+    const now = new Date();
+    const relationship: CharacterRelationship = {
+      ...insertRelationship,
+      id,
+      createdAt: now,
+      updatedAt: now
+    };
+    
+    this.characterRelationships.set(id, relationship);
+    return relationship;
+  }
+  
+  async updateCharacterRelationship(id: number, relationshipUpdate: Partial<InsertCharacterRelationship>): Promise<CharacterRelationship | undefined> {
+    const relationship = this.characterRelationships.get(id);
+    if (!relationship) return undefined;
+    
+    const updatedRelationship: CharacterRelationship = {
+      ...relationship,
+      ...relationshipUpdate,
+      updatedAt: new Date()
+    };
+    
+    this.characterRelationships.set(id, updatedRelationship);
+    return updatedRelationship;
+  }
+  
+  async deleteCharacterRelationship(id: number): Promise<boolean> {
+    return this.characterRelationships.delete(id);
+  }
+  
+  // Story character operations
+  async getStoryCharacters(storyId: number): Promise<StoryCharacter[]> {
+    return Array.from(this.storyCharacters.values()).filter(
+      (storyCharacter) => storyCharacter.storyId === storyId,
+    );
+  }
+  
+  async getStoryCharactersByCharacter(characterId: number): Promise<StoryCharacter[]> {
+    return Array.from(this.storyCharacters.values()).filter(
+      (storyCharacter) => storyCharacter.characterId === characterId,
+    );
+  }
+  
+  async getStoryCharacter(id: number): Promise<StoryCharacter | undefined> {
+    return this.storyCharacters.get(id);
+  }
+  
+  async createStoryCharacter(insertStoryCharacter: InsertStoryCharacter): Promise<StoryCharacter> {
+    const id = this.storyCharacterId++;
+    const now = new Date();
+    const storyCharacter: StoryCharacter = {
+      ...insertStoryCharacter,
+      id,
+      createdAt: now
+    };
+    
+    this.storyCharacters.set(id, storyCharacter);
+    return storyCharacter;
+  }
+  
+  async updateStoryCharacter(id: number, storyCharacterUpdate: Partial<InsertStoryCharacter>): Promise<StoryCharacter | undefined> {
+    const storyCharacter = this.storyCharacters.get(id);
+    if (!storyCharacter) return undefined;
+    
+    const updatedStoryCharacter: StoryCharacter = {
+      ...storyCharacter,
+      ...storyCharacterUpdate
+    };
+    
+    this.storyCharacters.set(id, updatedStoryCharacter);
+    return updatedStoryCharacter;
+  }
+  
+  async deleteStoryCharacter(id: number): Promise<boolean> {
+    return this.storyCharacters.delete(id);
+  }
+  
+  // Character event operations
+  async getCharacterEvents(characterId: number): Promise<CharacterEvent[]> {
+    return Array.from(this.characterEvents.values()).filter(
+      (event) => event.characterId === characterId,
+    );
+  }
+  
+  async getCharacterEventsByStory(storyId: number): Promise<CharacterEvent[]> {
+    return Array.from(this.characterEvents.values()).filter(
+      (event) => event.storyId === storyId,
+    );
+  }
+  
+  async getCharacterEvent(id: number): Promise<CharacterEvent | undefined> {
+    return this.characterEvents.get(id);
+  }
+  
+  async createCharacterEvent(insertEvent: InsertCharacterEvent): Promise<CharacterEvent> {
+    const id = this.eventId++;
+    const now = new Date();
+    const event: CharacterEvent = {
+      ...insertEvent,
+      id,
+      createdAt: now
+    };
+    
+    this.characterEvents.set(id, event);
+    return event;
+  }
+  
+  async updateCharacterEvent(id: number, eventUpdate: Partial<InsertCharacterEvent>): Promise<CharacterEvent | undefined> {
+    const event = this.characterEvents.get(id);
+    if (!event) return undefined;
+    
+    const updatedEvent: CharacterEvent = {
+      ...event,
+      ...eventUpdate
+    };
+    
+    this.characterEvents.set(id, updatedEvent);
+    return updatedEvent;
+  }
+  
+  async deleteCharacterEvent(id: number): Promise<boolean> {
+    return this.characterEvents.delete(id);
   }
   
   // Version operations
@@ -537,9 +905,9 @@ export class MemStorage implements IStorage {
   }
   
   // Genre details operations
-  async getGenreDetails(storyId: number): Promise<GenreDetails | undefined> {
+  async getGenreDetailsByWorld(worldId: number): Promise<GenreDetails | undefined> {
     return Array.from(this.genreDetails.values()).find(
-      (details) => details.storyId === storyId
+      (details) => details.worldId === worldId
     );
   }
   
@@ -570,9 +938,9 @@ export class MemStorage implements IStorage {
   }
   
   // World details operations
-  async getWorldDetails(storyId: number): Promise<WorldDetails | undefined> {
+  async getWorldDetailsByWorld(worldId: number): Promise<WorldDetails | undefined> {
     return Array.from(this.worldDetails.values()).find(
-      (details) => details.storyId === storyId
+      (details) => details.worldId === worldId
     );
   }
   
@@ -582,7 +950,8 @@ export class MemStorage implements IStorage {
     const details: WorldDetails = {
       ...insertWorldDetails,
       id,
-      createdAt: now
+      createdAt: now,
+      updatedAt: now
     };
     
     this.worldDetails.set(id, details);
@@ -595,7 +964,8 @@ export class MemStorage implements IStorage {
     
     const updatedDetails: WorldDetails = {
       ...details,
-      ...worldDetailsUpdate
+      ...worldDetailsUpdate,
+      updatedAt: new Date()
     };
     
     this.worldDetails.set(id, updatedDetails);
