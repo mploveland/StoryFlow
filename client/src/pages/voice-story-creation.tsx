@@ -105,8 +105,18 @@ const VoiceStoryCreationPage: React.FC = () => {
   }, [storyData]);
   
   // Handle world creation from voice guidance
-  const handleWorldCreated = (world: WorldData) => {
+  const handleWorldCreated = (world: WorldData, worldConversation?: any) => {
     setWorldData(world);
+    
+    // Update stage status to include conversation state
+    setStageStatus(prev => ({
+      ...prev,
+      world: { 
+        isComplete: true, 
+        details: world,
+        worldConversation: worldConversation || prev.world.worldConversation
+      }
+    }));
     
     // Save to database if we have a story ID
     if (storyId) {
@@ -122,7 +132,7 @@ const VoiceStoryCreationPage: React.FC = () => {
   };
   
   // Handle character creation from voice guidance
-  const handleCharacterCreated = (character: CharacterData) => {
+  const handleCharacterCreated = (character: CharacterData, characterConversation?: any) => {
     // Add unique ID if not present
     if (!character.id) {
       character.id = Date.now();
@@ -139,6 +149,37 @@ const VoiceStoryCreationPage: React.FC = () => {
       }
       // Add new character
       return [...prev, character];
+    });
+    
+    // Update stage status to include conversation state
+    setStageStatus(prev => {
+      // Get the current character list from the stage status or use an empty array
+      const currentCharacters = prev.characters.details || [];
+      
+      // Check if this character already exists in the stage status
+      let existingIndex = -1;
+      if (Array.isArray(currentCharacters)) {
+        existingIndex = currentCharacters.findIndex((c: CharacterData) => c.name === character.name);
+      }
+      
+      let updatedCharacters;
+      if (existingIndex >= 0) {
+        // Replace existing character
+        updatedCharacters = [...currentCharacters];
+        updatedCharacters[existingIndex] = character;
+      } else {
+        // Add new character
+        updatedCharacters = [...currentCharacters, character];
+      }
+      
+      return {
+        ...prev,
+        characters: {
+          isComplete: true,
+          details: updatedCharacters,
+          characterConversation: characterConversation || prev.characters.characterConversation
+        }
+      };
     });
     
     // Save updated characters list to database
@@ -159,7 +200,13 @@ const VoiceStoryCreationPage: React.FC = () => {
   };
   
   // Start the story experience when ready
-  const handleStoryReady = (world: WorldData, storyCharacters: CharacterData[]) => {
+  const handleStoryReady = (
+    world: WorldData, 
+    storyCharacters: CharacterData[],
+    genreConversation?: any,
+    worldConversation?: any,
+    characterConversation?: any
+  ) => {
     // Make sure we have the world
     setWorldData(world);
     
@@ -167,6 +214,29 @@ const VoiceStoryCreationPage: React.FC = () => {
     storyCharacters.forEach(char => {
       handleCharacterCreated(char);
     });
+    
+    // Update stage status to include conversation states
+    setStageStatus(prev => ({
+      ...prev,
+      genre: {
+        ...prev.genre,
+        isComplete: true,
+        genreConversation: genreConversation || prev.genre.genreConversation
+      },
+      world: {
+        ...prev.world,
+        isComplete: true,
+        details: world,
+        worldConversation: worldConversation || prev.world.worldConversation
+      },
+      characters: {
+        ...prev.characters,
+        isComplete: true,
+        details: storyCharacters,
+        characterConversation: characterConversation || prev.characters.characterConversation
+      },
+      details: { isComplete: true }
+    }));
     
     // Begin the story
     setStoryStarted(true);
@@ -186,6 +256,16 @@ const VoiceStoryCreationPage: React.FC = () => {
     });
   };
   
+  // Create progress object with conversation states
+  const createProgressObject = () => {
+    return {
+      currentStage,
+      stageStatus
+      // Additional conversation states would be added here via callbacks 
+      // from the VoiceGuidedCreation component in a full implementation
+    };
+  };
+  
   // Handle saving the story
   const handleSaveStory = () => {
     if (storyId) {
@@ -193,10 +273,7 @@ const VoiceStoryCreationPage: React.FC = () => {
       updateStoryMutation.mutate({
         worldData: worldData ? JSON.stringify(worldData) : null,
         characters: characters.length > 0 ? JSON.stringify(characters) : null,
-        creationProgress: JSON.stringify({
-          currentStage,
-          stageStatus
-        })
+        creationProgress: JSON.stringify(createProgressObject())
       });
     }
     
@@ -214,8 +291,44 @@ const VoiceStoryCreationPage: React.FC = () => {
   // State to track current creation stage
   const [currentStage, setCurrentStage] = useState<'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready'>('genre');
   
+  // Define interface for stage status to include conversation state
+  interface StageStatus {
+    genre: { 
+      isComplete: boolean; 
+      details?: any; 
+      genreConversation?: {
+        messages: { role: 'user' | 'assistant', content: string }[];
+        isComplete: boolean;
+        summary?: any;
+        threadId?: string;
+      };
+    };
+    world: { 
+      isComplete: boolean; 
+      details?: Partial<WorldData>;
+      worldConversation?: {
+        messages: { role: 'user' | 'assistant', content: string }[];
+        isComplete: boolean;
+        summary?: Partial<WorldData>;
+        threadId?: string;
+      }; 
+    };
+    characters: { 
+      isComplete: boolean; 
+      details?: CharacterData[]; 
+      characterConversation?: {
+        messages: { role: 'user' | 'assistant', content: string }[];
+        isComplete: boolean;
+        summary?: Partial<CharacterData>;
+        threadId?: string;
+      };
+    };
+    influences: { isComplete: boolean; items: string[] };
+    details: { isComplete: boolean };
+  }
+  
   // State to track completed stages
-  const [stageStatus, setStageStatus] = useState({
+  const [stageStatus, setStageStatus] = useState<StageStatus>({
     genre: { isComplete: false, details: undefined },
     world: { isComplete: false, details: worldData },
     characters: { isComplete: false, details: characters.length > 0 ? characters : undefined },
@@ -227,13 +340,10 @@ const VoiceStoryCreationPage: React.FC = () => {
   useEffect(() => {
     if (storyId && !isLoading) {
       updateStoryMutation.mutate({
-        creationProgress: JSON.stringify({
-          currentStage,
-          stageStatus
-        })
+        creationProgress: JSON.stringify(createProgressObject())
       });
     }
-  }, [currentStage, stageStatus]);
+  }, [currentStage, stageStatus, storyId, isLoading]);
   
   // Handle stage selection
   const handleStageSelect = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready') => {
@@ -273,33 +383,22 @@ const VoiceStoryCreationPage: React.FC = () => {
           
           <div className="flex-1">
             <VoiceGuidedCreation
-              onWorldCreated={(world) => {
-                handleWorldCreated(world);
-                setStageStatus(prev => ({
-                  ...prev,
-                  world: { isComplete: true, details: world }
-                }));
+              onWorldCreated={(world, worldConversation) => {
+                handleWorldCreated(world, worldConversation);
               }}
-              onCharacterCreated={(character) => {
-                handleCharacterCreated(character);
-                setStageStatus(prev => ({
-                  ...prev,
-                  characters: { 
-                    isComplete: true, 
-                    details: [...characters, character] 
-                  }
-                }));
+              onCharacterCreated={(character, characterConversation) => {
+                handleCharacterCreated(character, characterConversation);
               }}
-              onStoryReady={(world, chars) => {
-                handleStoryReady(world, chars);
-                setStageStatus(prev => ({
-                  ...prev,
-                  genre: { isComplete: true, details: undefined },
-                  world: { isComplete: true, details: world },
-                  characters: { isComplete: true, details: chars },
-                  details: { isComplete: true }
-                }));
+              onStoryReady={(world, chars, genreConversation, worldConversation, characterConversation) => {
+                handleStoryReady(world, chars, genreConversation, worldConversation, characterConversation);
               }}
+              initialStage={storyData?.creationProgress ? JSON.parse(storyData.creationProgress).currentStage : undefined}
+              initialGenreConversation={storyData?.creationProgress ? 
+                (JSON.parse(storyData.creationProgress).genreConversation || undefined) : undefined}
+              initialWorldConversation={storyData?.creationProgress ? 
+                (JSON.parse(storyData.creationProgress).worldConversation || undefined) : undefined}
+              initialCharacterConversation={storyData?.creationProgress ? 
+                (JSON.parse(storyData.creationProgress).characterConversation || undefined) : undefined}
             />
           </div>
         </div>

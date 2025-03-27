@@ -42,9 +42,68 @@ import {
 } from '@/components/ui/select';
 
 interface VoiceGuidedCreationProps {
-  onWorldCreated: (world: WorldData) => void;
-  onCharacterCreated: (character: CharacterData) => void;
-  onStoryReady: (world: WorldData, characters: CharacterData[]) => void;
+  onWorldCreated: (
+    world: WorldData, 
+    worldConversation?: {
+      messages: { role: 'user' | 'assistant', content: string }[];
+      isComplete: boolean;
+      summary?: Partial<WorldData>;
+      threadId?: string;
+    }
+  ) => void;
+  
+  onCharacterCreated: (
+    character: CharacterData,
+    characterConversation?: {
+      messages: { role: 'user' | 'assistant', content: string }[];
+      isComplete: boolean;
+      summary?: Partial<CharacterData>;
+      threadId?: string;
+    }
+  ) => void;
+  
+  onStoryReady: (
+    world: WorldData, 
+    characters: CharacterData[],
+    genreConversation?: {
+      messages: { role: 'user' | 'assistant', content: string }[];
+      isComplete: boolean;
+      summary?: any;
+      threadId?: string;
+    },
+    worldConversation?: {
+      messages: { role: 'user' | 'assistant', content: string }[];
+      isComplete: boolean;
+      summary?: Partial<WorldData>;
+      threadId?: string;
+    },
+    characterConversation?: {
+      messages: { role: 'user' | 'assistant', content: string }[];
+      isComplete: boolean;
+      summary?: Partial<CharacterData>;
+      threadId?: string;
+    }
+  ) => void;
+  
+  initialGenreConversation?: {
+    messages: { role: 'user' | 'assistant', content: string }[];
+    isComplete: boolean;
+    summary?: any;
+    threadId?: string;
+  };
+  initialWorldConversation?: {
+    messages: { role: 'user' | 'assistant', content: string }[];
+    isComplete: boolean;
+    summary?: Partial<WorldData>;
+    threadId?: string;
+  };
+  initialCharacterConversation?: {
+    messages: { role: 'user' | 'assistant', content: string }[];
+    isComplete: boolean;
+    summary?: Partial<CharacterData>;
+    threadId?: string;
+  };
+  initialStage?: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready';
 }
 
 // Story type definitions
@@ -75,7 +134,11 @@ interface Message {
 export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   onWorldCreated,
   onCharacterCreated,
-  onStoryReady
+  onStoryReady,
+  initialGenreConversation,
+  initialWorldConversation,
+  initialCharacterConversation,
+  initialStage
 }) => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -207,10 +270,59 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   // Track interview stage
   const [interviewStage, setInterviewStage] = useState<
     'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready'
-  >('genre');
+  >(initialStage || 'genre');
+  
+  // Load conversation state from props if available
+  useEffect(() => {
+    if (initialGenreConversation && initialGenreConversation.messages.length > 0) {
+      setGenreConversation(initialGenreConversation);
+    }
+    
+    if (initialWorldConversation && initialWorldConversation.messages.length > 0) {
+      setWorldConversation(initialWorldConversation);
+      if (initialWorldConversation.summary) {
+        setPartialWorld(initialWorldConversation.summary);
+      }
+    }
+    
+    if (initialCharacterConversation && initialCharacterConversation.messages.length > 0) {
+      setCharacterConversation(initialCharacterConversation);
+      if (initialCharacterConversation.summary) {
+        setPartialCharacters(prev => [...prev, initialCharacterConversation.summary as Partial<CharacterData>]);
+      }
+    }
+  }, [initialGenreConversation, initialWorldConversation, initialCharacterConversation]);
   
   // Initialize with a welcoming AI message
   useEffect(() => {
+    // Skip initialization if we're restoring from a saved state
+    const hasExistingConversation = (
+      (initialGenreConversation && initialGenreConversation.messages.length > 0) ||
+      (initialWorldConversation && initialWorldConversation.messages.length > 0) ||
+      (initialCharacterConversation && initialCharacterConversation.messages.length > 0)
+    );
+    
+    if (hasExistingConversation) {
+      console.log("Restoring from saved conversation state");
+      // Create a welcome back message
+      const welcomeBackMessage: Message = {
+        id: Date.now().toString(),
+        content: "Welcome back to your story creation! Let's continue where we left off.",
+        sender: 'ai',
+        timestamp: new Date(),
+        interviewStage: initialStage || 'genre',
+        suggestions: [
+          "Let's continue from where we left off",
+          "Can you remind me what we've done so far?",
+          "I'd like to change something about what we've created"
+        ]
+      };
+      
+      setMessages([welcomeBackMessage]);
+      return;
+    }
+    
+    // Regular welcome message for new conversations
     const initialMessage: Message = {
       id: Date.now().toString(),
       content: "Welcome to StoryFlow! I'll help you create an amazing interactive story through our conversation. We'll follow this process: first exploring genre, then building your world, creating characters, discussing influences, adding details, and finally starting your story. To begin, what kind of stories do you enjoy, or what themes or genres would you like to explore?",
@@ -553,7 +665,13 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         // Check for questions that offer explicit options separated by commas or 'or'
         // This looks for patterns like "Do you want X, Y, or Z?"
         const optionPattern = /(?:(?:would|do|are) you .*?)(?:"([^"]+?)"|'([^']+?)'|([A-Za-z0-9\s-]+(?:\s+[A-Za-z0-9\s-]+)*))(?:\s*,\s*|\s+or\s+)/gi;
-        const matches = [...lastAiQuestion.matchAll(optionPattern)];
+        
+        // Use a more TypeScript-friendly approach for extracting matches
+        const matches: Array<RegExpExecArray> = [];
+        let match: RegExpExecArray | null;
+        while ((match = optionPattern.exec(lastAiQuestion)) !== null) {
+          matches.push(match);
+        }
         
         if (matches && matches.length > 0) {
           console.log("Found options in the question");
@@ -1073,6 +1191,86 @@ Common character types in this genre include: ${genreConversation.summary?.typic
       
       setIsProcessing(false);
       setInterviewStage(nextStage);
+      
+      // If we've reached the 'ready' stage, call the onStoryReady callback
+      if (nextStage === 'ready') {
+        console.log('Story ready! Calling onStoryReady callback');
+        
+        // Convert partial world data to complete WorldData
+        // We need to ensure all required properties are set
+        const completeWorld: WorldData = {
+          name: partialWorld.name || 'Unnamed World',
+          description: partialWorld.description || '',
+          era: partialWorld.era || '',
+          geography: partialWorld.geography || [],
+          locations: partialWorld.locations || [],
+          culture: {
+            socialStructure: partialWorld.culture?.socialStructure || '',
+            beliefs: partialWorld.culture?.beliefs || '',
+            customs: partialWorld.culture?.customs || [],
+            languages: partialWorld.culture?.languages || []
+          },
+          politics: {
+            governmentType: partialWorld.politics?.governmentType || '',
+            powerDynamics: partialWorld.politics?.powerDynamics || '',
+            majorFactions: partialWorld.politics?.majorFactions || []
+          },
+          economy: {
+            resources: partialWorld.economy?.resources || [],
+            trade: partialWorld.economy?.trade || '',
+            currency: partialWorld.economy?.currency || ''
+          },
+          technology: {
+            level: partialWorld.technology?.level || '',
+            innovations: partialWorld.technology?.innovations || [],
+            limitations: partialWorld.technology?.limitations || ''
+          },
+          conflicts: partialWorld.conflicts || [],
+          history: {
+            majorEvents: partialWorld.history?.majorEvents || [],
+            legends: partialWorld.history?.legends || []
+          },
+          ...partialWorld as any
+        };
+        
+        // Convert partial characters to complete CharacterData array
+        const completeCharacters: CharacterData[] = partialCharacters.map(char => ({
+          name: char.name || 'Unnamed Character',
+          role: char.role || 'Unknown',
+          background: char.background || '',
+          personality: char.personality || [],
+          goals: char.goals || [],
+          fears: char.fears || [],
+          relationships: char.relationships || [],
+          skills: char.skills || [],
+          appearance: char.appearance || '',
+          voice: char.voice || '',
+          ...char as any
+        }));
+        
+        onStoryReady(
+          completeWorld,
+          completeCharacters,
+          // Pass conversation states for persistence
+          {
+            messages: genreConversation.messages,
+            isComplete: true,
+            summary: genreConversation.summary
+          },
+          {
+            messages: worldConversation.messages,
+            isComplete: true,
+            summary: partialWorld,
+            threadId: worldConversation.threadId
+          },
+          {
+            messages: characterConversation.messages,
+            isComplete: true,
+            summary: partialCharacters.length > 0 ? partialCharacters[0] : undefined,
+            threadId: characterConversation.threadId
+          }
+        );
+      }
       
     } catch (error) {
       console.error('Error processing message:', error);
