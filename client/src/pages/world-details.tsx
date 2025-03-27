@@ -1,255 +1,519 @@
-import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { useLocation } from "wouter";
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { WorldData } from '../components/world/WorldDesigner';
-import { Check, Edit, Globe, Landmark, Mountain, Users, Sparkle, Sword, BookOpen } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useLocation, Link } from 'wouter';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useToast } from '@/hooks/use-toast';
+import { apiRequest } from '@/lib/queryClient';
+import { useAuth } from '@/contexts/AuthContext';
+import { Foundation } from '@shared/schema';
+import { ArrowLeft, Globe, RefreshCw, Map, History, Building, Coins, Wand2 } from 'lucide-react';
 
-export default function WorldDetailsPage() {
-  const [_, navigate] = useLocation();
-  const [worldData, setWorldData] = React.useState<WorldData | null>(null);
-  
-  // In a real app, we would load this from a server or storage
-  // For now, we'll use a demo value for display purposes
-  React.useEffect(() => {
-    // Check local storage for world details
-    const storedWorld = localStorage.getItem('storyflow_world');
-    if (storedWorld) {
-      try {
-        setWorldData(JSON.parse(storedWorld));
-      } catch (e) {
-        console.error('Error parsing stored world:', e);
-        setWorldData(getDemoWorld());
-      }
-    } else {
-      // Use demo data for now
-      setWorldData(getDemoWorld());
-    }
-  }, []);
-  
-  if (!worldData) {
-    return <div className="p-6">Loading world details...</div>;
-  }
+// Define WorldDetails type locally
+interface WorldDetails {
+  name: string;
+  description: string;
+  era: string;
+  geography: string[];
+  locations: string[];
+  culture: {
+    socialStructure: string;
+    beliefs: string;
+    customs: string[];
+    languages: string[];
+  };
+  politics: {
+    governmentType: string;
+    powerDynamics: string;
+    majorFactions: string[];
+  };
+  economy: {
+    resources: string[];
+    trade: string;
+    currency: string;
+  };
+  technology: {
+    level: string;
+    innovations: string[];
+    limitations: string;
+  };
+  conflicts: string[];
+  history: {
+    majorEvents: string[];
+    legends: string[];
+  };
+  magicSystem?: {
+    rules: string;
+    limitations: string;
+    practitioners: string;
+  };
+  threadId?: string;
+};
 
-  return (
-    <div className="flex flex-col w-full h-[calc(100vh-4rem)]">
-      <div className="border-b border-border p-4 flex justify-between items-center bg-card">
-        <div>
-          <h1 className="text-2xl font-bold">{worldData.name}</h1>
-          <p className="text-muted-foreground">{worldData.genre} world</p>
+const WorldDetailsPage: React.FC = () => {
+  const [location, navigate] = useLocation();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  // Get foundationId from URL query params
+  const params = new URLSearchParams(location.split('?')[1]);
+  const foundationId = parseInt(params.get('foundationId') || '0');
+  
+  // State to track if world is being generated
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  
+  // Query foundation
+  const { 
+    data: foundation, 
+    isLoading: isLoadingFoundation, 
+    error: foundationError 
+  } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${foundationId}`],
+    enabled: !!foundationId,
+  });
+  
+  // Query world details
+  const { 
+    data: worldDetails, 
+    isLoading: isLoadingWorld,
+    error: worldError,
+    refetch: refetchWorld 
+  } = useQuery<WorldDetails>({
+    queryKey: [`/api/foundations/${foundationId}/environment`],
+    enabled: !!foundationId,
+  });
+  
+  // Generate world details mutation
+  const generateWorldMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/ai/world-details', {
+        genreContext: foundation?.genre || '',
+        setting: foundation?.description || '',
+        foundationId: foundationId
+      });
+      return response.json();
+    },
+    onMutate: () => {
+      setIsGenerating(true);
+    },
+    onSuccess: () => {
+      toast({
+        title: 'World details generated',
+        description: 'Your world has been generated successfully.',
+      });
+      // Refresh world details
+      refetchWorld();
+      setIsGenerating(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Generation failed',
+        description: error.message || 'An error occurred while generating world details.',
+        variant: 'destructive',
+      });
+      setIsGenerating(false);
+    },
+  });
+  
+  const handleGenerateWorld = () => {
+    generateWorldMutation.mutate();
+  };
+  
+  if (isLoadingFoundation) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center mb-8">
+          <Button variant="ghost" onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} className="mr-4">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+          <div className="h-6 bg-neutral-200 rounded w-1/4 animate-pulse"></div>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/genre-details')}
-            className="gap-1"
-          >
-            <BookOpen className="h-4 w-4" />
-            Genre Details
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/voice-story-creation')}
-            className="gap-1"
-          >
-            <Edit className="h-4 w-4" />
-            Edit in Interview
-          </Button>
-          <Button 
-            onClick={() => navigate('/character-details')}
-            className="gap-1"
-          >
-            Continue to Characters
-            <Check className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-      
-      <div className="flex flex-1 overflow-hidden">
-        <ScrollArea className="flex-1 p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-7xl mx-auto">
-            {/* Main World Card */}
-            <Card className="md:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Globe className="h-5 w-5" />
-                  World Overview
-                </CardTitle>
-                <CardDescription>
-                  Comprehensive details about your story's world
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-medium">Description</h3>
-                  <p className="mt-2 text-muted-foreground">{worldData.description}</p>
-                </div>
-                
-                <Separator />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-medium flex items-center gap-2">
-                      <Mountain className="h-4 w-4" /> 
-                      Setting
-                    </h3>
-                    <p className="mt-1 text-muted-foreground">{worldData.setting}</p>
-                    
-                    <h4 className="mt-3 font-medium">Timeframe</h4>
-                    <p className="text-muted-foreground">{worldData.timeframe}</p>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium flex items-center gap-2">
-                      <Sword className="h-4 w-4" /> 
-                      Key Conflicts
-                    </h3>
-                    <ul className="mt-1 pl-5 list-disc space-y-1 text-muted-foreground">
-                      {worldData.keyConflicts.map((conflict, index) => (
-                        <li key={index}>{conflict}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium flex items-center gap-2">
-                    <Landmark className="h-4 w-4" /> 
-                    Regions & Geography
-                  </h3>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {worldData.regions.map((region, index) => (
-                      <Badge key={index} variant="secondary">{region}</Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                <div>
-                  <h3 className="text-lg font-medium flex items-center gap-2">
-                    <Users className="h-4 w-4" /> 
-                    Important Figures
-                  </h3>
-                  <ul className="mt-2 pl-5 list-disc space-y-1 text-muted-foreground">
-                    {worldData.importantFigures.map((figure, index) => (
-                      <li key={index}>{figure}</li>
-                    ))}
-                  </ul>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Societal Elements */}
-            <Card className="h-fit">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Landmark className="h-5 w-5" />
-                  Society & Culture
-                </CardTitle>
-                <CardDescription>
-                  Social structures and cultural elements
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-medium">Cultural Setting</h3>
-                  <p className="text-sm text-muted-foreground">{worldData.culturalSetting}</p>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium">Political System</h3>
-                  <p className="text-sm text-muted-foreground">{worldData.politicalSystem}</p>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium">Technology Level</h3>
-                  <p className="text-sm text-muted-foreground">{worldData.technology}</p>
-                </div>
-                
-                {worldData.magicSystem && (
-                  <div>
-                    <h3 className="font-medium flex items-center gap-1">
-                      <Sparkle className="h-4 w-4" />
-                      Magic System
-                    </h3>
-                    <p className="text-sm text-muted-foreground">{worldData.magicSystem}</p>
-                  </div>
-                )}
-                
-                <Separator />
-                
-                <div className="flex items-center justify-between">
-                  <span className="text-sm">World Complexity</span>
-                  <div className="relative w-24 h-2 bg-muted rounded-full overflow-hidden">
-                    <div 
-                      className="absolute top-0 left-0 h-full bg-primary rounded-full"
-                      style={{ width: `${(worldData.complexity / 5) * 100}%` }}
-                    />
-                  </div>
-                  <span className="text-sm">{worldData.complexity}/5</span>
-                </div>
-              </CardContent>
-            </Card>
-            
-            {/* Map Placeholder */}
-            <Card className="md:col-span-3">
-              <CardHeader>
-                <CardTitle>World Map</CardTitle>
-                <CardDescription>
-                  Visual representation of your world (placeholder for now)
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="aspect-video bg-card border border-dashed border-border rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <p className="text-muted-foreground mb-2">World map visualization coming soon</p>
-                    <Button size="sm">Generate Map</Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        
+        <div className="grid grid-cols-1 gap-6">
+          <div className="bg-white rounded-lg shadow-sm p-6 animate-pulse">
+            <div className="h-8 bg-neutral-200 rounded w-1/3 mb-4"></div>
+            <div className="h-4 bg-neutral-200 rounded w-2/3 mb-2"></div>
+            <div className="h-4 bg-neutral-200 rounded w-1/2"></div>
           </div>
-        </ScrollArea>
+        </div>
       </div>
+    );
+  }
+  
+  if (foundationError || !foundation) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="flex items-center mb-8">
+          <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mr-4">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back
+          </Button>
+          <h1 className="text-2xl font-bold">Foundation Not Found</h1>
+        </div>
+        
+        <div className="text-center p-8 bg-white rounded-lg shadow-sm">
+          <p className="text-neutral-600 mb-4">The foundation you're looking for could not be found.</p>
+          <Button onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
+        </div>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="min-h-screen bg-neutral-50">
+      <header className="bg-white border-b border-neutral-200 py-4">
+        <div className="container mx-auto px-4 flex justify-between items-center">
+          <div className="flex items-center">
+            <Link href="/dashboard">
+              <a className="text-primary-600 text-2xl font-bold">StoryFlow</a>
+            </Link>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-neutral-600">
+              Welcome, {user?.displayName || user?.username || 'Writer'}
+            </span>
+          </div>
+        </div>
+      </header>
+      
+      <main className="container mx-auto p-6">
+        <div className="flex justify-between items-center mb-8">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} 
+              className="mr-4"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold flex items-center">
+                <Globe className="mr-2 h-6 w-6 text-primary-500" /> 
+                World Details
+              </h1>
+              <p className="text-neutral-600">Foundation: {foundation.name}</p>
+            </div>
+          </div>
+          <Button 
+            onClick={handleGenerateWorld} 
+            disabled={isGenerating || generateWorldMutation.isPending}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+            {isGenerating ? 'Generating...' : 'Generate World'}
+          </Button>
+        </div>
+
+        {isLoadingWorld || !worldDetails ? (
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            {isLoadingWorld ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="h-8 bg-neutral-200 rounded w-1/3"></div>
+                <div className="h-4 bg-neutral-200 rounded w-2/3"></div>
+                <div className="h-4 bg-neutral-200 rounded w-1/2"></div>
+                <div className="h-4 bg-neutral-200 rounded w-3/4"></div>
+              </div>
+            ) : (
+              <div className="text-center">
+                <Globe className="h-16 w-16 text-neutral-300 mx-auto mb-4" />
+                <h2 className="text-xl font-bold mb-2">No World Details Yet</h2>
+                <p className="text-neutral-600 mb-6 max-w-md mx-auto">
+                  Generate world details to define the geography, culture, politics, and history of your story world.
+                </p>
+                <Button 
+                  onClick={handleGenerateWorld} 
+                  disabled={isGenerating || generateWorldMutation.isPending}
+                >
+                  <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
+                  {isGenerating ? 'Generating...' : 'Generate World'}
+                </Button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <Card className="mb-6">
+              <CardContent className="p-6">
+                <h2 className="text-2xl font-bold mb-2">{worldDetails.name}</h2>
+                <p className="text-neutral-700 mb-4 text-lg">{worldDetails.era}</p>
+                <p className="text-neutral-600">{worldDetails.description}</p>
+              </CardContent>
+            </Card>
+          
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="mb-6">
+                <TabsTrigger value="overview" className="flex items-center">
+                  <Globe className="mr-2 h-4 w-4" /> Overview
+                </TabsTrigger>
+                <TabsTrigger value="geography" className="flex items-center">
+                  <Map className="mr-2 h-4 w-4" /> Geography & Locations
+                </TabsTrigger>
+                <TabsTrigger value="society" className="flex items-center">
+                  <Building className="mr-2 h-4 w-4" /> Society & Politics
+                </TabsTrigger>
+                <TabsTrigger value="economy" className="flex items-center">
+                  <Coins className="mr-2 h-4 w-4" /> Economy & Technology
+                </TabsTrigger>
+                <TabsTrigger value="history" className="flex items-center">
+                  <History className="mr-2 h-4 w-4" /> History & Conflicts
+                </TabsTrigger>
+                {worldDetails.magicSystem && (
+                  <TabsTrigger value="magic" className="flex items-center">
+                    <Wand2 className="mr-2 h-4 w-4" /> Magic System
+                  </TabsTrigger>
+                )}
+              </TabsList>
+              
+              <TabsContent value="overview">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Geography Highlights</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.geography.slice(0, 3).map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                      
+                      <h3 className="text-xl font-bold mb-4">Key Locations</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.locations.slice(0, 3).map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Culture Overview</h3>
+                      <p className="text-neutral-600 mb-2">
+                        <span className="font-semibold">Social Structure:</span> {worldDetails.culture.socialStructure}
+                      </p>
+                      <p className="text-neutral-600 mb-4">
+                        <span className="font-semibold">Beliefs:</span> {worldDetails.culture.beliefs}
+                      </p>
+                      
+                      <h3 className="text-xl font-bold mb-4">Politics Overview</h3>
+                      <p className="text-neutral-600">
+                        <span className="font-semibold">Government:</span> {worldDetails.politics.governmentType}
+                      </p>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Major Conflicts</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.conflicts.slice(0, 3).map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Technology Level</h3>
+                      <p className="text-neutral-600 mb-4">{worldDetails.technology.level}</p>
+                      
+                      <h3 className="text-xl font-bold mb-4">Key Innovations</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.technology.innovations.slice(0, 3).map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="geography">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Geography Features</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.geography.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Important Locations</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.locations.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="society">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Culture</h3>
+                      <p className="text-neutral-600 mb-2">
+                        <span className="font-semibold">Social Structure:</span> {worldDetails.culture.socialStructure}
+                      </p>
+                      <p className="text-neutral-600 mb-4">
+                        <span className="font-semibold">Beliefs:</span> {worldDetails.culture.beliefs}
+                      </p>
+                      
+                      <h4 className="text-lg font-semibold mb-2">Key Customs</h4>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.culture.customs.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                      
+                      <h4 className="text-lg font-semibold mb-2">Languages</h4>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.culture.languages.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Politics</h3>
+                      <p className="text-neutral-600 mb-2">
+                        <span className="font-semibold">Government Type:</span> {worldDetails.politics.governmentType}
+                      </p>
+                      <p className="text-neutral-600 mb-4">
+                        <span className="font-semibold">Power Dynamics:</span> {worldDetails.politics.powerDynamics}
+                      </p>
+                      
+                      <h4 className="text-lg font-semibold mb-2">Major Factions</h4>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.politics.majorFactions.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="economy">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Economy</h3>
+                      <p className="text-neutral-600 mb-2">
+                        <span className="font-semibold">Trade:</span> {worldDetails.economy.trade}
+                      </p>
+                      <p className="text-neutral-600 mb-4">
+                        <span className="font-semibold">Currency:</span> {worldDetails.economy.currency}
+                      </p>
+                      
+                      <h4 className="text-lg font-semibold mb-2">Key Resources</h4>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.economy.resources.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Technology</h3>
+                      <p className="text-neutral-600 mb-2">
+                        <span className="font-semibold">Technology Level:</span> {worldDetails.technology.level}
+                      </p>
+                      <p className="text-neutral-600 mb-4">
+                        <span className="font-semibold">Limitations:</span> {worldDetails.technology.limitations}
+                      </p>
+                      
+                      <h4 className="text-lg font-semibold mb-2">Key Innovations</h4>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.technology.innovations.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="history">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Major Historical Events</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.history.majorEvents.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Legends & Folklore</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.history.legends.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card className="md:col-span-2">
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Major Conflicts</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {worldDetails.conflicts.map((item, index) => (
+                          <li key={index}>{item}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
+              </TabsContent>
+              
+              {worldDetails.magicSystem && (
+                <TabsContent value="magic">
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Magic System</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-lg font-semibold mb-2">Rules & Mechanics</h4>
+                          <p className="text-neutral-600">{worldDetails.magicSystem.rules}</p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-lg font-semibold mb-2">Limitations</h4>
+                          <p className="text-neutral-600">{worldDetails.magicSystem.limitations}</p>
+                        </div>
+                        
+                        <div>
+                          <h4 className="text-lg font-semibold mb-2">Practitioners</h4>
+                          <p className="text-neutral-600">{worldDetails.magicSystem.practitioners}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              )}
+            </Tabs>
+          </>
+        )}
+      </main>
     </div>
   );
-}
+};
 
-// Demo world for development and display purposes
-function getDemoWorld(): WorldData {
-  return {
-    id: 1,
-    name: "Aurea",
-    genre: "Western Gold Rush Fiction",
-    setting: "Gold Rush Era California, 1848-1855",
-    timeframe: "Mid 19th century",
-    regions: [
-      "Sierra Nevada Mountains", 
-      "Sacramento Valley", 
-      "San Francisco Bay", 
-      "Mining Camps", 
-      "Boom Towns"
-    ],
-    keyConflicts: [
-      "Land disputes between settlers and native tribes",
-      "Competition for mining claims",
-      "Law vs. lawlessness in frontier towns",
-      "Environmental devastation vs. economic growth"
-    ],
-    importantFigures: [
-      "Governor Mason",
-      "John Sutter",
-      "James Marshall",
-      "Levi Strauss",
-      "Sam Brannan"
-    ],
-    culturalSetting: "Diverse society of Americans, European immigrants, Chinese laborers, Mexican residents, and Native American tribes all converging on California during the gold rush period.",
-    technology: "Mid-19th century technology with specialized mining equipment, steam power starting to emerge, and primitive transportation networks.",
-    magicSystem: undefined,
-    politicalSystem: "Transitional governance from Mexican territory to U.S. statehood, with mining camps establishing their own local laws and claim systems.",
-    description: "Aurea is set during the historical California Gold Rush, portraying a realistic version of this pivotal period in American history. The world captures the chaos, opportunity, and dramatic societal changes brought about by the sudden influx of gold seekers, entrepreneurs, and adventurers from around the world. From primitive mining camps to rapidly growing cities like San Francisco, the setting showcases both the untamed wilderness and emerging civilization of 1850s California.",
-    complexity: 4
-  };
-}
+export default WorldDetailsPage;
