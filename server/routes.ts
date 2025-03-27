@@ -547,7 +547,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(202).json({
           conversationInProgress: true,
           question: question,
-          threadId: threadId || null,
+          threadId: req.body.threadId || null,
           needsMoreInput: true
         });
       }
@@ -618,7 +618,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(202).json({
           conversationInProgress: true,
           question: question,
-          threadId: threadId || null,
+          threadId: req.body.threadId || null,
           needsMoreInput: true
         });
       }

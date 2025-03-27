@@ -516,8 +516,132 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     return currentStage; // Stay at the current stage if there's no clear indicator
   };
   
-  // Generate suggestions based on the current stage and conversation
-  const generateSuggestions = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', worldData: Partial<WorldData>, characters: Partial<CharacterData>[]) => {
+  // Generate suggestions based on the current stage, conversation, and current question
+  const generateSuggestions = (stage: 'genre' | 'world' | 'characters' | 'influences' | 'details' | 'ready', worldData: Partial<WorldData>, characters: Partial<CharacterData>[], lastAiQuestion?: string) => {
+    // If we have the AI's last question, we can generate contextual suggestions
+    if (lastAiQuestion) {
+      // Extract keywords from the question to provide relevant suggestions
+      const questionLower = lastAiQuestion.toLowerCase();
+      
+      if (stage === 'genre') {
+        // Genre-specific questions and suggestions
+        if (questionLower.includes('specific genre') || questionLower.includes('type of genre') || questionLower.includes('kind of story')) {
+          return [
+            "Fantasy with magical elements",
+            "Science fiction set in the future",
+            "Mystery with suspenseful plot twists",
+            "Romance with emotional depth"
+          ];
+        }
+        if (questionLower.includes('theme') || questionLower.includes('central idea')) {
+          return [
+            "Coming of age and self-discovery",
+            "Overcoming adversity and resilience",
+            "Power and its corrupting influence",
+            "Finding hope in difficult circumstances"
+          ];
+        }
+        if (questionLower.includes('setting') || questionLower.includes('where')) {
+          return [
+            "A medieval kingdom on the brink of war",
+            "A futuristic city with advanced technology",
+            "An isolated small town with dark secrets",
+            "A vast wilderness untouched by civilization"
+          ];
+        }
+        if (questionLower.includes('audience') || questionLower.includes('readers')) {
+          return [
+            "Young adults looking for adventure",
+            "Adults who enjoy complex characters",
+            "Readers who appreciate philosophical themes",
+            "Anyone who loves immersive worldbuilding"
+          ];
+        }
+      }
+      else if (stage === 'world') {
+        // World-specific questions and suggestions
+        if (questionLower.includes('geography') || questionLower.includes('landscape') || questionLower.includes('terrain')) {
+          return [
+            "Towering mountains with hidden valleys",
+            "Vast oceans with uncharted islands",
+            "Dense forests with ancient trees",
+            "Sprawling deserts with oasis cities"
+          ];
+        }
+        if (questionLower.includes('culture') || questionLower.includes('society') || questionLower.includes('people')) {
+          return [
+            "A meritocratic society that values skill",
+            "A traditional culture rich in rituals",
+            "A diverse population with unique customs",
+            "A hierarchical society with complex classes"
+          ];
+        }
+        if (questionLower.includes('magic') || questionLower.includes('technology') || questionLower.includes('science')) {
+          return [
+            "Limited magic accessible only to a few",
+            "Technology that mimics magical abilities",
+            "Ancient magic integrated with society",
+            "Technological marvels beyond our understanding"
+          ];
+        }
+        if (questionLower.includes('conflict') || questionLower.includes('tension') || questionLower.includes('struggle')) {
+          return [
+            "A brewing war between rival factions",
+            "Environmental challenges threatening survival",
+            "Social inequality causing civil unrest",
+            "Ancient prophecies coming to pass"
+          ];
+        }
+      }
+      else if (stage === 'characters') {
+        // Character-specific questions and suggestions
+        if (questionLower.includes('protagonist') || questionLower.includes('main character')) {
+          return [
+            "A reluctant hero with a mysterious past",
+            "An ordinary person thrust into extraordinary circumstances",
+            "A skilled professional with a personal mission",
+            "A flawed individual seeking redemption"
+          ];
+        }
+        if (questionLower.includes('antagonist') || questionLower.includes('villain')) {
+          return [
+            "A charismatic leader with twisted ideals",
+            "A former ally who became corrupted",
+            "A powerful entity with incomprehensible motives",
+            "Someone who believes they're the hero of their own story"
+          ];
+        }
+        if (questionLower.includes('motivation') || questionLower.includes('wants') || questionLower.includes('goal')) {
+          return [
+            "To protect loved ones from harm",
+            "To discover the truth about their past",
+            "To change a broken system from within",
+            "To achieve recognition and respect"
+          ];
+        }
+        if (questionLower.includes('relationship') || questionLower.includes('connection')) {
+          return [
+            "Loyal friends who support each other",
+            "Rivals who grudgingly respect one another",
+            "Family members with complicated history",
+            "Mentor and student with evolving dynamics"
+          ];
+        }
+      }
+      
+      // If nothing specific matched but we have a question, create general response options
+      if (questionLower.includes('?')) {
+        // Create some generic but conversational responses
+        return [
+          "I'd say " + (stage === 'genre' ? "fantasy" : stage === 'world' ? "a medieval setting" : "a hero with a secret past"),
+          "I was thinking about " + (stage === 'genre' ? "sci-fi" : stage === 'world' ? "a futuristic city" : "a conflicted anti-hero"),
+          "What would you recommend for a " + (stage === 'genre' ? "mystery story" : stage === 'world' ? "mysterious setting" : "compelling character"),
+          "I'm not sure, can you give some examples?"
+        ];
+      }
+    }
+    
+    // Default suggestions if we can't generate contextual ones
     let suggestions: string[] = [];
     
     switch (stage) {
@@ -598,6 +722,9 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       // Process the message based on the current stage
       const nextStage = determineNextStage(currentStage, inputText);
       
+      // Get the last AI message to potentially use for contextual suggestions
+      const lastAiContent = messages.findLast(msg => msg.sender === 'ai')?.content || '';
+      
       // Create the AI response
       const aiResponse: Message = {
         id: Date.now().toString(),
@@ -605,7 +732,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         sender: 'ai',
         timestamp: new Date(),
         interviewStage: nextStage,
-        suggestions: generateSuggestions(nextStage, partialWorld, partialCharacters)
+        suggestions: generateSuggestions(nextStage, partialWorld, partialCharacters, lastAiContent)
       };
       
       // Add placeholder response while processing
@@ -849,15 +976,24 @@ Common character types in this genre include: ${genreConversation.summary?.typic
         }
       }
       
-      // Update the AI message with the actual response
+      // Update the AI message with the actual response and generate contextual suggestions
       setMessages(prev => {
         const updatedMessages = [...prev];
         const lastAiMessageIndex = updatedMessages.findLastIndex(msg => msg.sender === 'ai');
         
         if (lastAiMessageIndex !== -1) {
+          // Generate contextual suggestions based on the actual AI response
+          const contextualSuggestions = generateSuggestions(
+            nextStage, 
+            partialWorld, 
+            partialCharacters, 
+            responseContent // Use the actual response for contextual suggestions
+          );
+          
           updatedMessages[lastAiMessageIndex] = {
             ...updatedMessages[lastAiMessageIndex],
-            content: responseContent
+            content: responseContent,
+            suggestions: contextualSuggestions
           };
         }
         
