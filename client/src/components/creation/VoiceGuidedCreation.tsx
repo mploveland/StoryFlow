@@ -523,6 +523,56 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       // Extract keywords from the question to provide relevant suggestions
       const questionLower = lastAiQuestion.toLowerCase();
       
+      // Special handling for directly identifying options in questions
+      // Example: "Would you prefer A, B, or C?"
+      if (lastAiQuestion.includes('?') && 
+          (questionLower.includes('would you') || 
+           questionLower.includes('do you prefer') || 
+           questionLower.includes('are you looking for') || 
+           questionLower.includes('would you like') ||
+           questionLower.includes('are you thinking') || 
+           questionLower.includes('are you envisioning') ||
+           questionLower.includes('are you leaning'))) {
+        
+        console.log("Detected a multiple choice question");
+        
+        // Check specific cases that we know about from the AI responses
+        if (questionLower.includes('darker, grittier atmosphere') && 
+            questionLower.includes('poetic and introspective') && 
+            questionLower.includes('evenly balanced blend')) {
+          
+          console.log("Detected the tone/style choice question");
+          return [
+            "A darker, grittier atmosphere",
+            "A more poetic and introspective approach",
+            "An evenly balanced blend of both styles",
+            "Surprise me! You decide."
+          ];
+        }
+        
+        // Check for questions that offer explicit options separated by commas or 'or'
+        // This looks for patterns like "Do you want X, Y, or Z?"
+        const optionPattern = /(?:(?:would|do|are) you .*?)(?:"([^"]+?)"|'([^']+?)'|([A-Za-z0-9\s-]+(?:\s+[A-Za-z0-9\s-]+)*))(?:\s*,\s*|\s+or\s+)/gi;
+        const matches = [...lastAiQuestion.matchAll(optionPattern)];
+        
+        if (matches && matches.length > 0) {
+          console.log("Found options in the question");
+          
+          const extractedOptions = matches.map(match => {
+            // Each match might have captured a quoted string or non-quoted text
+            const option = match[1] || match[2] || match[3];
+            return option?.trim();
+          }).filter(Boolean); // Remove any undefined values
+          
+          if (extractedOptions.length > 0) {
+            // Add a surprise option
+            console.log("Extracted options:", extractedOptions);
+            return [...extractedOptions, "Surprise me! You decide."];
+          }
+        }
+      }
+      
+      // Continue with the existing specific topic detection
       if (stage === 'genre') {
         // Genre-specific questions and suggestions
         if (questionLower.includes('specific genre') || questionLower.includes('type of genre') || questionLower.includes('kind of story')) {
@@ -555,6 +605,16 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
             "Adults who enjoy complex characters",
             "Readers who appreciate philosophical themes",
             "Anyone who loves immersive worldbuilding"
+          ];
+        }
+        
+        // Added special case for the Patrick Rothfuss / Brent Weeks question
+        if (questionLower.includes('name of the wind') && questionLower.includes('night angel')) {
+          return [
+            "A darker, grittier atmosphere like Night Angel",
+            "A more poetic approach like Name of the Wind",
+            "A balanced blend of both styles",
+            "Let you decide what works best"
           ];
         }
       }
@@ -635,8 +695,8 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
         return [
           "I'd say " + (stage === 'genre' ? "fantasy" : stage === 'world' ? "a medieval setting" : "a hero with a secret past"),
           "I was thinking about " + (stage === 'genre' ? "sci-fi" : stage === 'world' ? "a futuristic city" : "a conflicted anti-hero"),
-          "What would you recommend for a " + (stage === 'genre' ? "mystery story" : stage === 'world' ? "mysterious setting" : "compelling character"),
-          "I'm not sure, can you give some examples?"
+          "What would you recommend?",
+          "Surprise me! You decide what works best."
         ];
       }
     }
