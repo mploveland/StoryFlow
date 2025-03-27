@@ -286,33 +286,37 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     speakWithRetry();
   }, [voices]);
   
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change - improved version
   useEffect(() => {
     const scrollToBottom = () => {
       if (scrollRef.current) {
         const scrollElement = scrollRef.current;
         
-        // Force a layout calculation to ensure the scrollHeight is accurate
-        const scrollHeight = scrollElement.scrollHeight;
+        // Get the scroll container's DOM element (the actual scrollable div)
+        const scrollContainer = scrollElement.querySelector('[data-radix-scroll-area-viewport]');
         
-        // Use RAF for smoother animation and to ensure DOM is ready
-        requestAnimationFrame(() => {
-          scrollElement.scrollTo({
-            top: scrollHeight,
-            behavior: 'smooth'
+        if (scrollContainer) {
+          // Force a layout calculation to ensure the scrollHeight is accurate
+          const scrollHeight = scrollContainer.scrollHeight;
+          
+          // Use RAF for smoother animation and to ensure DOM is ready
+          requestAnimationFrame(() => {
+            scrollContainer.scrollTop = scrollHeight;
+            console.log("Scrolling to bottom:", scrollHeight);
           });
-          console.log("Scrolling to bottom:", scrollHeight);
-        });
+        }
       }
     };
     
-    // Immediate scroll
+    // Execute multiple scroll attempts to ensure it works even with dynamic content
     scrollToBottom();
     
-    // Also add a small delay to ensure content has fully rendered
-    const delayedScroll = setTimeout(scrollToBottom, 150);
+    // Multiple delayed scroll attempts with increasing delays
+    const scrollAttempts = [50, 150, 300, 500].map(delay => 
+      setTimeout(scrollToBottom, delay)
+    );
     
-    return () => clearTimeout(delayedScroll);
+    return () => scrollAttempts.forEach(timer => clearTimeout(timer));
   }, [messages]);
   
   // Utility function to speak a message using TTS
@@ -929,13 +933,6 @@ Common character types in this genre include: ${genreConversation.summary?.typic
 
   return (
     <div className="flex h-[calc(100vh-4rem)]">
-      {/* Stage Sidebar */}
-      <StageSidebar 
-        stages={stageData}
-        onStageSelect={handleStageSelect}
-        currentStage={interviewStage}
-      />
-      
       {/* Main content area */}
       <div className="flex-1 flex flex-col overflow-hidden p-4">
         <div className="flex items-center mb-4 gap-2">
