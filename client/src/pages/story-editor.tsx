@@ -51,19 +51,19 @@ const StoryEditorPage: React.FC = () => {
   const chapterId = chapterParams?.chapterId ? parseInt(chapterParams.chapterId) : null;
 
   // Fetch story data
-  const { data: story, isLoading: isStoryLoading } = useQuery({
+  const { data: story = {}, isLoading: isStoryLoading } = useQuery<Story>({
     queryKey: [`/api/stories/${storyId}`],
     enabled: !!storyId,
   });
 
   // Fetch chapters for the story
-  const { data: chapters = [], isLoading: isChaptersLoading } = useQuery({
+  const { data: chapters = [], isLoading: isChaptersLoading } = useQuery<Chapter[]>({
     queryKey: [`/api/stories/${storyId}/chapters`],
     enabled: !!storyId,
   });
 
   // Fetch characters for the story
-  const { data: characters = [], isLoading: isCharactersLoading } = useQuery({
+  const { data: characters = [], isLoading: isCharactersLoading } = useQuery<Character[]>({
     queryKey: [`/api/stories/${storyId}/characters`],
     enabled: !!storyId,
   });
@@ -190,7 +190,7 @@ const StoryEditorPage: React.FC = () => {
   });
 
   // Fetch versions for the active chapter
-  const { data: versions = [] } = useQuery({
+  const { data: versions = [] } = useQuery<Version[]>({
     queryKey: [`/api/chapters/${activeChapter?.id}/versions`],
     enabled: !!activeChapter?.id,
   });

@@ -31,7 +31,11 @@ const AIAssistant: React.FC<AIAssistantProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { getSuggestions, getCharacterResponse, loading, error } = useAI();
   
-  const [suggestions, setSuggestions] = useState({
+  const [suggestions, setSuggestions] = useState<{
+    plotSuggestions: { content: string }[];
+    characterInteractions: { content: string }[];
+    styleSuggestions: { title: string; description: string }[];
+  }>({
     plotSuggestions: [],
     characterInteractions: [],
     styleSuggestions: []

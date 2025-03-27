@@ -25,6 +25,7 @@ export interface Character {
   description: string;
   traits: string[];
   role?: string;
+  color?: string;
 }
 
 export async function fetchAISuggestions(
