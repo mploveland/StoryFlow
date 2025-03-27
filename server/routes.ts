@@ -498,7 +498,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   apiRouter.post("/ai/genre-details", async (req: Request, res: Response) => {
     try {
+      console.log("Genre details request received:", req.body);
       const { userInterests, themes, mood, targetAudience, inspirations, additionalInfo } = req.body;
+      
+      console.log("Creating genre with input:", {
+        userInterests,
+        themes,
+        mood,
+        targetAudience,
+        inspirations,
+        additionalInfo
+      });
       
       const genreDetails = await createGenreDetails({
         userInterests,
@@ -509,6 +519,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         additionalInfo
       });
       
+      console.log("Genre created successfully:", genreDetails.name);
       return res.status(200).json(genreDetails);
     } catch (error: any) {
       console.error("Error creating genre details:", error);

@@ -576,18 +576,82 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       // Add placeholder response while processing
       setMessages(prev => [...prev, aiResponse]);
       
-      // Process the user's input and generate a real response
-      // This would integrate with your OpenAI or other AI services
+      // Process the user's input and generate a real response based on the current stage
+      let responseContent = '';
       
-      // For now, simulate a delay
-      setTimeout(() => {
-        // Update with actual response
-        // This is where you would integrate the AI response processing
-        setIsProcessing(false);
+      if (currentStage === 'genre') {
+        try {
+          console.log('Fetching genre details...');
+          // Create genre input based on user message
+          const genreInput: GenreCreationInput = {
+            userInterests: inputText
+          };
+          
+          // Add the user message to genre conversation
+          setGenreConversation(prev => ({
+            ...prev,
+            messages: [...prev.messages, { role: 'user', content: inputText }]
+          }));
+          
+          // Call the OpenAI API to get genre details
+          const genreDetails = await fetchGenreDetails(genreInput);
+          console.log('Received genre details:', genreDetails);
+          
+          // Update the genre conversation with the response
+          setGenreConversation(prev => ({
+            messages: [
+              ...prev.messages, 
+              { role: 'assistant', content: `I've created a ${genreDetails.name} genre for you.` }
+            ],
+            isComplete: true,
+            summary: genreDetails
+          }));
+          
+          responseContent = `I've created a custom "${genreDetails.name}" genre for your story! This genre is ${genreDetails.description} Would you like to move on to creating your world now?`;
+        } catch (error) {
+          console.error('Error fetching genre details:', error);
+          responseContent = 'I had some trouble creating a genre based on your input. Could you try giving me a bit more detail about what kind of story you want to create?';
+        }
+      } else {
+        // For other stages, use placeholder responses for now
+        switch (nextStage) {
+          case 'world':
+            responseContent = "Let's develop your world! What kind of setting did you have in mind?";
+            break;
+          case 'characters':
+            responseContent = "Now let's create some interesting characters. Tell me about who you'd like to be in your story.";
+            break;
+          case 'influences':
+            responseContent = "What books, movies or stories have influenced your idea? This helps me understand your taste better.";
+            break;
+          case 'details':
+            responseContent = "Let's add some final details to make your story unique. Any specific themes or elements you want to include?";
+            break;
+          case 'ready':
+            responseContent = "Excellent! We have everything we need to create your interactive story. Ready to begin?";
+            break;
+          default:
+            responseContent = "Tell me more about your ideas for the story.";
+        }
+      }
+      
+      // Update the AI message with the actual response
+      setMessages(prev => {
+        const updatedMessages = [...prev];
+        const lastAiMessageIndex = updatedMessages.findLastIndex(msg => msg.sender === 'ai');
         
-        // Update the interview stage
-        setInterviewStage(nextStage);
-      }, 1000);
+        if (lastAiMessageIndex !== -1) {
+          updatedMessages[lastAiMessageIndex] = {
+            ...updatedMessages[lastAiMessageIndex],
+            content: responseContent
+          };
+        }
+        
+        return updatedMessages;
+      });
+      
+      setIsProcessing(false);
+      setInterviewStage(nextStage);
       
     } catch (error) {
       console.error('Error processing message:', error);
