@@ -755,15 +755,16 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
           console.log(`Using thread ID: ${genreInput.threadId || 'none (creating new thread)'}`);
           console.log(`Previous messages count: ${genreInput.previousMessages?.length || 0}`);
           
-          // Add the user message to genre conversation
-          setGenreConversation(prev => ({
-            ...prev,
-            messages: [...prev.messages, { role: 'user', content: inputText }]
-          }));
+          // Add the user message to genre conversation but don't update the state yet
+          // We'll do this after we get the response to ensure we have the latest state
+          const updatedUserMessages = [
+            ...genreConversation.messages, 
+            { role: 'user' as const, content: inputText }
+          ];
           
           // Call the OpenAI API to get genre details
           const genreDetails = await fetchGenreDetails(genreInput);
-          console.log('Received genre details:', genreDetails);
+          console.log('Received genre details with threadId:', genreDetails.threadId);
           
           // Update the genre conversation with the response and store the thread ID
           setGenreConversation(prev => {
@@ -773,9 +774,10 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
               genreDetails.description.includes("I have created") || 
               genreDetails.description.includes("Here is your genre");
               
+            // Make sure to use the updated thread ID from the response
             return {
               messages: [
-                ...prev.messages, 
+                ...updatedUserMessages, 
                 { role: 'assistant', content: genreDetails.description }
               ],
               isComplete: isComplete,
@@ -783,6 +785,9 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
               threadId: genreDetails.threadId // Save the thread ID for continued conversation
             };
           });
+          
+          // Log the updated conversation state for debugging
+          console.log('Updated genre conversation state with new threadId:', genreDetails.threadId);
           
           console.log("Received full genre details from API:", genreDetails);
           
@@ -818,15 +823,16 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
           console.log(`Using world thread ID: ${worldInput.threadId || 'none (creating new thread)'}`);
           console.log(`Previous world messages count: ${worldInput.previousMessages?.length || 0}`);
           
-          // Add the user message to world conversation
-          setWorldConversation(prev => ({
-            ...prev,
-            messages: [...prev.messages, { role: 'user', content: inputText }]
-          }));
+          // Add the user message to world conversation but don't update the state yet
+          // We'll do this after we get the response to ensure we have the latest state
+          const updatedWorldMessages = [
+            ...worldConversation.messages, 
+            { role: 'user' as const, content: inputText }
+          ];
           
           // Call the OpenAI API to get world details
           const worldDetails = await fetchWorldDetails(worldInput);
-          console.log('Received world details:', worldDetails);
+          console.log('Received world details with threadId:', worldDetails.threadId);
           
           // Update the world conversation with the response and store the thread ID
           setWorldConversation(prev => {
@@ -836,9 +842,10 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
               worldDetails.description.includes("I have created") || 
               worldDetails.description.includes("Here is your world");
               
+            // Make sure to use the updated thread ID from the response
             return {
               messages: [
-                ...prev.messages, 
+                ...updatedWorldMessages, 
                 { role: 'assistant', content: worldDetails.description }
               ],
               isComplete: isComplete,
@@ -901,11 +908,12 @@ Common character types in this genre include: ${genreConversation.summary?.typic
           
           console.log('Character creation input:', characterInput);
           
-          // Add the user message to character conversation
-          setCharacterConversation(prev => ({
-            ...prev,
-            messages: [...prev.messages, { role: 'user', content: inputText }]
-          }));
+          // Add the user message to character conversation but don't update the state yet
+          // We'll do this after we get the response to ensure we have the latest state
+          const updatedCharacterMessages = [
+            ...characterConversation.messages, 
+            { role: 'user' as const, content: inputText }
+          ];
           
           // Call the OpenAI API to get character details
           const characterDetails = await fetchDetailedCharacter(characterInput);
@@ -938,13 +946,16 @@ Common character types in this genre include: ${genreConversation.summary?.typic
               
             return {
               messages: [
-                ...prev.messages, 
+                ...updatedCharacterMessages, 
                 { role: 'assistant', content: `I've created ${characterDetails.name}, ${characterDetails.role}. ${characterDetails.background}` }
               ],
               isComplete: isComplete,
               summary: newCharacter
             };
           });
+          
+          // Log the updated character conversation state for debugging
+          console.log('Updated character conversation state with newly created character:', characterDetails.name);
           
           // Display the actual response from the assistant
           responseContent = `I've created a character named ${characterDetails.name}, who is ${characterDetails.role}. ${characterDetails.background} Would you like to create another character or move on to the next stage?`;

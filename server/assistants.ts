@@ -258,21 +258,39 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     
     // Check if we're continuing an existing conversation
     if (genreInput.threadId) {
-      console.log(`Continuing conversation in existing thread: ${genreInput.threadId}`);
+      console.log(`Attempting to continue conversation in existing thread: ${genreInput.threadId}`);
+      
       try {
         // Verify the thread exists by retrieving its messages
         const existingMessages = await openai.beta.threads.messages.list(genreInput.threadId);
-        thread = { id: genreInput.threadId };
-        console.log(`Found existing thread with ${existingMessages.data.length} messages`);
+        
+        // Make sure the thread has messages
+        if (existingMessages.data.length > 0) {
+          thread = { id: genreInput.threadId };
+          console.log(`Found existing thread with ${existingMessages.data.length} messages`);
+        } else {
+          console.warn(`Thread ${genreInput.threadId} exists but has no messages, creating a new thread`);
+          thread = await openai.beta.threads.create();
+          isNewThread = true;
+          console.log(`Created new thread: ${thread.id}`);
+        }
       } catch (error) {
         console.error(`Error accessing thread ${genreInput.threadId}:`, error);
+        // Log the specific error type for debugging
+        const typedError = error as { status?: number; message?: string };
+        if (typedError.status) {
+          console.error(`Error status: ${typedError.status}, message: ${typedError.message || 'Unknown'}`);
+        }
+        
         // If there's an error accessing the thread, create a new one
+        console.log('Creating new thread due to error accessing existing thread');
         thread = await openai.beta.threads.create();
         isNewThread = true;
         console.log(`Created new thread: ${thread.id}`);
       }
     } else {
       // Create a new thread
+      console.log('No thread ID provided, creating a new thread');
       thread = await openai.beta.threads.create();
       isNewThread = true;
       console.log(`Created new thread: ${thread.id}`);
@@ -494,22 +512,77 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     };
   } catch (error) {
     console.error("Error creating genre details:", error);
+    
+    // Check if this is a conversation-in-progress error, which should be propagated
+    const typedError = error as { message?: string };
+    if (typedError.message && typedError.message.startsWith("CONVERSATION_IN_PROGRESS:")) {
+      // This is not a failure but a special case where we need more input
+      // Forward this specific error to the client
+      throw error;
+    }
+    
     // Create a new thread for fallback responses
     let fallbackThreadId;
     try {
+      console.log("Creating fallback thread for error recovery");
       const fallbackThread = await openai.beta.threads.create();
       fallbackThreadId = fallbackThread.id;
       console.log(`Created fallback thread: ${fallbackThreadId}`);
     } catch (threadError) {
       console.error("Error creating fallback thread:", threadError);
-      fallbackThreadId = "fallback-thread-error";
+      fallbackThreadId = "fallback-thread-error-" + Date.now();
+      console.log("Using generated fallback thread ID:", fallbackThreadId);
     }
     
-    // Return a fallback genre if something goes wrong
+    // Try to extract genre hints from the user input for a better fallback
+    let genreName = "Custom Fiction";
+    let genreThemes = ["Identity", "Growth", "Challenge"];
+    
+    if (genreInput.userInterests) {
+      // Simple genre detection from keywords
+      const genreKeywords = {
+        "fantasy": {
+          name: "Fantasy Fiction",
+          themes: ["Magic", "Adventure", "Heroism"]
+        },
+        "sci-fi": {
+          name: "Science Fiction",
+          themes: ["Technology", "Future", "Space"]
+        },
+        "mystery": {
+          name: "Mystery",
+          themes: ["Investigation", "Suspense", "Truth"]
+        },
+        "romance": {
+          name: "Romance",
+          themes: ["Love", "Relationships", "Emotion"]
+        },
+        "horror": {
+          name: "Horror",
+          themes: ["Fear", "Suspense", "Supernatural"]
+        },
+        "adventure": {
+          name: "Adventure",
+          themes: ["Journey", "Discovery", "Courage"]
+        }
+      };
+      
+      // Check for genre keywords
+      const userInterests = genreInput.userInterests.toLowerCase();
+      for (const [keyword, genre] of Object.entries(genreKeywords)) {
+        if (userInterests.includes(keyword)) {
+          genreName = genre.name;
+          genreThemes = genre.themes;
+          break;
+        }
+      }
+    }
+    
+    // Return a fallback genre if something goes wrong, slightly customized based on input
     return {
-      name: "Custom Fiction",
-      description: "A customized genre based on your preferences.",
-      themes: ["Identity", "Growth", "Challenge"],
+      name: genreName,
+      description: `A ${genreName.toLowerCase()} genre customized based on your preferences. Let's continue to refine it through our conversation.`,
+      themes: genreThemes,
       tropes: ["Hero's Journey", "Coming of Age"],
       commonSettings: ["Contemporary World", "Fantasy Realm"],
       typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
