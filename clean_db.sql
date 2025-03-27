@@ -1,0 +1,17 @@
+-- Drop all existing tables
+DROP TABLE IF EXISTS character_events CASCADE;
+DROP TABLE IF EXISTS character_relationships CASCADE;
+DROP TABLE IF EXISTS story_characters CASCADE;
+DROP TABLE IF EXISTS characters CASCADE;
+DROP TABLE IF EXISTS chapters CASCADE;
+DROP TABLE IF EXISTS versions CASCADE;
+DROP TABLE IF EXISTS suggestions CASCADE;
+DROP TABLE IF EXISTS narrative_vectors CASCADE;
+DROP TABLE IF EXISTS stories CASCADE;
+DROP TABLE IF EXISTS genre_details CASCADE;
+DROP TABLE IF EXISTS world_details CASCADE;
+DROP TABLE IF EXISTS worlds CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Drop custom types
+DROP TYPE IF EXISTS relationship_type;
