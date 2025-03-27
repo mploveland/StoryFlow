@@ -144,6 +144,34 @@ export interface DetailedCharacter {
   flaws?: string[];
 }
 
+export interface GenreDetails {
+  name: string;
+  description: string;
+  themes: string[];
+  tropes: string[];
+  commonSettings: string[];
+  typicalCharacters: string[];
+  plotStructures: string[];
+  styleGuide: {
+    tone: string;
+    pacing: string;
+    perspective: string;
+    dialogueStyle: string;
+  };
+  recommendedReading: string[];
+  popularExamples: string[];
+  worldbuildingElements: string[];
+}
+
+export interface GenreCreationInput {
+  userInterests?: string;
+  themes?: string[];
+  mood?: string;
+  targetAudience?: string;
+  inspirations?: string[];
+  additionalInfo?: string;
+}
+
 export interface CharacterCreationInput {
   name?: string;
   role?: string;
@@ -171,6 +199,34 @@ export async function fetchDetailedCharacter(input: CharacterCreationInput): Pro
       skills: ["Resilience", "Quick thinking"],
       appearance: "Has a distinctive appearance that matches their personality.",
       voice: "Speaks with an authentic and engaging tone."
+    };
+  }
+}
+
+export async function fetchGenreDetails(input: GenreCreationInput): Promise<GenreDetails> {
+  try {
+    const response = await apiRequest("POST", "/api/ai/genre-details", input);
+    return await response.json();
+  } catch (error) {
+    console.error("Error creating genre details:", error);
+    // Return a basic fallback genre if the API fails
+    return {
+      name: "Custom Fiction",
+      description: "A customized genre based on your preferences.",
+      themes: ["Identity", "Growth", "Challenge"],
+      tropes: ["Hero's Journey", "Coming of Age"],
+      commonSettings: ["Contemporary World", "Fantasy Realm"],
+      typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
+      plotStructures: ["Three-Act Structure", "Hero's Journey"],
+      styleGuide: {
+        tone: "Balanced",
+        pacing: "Moderate",
+        perspective: "Third person",
+        dialogueStyle: "Natural"
+      },
+      recommendedReading: ["Various works in this style"],
+      popularExamples: ["Successful titles in this genre"],
+      worldbuildingElements: ["Society", "Culture", "Technology"]
     };
   }
 }

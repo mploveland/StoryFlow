@@ -17,7 +17,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter } from "./assistants";
+import { createDetailedCharacter, createGenreDetails } from "./assistants";
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
 
@@ -491,6 +491,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error creating detailed character:", error);
       return res.status(500).json({ 
         message: "Failed to create character with the OpenAI assistant",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
+  apiRouter.post("/ai/genre-details", async (req: Request, res: Response) => {
+    try {
+      const { userInterests, themes, mood, targetAudience, inspirations, additionalInfo } = req.body;
+      
+      const genreDetails = await createGenreDetails({
+        userInterests,
+        themes,
+        mood,
+        targetAudience,
+        inspirations,
+        additionalInfo
+      });
+      
+      return res.status(200).json(genreDetails);
+    } catch (error: any) {
+      console.error("Error creating genre details:", error);
+      return res.status(500).json({ 
+        message: "Failed to create genre details with the OpenAI assistant",
         error: error.message || "Unknown error"
       });
     }
