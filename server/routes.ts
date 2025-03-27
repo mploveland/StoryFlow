@@ -537,6 +537,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json(genreDetails);
     } catch (error: any) {
       console.error("Error creating genre details:", error);
+      
+      // Check if this is a conversation-in-progress error
+      if (error.message && error.message.startsWith("CONVERSATION_IN_PROGRESS:")) {
+        // Extract the question from the error message
+        const question = error.message.replace("CONVERSATION_IN_PROGRESS: ", "");
+        
+        // Return a special response for the frontend to handle
+        return res.status(202).json({
+          conversationInProgress: true,
+          question: question,
+          threadId: threadId || null,
+          needsMoreInput: true
+        });
+      }
+      
+      // Otherwise return a regular error
       return res.status(500).json({ 
         message: "Failed to create genre details with the OpenAI assistant",
         error: error.message || "Unknown error"
@@ -592,6 +608,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json(worldDetails);
     } catch (error: any) {
       console.error("Error creating world details:", error);
+      
+      // Check if this is a conversation-in-progress error
+      if (error.message && error.message.startsWith("CONVERSATION_IN_PROGRESS:")) {
+        // Extract the question from the error message
+        const question = error.message.replace("CONVERSATION_IN_PROGRESS: ", "");
+        
+        // Return a special response for the frontend to handle
+        return res.status(202).json({
+          conversationInProgress: true,
+          question: question,
+          threadId: threadId || null,
+          needsMoreInput: true
+        });
+      }
+      
+      // Otherwise return a regular error
       return res.status(500).json({ 
         message: "Failed to create world details with the OpenAI assistant",
         error: error.message || "Unknown error"

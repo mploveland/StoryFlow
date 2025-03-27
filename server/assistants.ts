@@ -355,51 +355,142 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     console.log("Received response from Genre Creator assistant:", responseText);
     
     // Parse the response content to extract genre information
-    // Since we're not getting JSON now, we need to create a structured response
-    // Let's make an educated guess about the genre based on the user's input
+    // Check if we've received an informative response or if we're still in question mode
+    const isQuestionResponse = responseText.includes("?") && 
+                              (responseText.includes("tell me") || 
+                               responseText.includes("could you") ||
+                               responseText.includes("would you") ||
+                               responseText.includes("what kind"));
     
-    // Extract likely genre name from the input
-    let genreName = "Western"; // Default for this specific case
+    if (isQuestionResponse) {
+      // The assistant is asking a question, this is a conversation in progress
+      // We should return a special response that indicates we need more input
+      throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
+    }
     
-    if (genreInput.userInterests) {
-      if (genreInput.userInterests.toLowerCase().includes("western")) {
-        genreName = "Western";
-      } else if (genreInput.userInterests.toLowerCase().includes("fantasy")) {
-        genreName = "Fantasy";
-      } else if (genreInput.userInterests.toLowerCase().includes("sci-fi") || 
-                genreInput.userInterests.toLowerCase().includes("science fiction")) {
-        genreName = "Science Fiction";
-      } else if (genreInput.userInterests.toLowerCase().includes("romance")) {
-        genreName = "Romance";
-      } else if (genreInput.userInterests.toLowerCase().includes("mystery")) {
-        genreName = "Mystery";
-      } else if (genreInput.userInterests.toLowerCase().includes("horror")) {
-        genreName = "Horror";
-      } else if (genreInput.userInterests.toLowerCase().includes("thriller")) {
-        genreName = "Thriller";
+    // Try to extract a genre name from the response text or from user interests
+    let genreName = "Custom Genre";  // Default name
+    const genreKeywords = [
+      "fantasy", "science fiction", "sci-fi", "mystery", "thriller", 
+      "horror", "romance", "western", "historical", "adventure",
+      "dystopian", "cyberpunk", "steampunk", "urban fantasy", 
+      "young adult", "crime", "noir", "magical realism"
+    ];
+    
+    // First try to find the genre name in the response text
+    for (const keyword of genreKeywords) {
+      if (responseText.toLowerCase().includes(keyword)) {
+        // Capitalize each word in the genre name
+        genreName = keyword.split(' ')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        break;
       }
     }
     
-    // Return the detailed genre with some information filled in
-    // and the assistant's response text as the description
+    // If we didn't find a genre in the response, check the user interests
+    if (genreName === "Custom Genre" && genreInput.userInterests) {
+      for (const keyword of genreKeywords) {
+        if (genreInput.userInterests.toLowerCase().includes(keyword)) {
+          // Capitalize each word in the genre name
+          genreName = keyword.split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(' ');
+          break;
+        }
+      }
+    }
+    
+    // Extract likely themes from the text
+    const themeKeywords = [
+      "adventure", "love", "betrayal", "redemption", "justice", "good vs evil",
+      "coming of age", "power", "morality", "identity", "survival", "war",
+      "exploration", "discovery", "revenge", "sacrifice", "family", "freedom",
+      "heroism", "tragedy", "hope", "corruption", "honor", "loyalty"
+    ];
+    
+    // Find themes mentioned in the text
+    const themes = themeKeywords
+      .filter(theme => responseText.toLowerCase().includes(theme))
+      .map(theme => theme.charAt(0).toUpperCase() + theme.slice(1));
+    
+    // If we couldn't extract themes, provide some default ones
+    const finalThemes = themes.length > 0 ? themes : 
+      (genreInput.themes?.length ? genreInput.themes : ["Identity", "Adventure", "Morality"]);
+    
+    // Extract common settings based on the detected genre
+    let commonSettings: string[] = [];
+    let tropes: string[] = [];
+    let typicalCharacters: string[] = [];
+    let recommendedReading: string[] = [];
+    let popularExamples: string[] = [];
+    let worldbuildingElements: string[] = [];
+    
+    // Populate genre-specific details
+    switch (genreName.toLowerCase()) {
+      case "fantasy":
+        commonSettings = ["Medieval Kingdom", "Magical Forest", "Ancient Ruins"];
+        tropes = ["Chosen One", "Magic System", "Epic Quest"];
+        typicalCharacters = ["Wizard", "Knight", "Princess", "Dragon"];
+        recommendedReading = ["The Lord of the Rings", "A Game of Thrones"];
+        popularExamples = ["The Witcher", "Harry Potter"];
+        worldbuildingElements = ["Magic System", "Mythical Creatures", "Ancient History"];
+        break;
+      case "science fiction":
+      case "sci-fi":
+        commonSettings = ["Space Station", "Alien Planet", "Future Earth"];
+        tropes = ["Advanced Technology", "Space Travel", "Artificial Intelligence"];
+        typicalCharacters = ["Astronaut", "Scientist", "Android", "Alien"];
+        recommendedReading = ["Dune", "Neuromancer"];
+        popularExamples = ["Star Wars", "Blade Runner"];
+        worldbuildingElements = ["Technology Systems", "Alien Civilizations", "Future Society"];
+        break;
+      case "mystery":
+        commonSettings = ["Small Town", "Detective Agency", "Crime Scene"];
+        tropes = ["Whodunit", "Red Herring", "The Perfect Crime"];
+        typicalCharacters = ["Detective", "Suspect", "Witness", "Victim"];
+        recommendedReading = ["The Hound of the Baskervilles", "Gone Girl"];
+        popularExamples = ["Knives Out", "Sherlock Holmes"];
+        worldbuildingElements = ["Criminal Underworld", "Legal System", "Investigation Methods"];
+        break;
+      case "western":
+        commonSettings = ["Mining Town", "Saloon", "Wilderness"];
+        tropes = ["Showdowns", "Frontier Justice", "Gold Rush"];
+        typicalCharacters = ["Sheriff", "Outlaw", "Prospector", "Townspeople"];
+        recommendedReading = ["Lonesome Dove", "True Grit"];
+        popularExamples = ["The Good, the Bad and the Ugly", "Deadwood"];
+        worldbuildingElements = ["Historical Accuracy", "Frontier Economy", "Social Hierarchy"];
+        break;
+      default:
+        // For genres we don't have specifics for, extract more content from the response
+        // and provide sensible defaults
+        commonSettings = ["Unique World", "Character-driven Environment", "Atmospheric Setting"];
+        tropes = ["Genre-specific Conventions", "Character Archetypes", "Plot Devices"];
+        typicalCharacters = ["Protagonist", "Antagonist", "Sidekick", "Mentor"];
+        recommendedReading = ["Classic Works in this Genre", "Contemporary Bestsellers"];
+        popularExamples = ["Well-known Movies/Shows", "Famous Book Series"];
+        worldbuildingElements = ["Cultural Elements", "Geography", "Historical Context"];
+    }
+    
+    // Return the detailed genre with thread ID for continued conversation
     return {
       name: genreName,
       description: responseText, // Return the full response text
-      themes: genreInput.themes || ["Adventure", "Frontier Life", "Justice"],
-      tropes: ["Showdowns", "Frontier Justice", "Gold Rush"],
-      commonSettings: ["Mining Town", "Saloon", "Wilderness"],
-      typicalCharacters: ["Sheriff", "Outlaw", "Prospector", "Townspeople"],
-      plotStructures: ["Hero's Journey", "Revenge Plot"],
+      themes: finalThemes,
+      tropes: tropes,
+      commonSettings: commonSettings,
+      typicalCharacters: typicalCharacters,
+      plotStructures: ["Hero's Journey", "Three-Act Structure", genreName + " Conventions"],
       styleGuide: {
-        tone: "Gritty and realistic",
-        pacing: "Deliberate with bursts of action",
-        perspective: "Third person",
-        dialogueStyle: "Sparse and direct"
+        tone: "Adaptive to story needs",
+        pacing: "Balanced with appropriate tension",
+        perspective: "Suitable for the narrative",
+        dialogueStyle: "Natural and character-appropriate"
       },
-      recommendedReading: ["Lonesome Dove", "True Grit"],
-      popularExamples: ["The Good, the Bad and the Ugly", "Deadwood"],
-      worldbuildingElements: ["Historical Accuracy", "Frontier Economy", "Social Hierarchy"],
-      threadId: thread.id // Include the thread ID for continued conversation
+      recommendedReading: recommendedReading,
+      popularExamples: popularExamples,
+      worldbuildingElements: worldbuildingElements,
+      threadId: thread.id
     };
   } catch (error) {
     console.error("Error creating genre details:", error);
@@ -553,12 +644,22 @@ export async function createWorldDetails(worldInput: WorldCreationInput): Promis
     const responseText = textContent.text.value;
     console.log("Received response from World Builder assistant:", responseText.substring(0, 100) + "...");
     
-    // We're using a conversational approach, so we'll create a structured world object
-    // with reasonable defaults and the assistant's response as the description
+    // Check if the response is a question (conversation in progress)
+    const isQuestionResponse = responseText.includes("?") && 
+                              (responseText.includes("tell me") || 
+                               responseText.includes("could you") ||
+                               responseText.includes("would you") ||
+                               responseText.includes("what kind"));
     
-    // Extract a world name from the input or use a default
-    let worldName = "Mining Town"; // Default for Western genre
+    if (isQuestionResponse) {
+      // The assistant is asking a question, this is a conversation in progress
+      throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
+    }
     
+    // Try to extract a world name from the response or input
+    let worldName = "Custom World";
+    
+    // First try to extract from setting if provided
     if (worldInput.setting) {
       // Try to extract a name from the setting
       const settingWords = worldInput.setting.split(/\s+/);
@@ -570,44 +671,163 @@ export async function createWorldDetails(worldInput: WorldCreationInput): Promis
       }
     }
     
-    // Return the detailed world with the assistant's response as the description
-    // and reasonable defaults for the structured fields
+    // Look for location names in the response text
+    const locationPatterns = [
+      /(?:called|named)\s+["']([^"']+)["']/i,  // "called 'Eldoria'" or "named 'New Haven'"
+      /world of\s+["']?([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)["']?/i,  // "world of Eldoria"
+      /(?:kingdom|empire|realm|world|land|city|town) (?:of|is) ["']?([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)["']?/i,
+      /["']([A-Z][a-z]+(?:\s[A-Z][a-z]+)?(?:\s[A-Z][a-z]+)?)["'] is a/i,  // "'New Haven' is a"
+    ];
+    
+    for (const pattern of locationPatterns) {
+      const match = responseText.match(pattern);
+      if (match && match[1]) {
+        worldName = match[1];
+        break;
+      }
+    }
+    
+    // Extract era from the response or use the input timeframe
+    let era = worldInput.timeframe || "Contemporary";
+    const eraPatterns = [
+      /(?:set in|takes place in|during) the\s+([^.,]+)(?:era|period|age|century)/i,
+      /(?:era|period|age) is (?:the|a)\s+([^.,]+)/i,
+    ];
+    
+    for (const pattern of eraPatterns) {
+      const match = responseText.match(pattern);
+      if (match && match[1]) {
+        era = match[1].trim();
+        break;
+      }
+    }
+    
+    // Extract geography and locations from the response
+    const geographyKeywords = [
+      "mountains", "hills", "valleys", "forests", "rivers", "lakes", "oceans", 
+      "deserts", "plains", "islands", "tundra", "jungle", "swamp", "plateau",
+      "canyon", "coast", "reef", "glacier", "volcano", "marsh"
+    ];
+    
+    // Find geography mentioned in the response
+    const geography = geographyKeywords
+      .filter(geo => responseText.toLowerCase().includes(geo))
+      .map(geo => geo.charAt(0).toUpperCase() + geo.slice(1));
+    
+    // Extract locations from response
+    const locationKeywords = [
+      "castle", "city", "town", "village", "kingdom", "empire", "fortress", 
+      "capital", "settlement", "outpost", "harbor", "port", "palace", "temple",
+      "ruins", "academy", "market", "district", "quarter", "station"
+    ];
+    
+    // Find locations mentioned in the response
+    const locations = locationKeywords
+      .filter(loc => responseText.toLowerCase().includes(loc))
+      .map(loc => {
+        // Try to extract the full location name
+        const pattern = new RegExp(`(?:\\b|the\\s)((?:[A-Z][a-z]*\\s)?${loc})\\b`, 'i');
+        const match = responseText.match(pattern);
+        return match ? match[1].trim().charAt(0).toUpperCase() + match[1].trim().slice(1) : 
+                      loc.charAt(0).toUpperCase() + loc.slice(1);
+      });
+    
+    // Create dynamic world based on response and inputs
+    let worldType = "generic";
+    if (responseText.toLowerCase().includes("fantasy")) worldType = "fantasy";
+    else if (responseText.toLowerCase().includes("sci-fi") || 
+             responseText.toLowerCase().includes("science fiction")) worldType = "scifi";
+    else if (responseText.toLowerCase().includes("western")) worldType = "western";
+    else if (responseText.toLowerCase().includes("medieval")) worldType = "medieval";
+    else if (responseText.toLowerCase().includes("modern")) worldType = "modern";
+    else if (responseText.toLowerCase().includes("post-apocalyptic")) worldType = "postapoc";
+    
+    // Set reasonable defaults based on world type
+    let culture = {
+      socialStructure: "Complex hierarchical society",
+      beliefs: "Mixed belief systems",
+      customs: ["Local traditions", "Regional celebrations", "Cultural practices"],
+      languages: ["Common language", "Regional dialects", "Ancient languages"]
+    };
+    
+    let politics = {
+      governmentType: "Mixed governance",
+      powerDynamics: "Complex power relationships",
+      majorFactions: ["Ruling Group", "Opposition Forces", "Neutral Parties"]
+    };
+    
+    let economy = {
+      resources: ["Primary Resources", "Secondary Goods", "Luxury Items"],
+      trade: "Trade networks according to world technology level",
+      currency: "Standard currency with regional variations"
+    };
+    
+    let technology = {
+      level: "Appropriate to setting",
+      innovations: ["Key Technologies", "Important Tools", "Significant Inventions"],
+      limitations: "Technological constraints appropriate to the setting"
+    };
+    
+    let conflicts = [
+      "Primary conflict appropriate to setting",
+      "Secondary tensions between groups",
+      "Personal struggles relevant to world"
+    ];
+    
+    let history = {
+      majorEvents: ["Founding Event", "Critical Turn", "Recent Milestone"],
+      legends: ["Origin Myth", "Historical Legend", "Cultural Tale"]
+    };
+    
+    // Adjust defaults based on detected world type
+    switch (worldType) {
+      case "fantasy":
+        culture.beliefs = "Mystical belief systems with magical elements";
+        technology.level = "Pre-industrial with magical elements";
+        technology.innovations = ["Magic systems", "Enchanted items", "Alchemical processes"];
+        break;
+      case "scifi":
+        technology.level = "Advanced beyond current capabilities";
+        technology.innovations = ["Faster-than-light travel", "Advanced AI", "Energy weapons"];
+        economy.resources = ["Rare minerals", "Energy sources", "Advanced materials"];
+        break;
+      case "western":
+        era = era || "Late 19th Century";
+        culture.socialStructure = "Frontier hierarchy with emerging order";
+        technology.level = "Industrial Revolution era";
+        economy.resources = ["Mineral deposits", "Cattle", "Land"];
+        break;
+      case "medieval":
+        era = era || "Middle Ages";
+        politics.governmentType = "Feudal system with noble hierarchy";
+        technology.level = "Pre-industrial";
+        economy.currency = "Mix of barter and precious metals";
+        break;
+      case "modern":
+        era = era || "Present Day";
+        technology.level = "Current technology";
+        politics.governmentType = "Democratic or authoritarian systems";
+        break;
+      case "postapoc":
+        culture.socialStructure = "Survivor groups with new hierarchies";
+        economy.trade = "Scavenging and barter systems";
+        conflicts = ["Resource scarcity", "Survivor conflicts", "Environmental threats"];
+        break;
+    }
+    
+    // Return the detailed world with the processed information
     return {
       name: worldName,
       description: responseText, // Full conversational response
-      era: worldInput.timeframe || "Late 19th Century",
-      geography: ["Mountains", "River Valley", "Forested Hills"],
-      locations: ["Mining Camp", "Town Center", "Railway Station"],
-      culture: {
-        socialStructure: "Frontier hierarchy with wealthy business owners and laborers",
-        beliefs: "Mixture of traditional values and frontier pragmatism",
-        customs: ["Community gatherings", "Local celebrations", "Mining traditions"],
-        languages: ["English", "Indigenous languages", "Immigrant dialects"]
-      },
-      politics: {
-        governmentType: "Local town council with mining company influence",
-        powerDynamics: "Tension between business interests and townspeople",
-        majorFactions: ["Mining Company", "Townsfolk", "Law Enforcement"]
-      },
-      economy: {
-        resources: ["Gold", "Timber", "Agriculture"],
-        trade: "Resource extraction with growing commerce",
-        currency: "US Dollar with some barter systems"
-      },
-      technology: {
-        level: "Industrial Revolution era",
-        innovations: ["Steam power", "Telegraph", "Early firearms"],
-        limitations: "Limited electricity and modern conveniences"
-      },
-      conflicts: [
-        "Clash between mining interests and local residents",
-        "Environmental impact of mining operations",
-        "Cultural tensions between different groups"
-      ],
-      history: {
-        majorEvents: ["Gold discovery", "Railway arrival", "Founding of the town"],
-        legends: ["Tale of the first gold strike", "Stories of frontier heroes"]
-      },
+      era: era,
+      geography: geography.length > 0 ? geography : ["Diverse Landscapes", "Notable Formations", "Natural Features"],
+      locations: locations.length > 0 ? locations : ["Major Settlement", "Important Location", "Significant Site"],
+      culture: culture,
+      politics: politics,
+      economy: economy,
+      technology: technology,
+      conflicts: conflicts,
+      history: history,
       threadId: thread.id // Include the thread ID for continued conversation
     };
   } catch (error) {
