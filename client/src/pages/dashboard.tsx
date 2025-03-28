@@ -165,8 +165,9 @@ const Dashboard: React.FC = () => {
   };
   
   // Delete foundation mutation
-  const deleteFoundationMutation = useMutation({
-    mutationFn: async ({ foundationId, force }: { foundationId: number, force: boolean }) => {
+  const deleteFoundationMutation = useMutation<unknown, Error, { foundationId: number, force: boolean }>({
+    mutationFn: async ({ foundationId, force }) => {
+      console.log(`Deleting foundation ${foundationId} with force=${force}`);
       const url = `/api/foundations/${foundationId}${force ? '?force=true' : ''}`;
       const response = await apiRequest('DELETE', url);
       if (!response.ok) {

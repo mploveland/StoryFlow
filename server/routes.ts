@@ -175,13 +175,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.delete("/foundations/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const forceDelete = req.query.force === 'true';
+      
+      console.log(`Attempting to delete foundation ${id}, force=${forceDelete}`);
+      console.log('Query parameters:', req.query);
       
       // First, check if this foundation has any stories associated with it
       const storiesForFoundation = await storage.getStoriesByFoundation(id);
+      console.log(`Foundation ${id} has ${storiesForFoundation.length} stories associated with it`);
       
-      // If there are stories, we don't delete the foundation directly
-      // The client will need to confirm deletion in this case
-      if (req.query.force !== 'true' && storiesForFoundation.length > 0) {
+      // If there are stories and force is not true, we don't delete the foundation directly
+      if (!forceDelete && storiesForFoundation.length > 0) {
+        console.log(`Rejecting deletion - stories exist and force=false`);
         return res.status(400).json({ 
           message: "Foundation has stories associated with it", 
           hasStories: true,
@@ -189,8 +194,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Delete the foundation if no stories or force=true
+      console.log(`Proceeding with foundation deletion for ID ${id}`);
+      
+      // Delete associated stories first if force is true
+      if (forceDelete && storiesForFoundation.length > 0) {
+        console.log(`Force deleting ${storiesForFoundation.length} stories for foundation ${id}`);
+        for (const story of storiesForFoundation) {
+          await storage.deleteStory(story.id);
+        }
+      }
+      
+      // Now delete the foundation
       const success = await storage.deleteFoundation(id);
+      console.log(`Foundation deletion result: ${success ? 'success' : 'failed'}`);
       
       if (!success) {
         return res.status(404).json({ message: "Foundation not found" });
