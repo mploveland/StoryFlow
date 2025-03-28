@@ -227,19 +227,25 @@ const FoundationDetails: React.FC = () => {
     setIsForceDeleteDialogOpen(false);
   };
   
-  // Update foundation mutation to store threadId
+  // Update foundation mutation to store threadId and/or genre
   const updateFoundationMutation = useMutation({
-    mutationFn: async (updateData: { id: number, threadId: string }) => {
-      const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, {
-        threadId: updateData.threadId
-      });
+    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string }) => {
+      // Only include properties that are defined
+      const updatePayload: any = {};
+      if (updateData.threadId) updatePayload.threadId = updateData.threadId;
+      if (updateData.genre) updatePayload.genre = updateData.genre;
+      
+      console.log('Updating foundation with:', updatePayload);
+      
+      const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, updatePayload);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Foundation updated successfully:', data);
       queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}`] });
     },
     onError: (error: any) => {
-      console.error('Failed to update foundation threadId:', error);
+      console.error('Failed to update foundation:', error);
     }
   });
 
@@ -253,49 +259,92 @@ const FoundationDetails: React.FC = () => {
       // Use the foundation's threadId if available and no specific threadId was provided
       const chatThreadId = threadId || foundation.threadId;
       
-      // Use genre-details endpoint to properly connect with the Genre Assistant
-      const endpoint = foundation.genre ? '/api/ai/world-details' : '/api/ai/genre-details';
+      // IMPORTANT: Force using the genre-details endpoint for the initial conversation
+      // Only switch to world-details after the genre has been established
+      const hasDefinedGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
       
-      console.log(`Using endpoint ${endpoint} for foundation chat message`);
+      const endpoint = hasDefinedGenre ? '/api/ai/world-details' : '/api/ai/genre-details';
       
-      const payload = foundation.genre 
-        ? {
-            // World details payload
-            genreContext: foundation.genre,
-            message: message,
-            foundationId: foundationId,
-            threadId: chatThreadId,
-          }
-        : {
-            // Genre details payload
-            userInterests: message,
-            foundationId: foundationId,
-            threadId: chatThreadId,
-          };
+      console.log(`Using endpoint ${endpoint} for foundation chat message. Foundation genre: "${foundation.genre || 'none'}"`);
       
-      const response = await apiRequest('POST', endpoint, payload);
+      // Special handling for genre initialization
+      const isInitializing = !chatThreadId;
       
-      const data = await response.json();
-      console.log('Foundation chat response:', data);
-      
-      // If there's a new threadId and it's different from what we have stored, update it
-      if (data.threadId && data.threadId !== foundation.threadId) {
-        updateFoundationMutation.mutate({
-          id: foundation.id,
+      if (endpoint === '/api/ai/genre-details') {
+        // Genre details payload
+        const genrePayload = {
+          userInterests: message,
+          foundationId: foundationId,
+          threadId: chatThreadId,
+          isInitialStage: isInitializing
+        };
+        
+        console.log('Sending to genre assistant:', genrePayload);
+        
+        const response = await apiRequest('POST', endpoint, genrePayload);
+        const data = await response.json();
+        console.log('Genre assistant response:', data);
+        
+        // If we got a genre name back, update the foundation with both the threadId and genre
+        if (data.name && !hasDefinedGenre) {
+          updateFoundationMutation.mutate({
+            id: foundation.id,
+            threadId: data.threadId,
+            genre: data.name
+          });
+        } else if (data.threadId && data.threadId !== foundation.threadId) {
+          // Just update the threadId
+          updateFoundationMutation.mutate({
+            id: foundation.id,
+            threadId: data.threadId
+          });
+        }
+        
+        return {
+          content: data.description || data.name || data.question || 
+                  'I\'m the Genre Creator assistant. Let\'s explore what genre would work best for your story foundation.',
+          suggestions: data.suggestions || [
+            "I want to create a fantasy world",
+            "Let's explore science fiction",
+            "I'm thinking of a mystery/thriller",
+            "I'd like to write historical fiction"
+          ],
           threadId: data.threadId
-        });
+        };
+      } else {
+        // World details payload
+        const worldPayload = {
+          genreContext: foundation.genre,
+          message: message,
+          foundationId: foundationId,
+          threadId: chatThreadId,
+        };
+        
+        console.log('Sending to world builder:', worldPayload);
+        
+        const response = await apiRequest('POST', endpoint, worldPayload);
+        const data = await response.json();
+        console.log('World builder response:', data);
+        
+        // If there's a new threadId and it's different from what we have stored, update it
+        if (data.threadId && data.threadId !== foundation.threadId) {
+          updateFoundationMutation.mutate({
+            id: foundation.id,
+            threadId: data.threadId
+          });
+        }
+        
+        return {
+          content: data.description || data.name || data.question || 'Sorry, I could not process your request. Please try again.',
+          suggestions: data.suggestions || [
+            'Tell me more about this world',
+            'What kind of geography exists here?',
+            'How can I develop the culture?',
+            'What conflicts exist in this world?'
+          ],
+          threadId: data.threadId
+        };
       }
-      
-      return {
-        content: data.description || data.name || data.question || 'Sorry, I could not process your request. Please try again.',
-        suggestions: [
-          'Tell me more about this world',
-          'What genre is this foundation?',
-          'How do I add characters?',
-          'What should I do next?'
-        ],
-        threadId: data.threadId
-      };
     } catch (error) {
       console.error('Error sending message to foundation AI:', error);
       throw error;
