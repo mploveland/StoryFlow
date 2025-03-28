@@ -20,7 +20,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter, createGenreDetails, createWorldDetails } from "./assistants";
+import { createDetailedCharacter, createGenreDetails, createWorldDetails, extractSuggestionsFromQuestion } from "./assistants";
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
 
@@ -972,86 +972,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`Using threadId for conversation response: ${threadId ? threadId.substring(0, 10) + '...' : 'null'}`);
         
-        // Generate context-aware suggestions based on the question
-        const description = question.toLowerCase();
-        let contextAwareSuggestions: string[] = [];
+        // Use intelligent suggestion extraction to generate dynamic options based on the question
+        // This analyzes the AI's question and extracts relevant options directly from the text
+        let contextAwareSuggestions = extractSuggestionsFromQuestion(question);
         
         // Default catch-all suggestion that lets AI decide
         const surpriseMeSuggestion = "Surprise me! You decide what works best.";
         
-        // Check for question patterns and generate appropriate suggestions
-        if (description.includes("darker") || description.includes("grittier") || 
-            description.includes("poetic") || description.includes("introspective") ||
-            description.includes("tone") || description.includes("style")) {
+        // If our extraction didn't yield enough suggestions, fall back to context-based category matching
+        if (contextAwareSuggestions.length <= 1) {
+          // Generate context-aware suggestions based on the question content
+          const description = question.toLowerCase();
+          contextAwareSuggestions = [];
           
-          // Questions about tone preference
-          if (description.includes("darker") && description.includes("poetic")) {
+          // Check for question patterns and generate appropriate suggestions
+          if (description.includes("darker") || description.includes("grittier") || 
+              description.includes("poetic") || description.includes("introspective") ||
+              description.includes("tone") || description.includes("style")) {
+            
+            // Questions about tone preference
+            if (description.includes("darker") && description.includes("poetic")) {
+              contextAwareSuggestions = [
+                "I prefer a darker, grittier fantasy tone",
+                "I'd like a more poetic, introspective tone",
+                "I want a blend of both styles",
+                surpriseMeSuggestion
+              ];
+            } else if (description.includes("tone") || description.includes("style")) {
+              contextAwareSuggestions = [
+                "I prefer an upbeat, hopeful tone",
+                "I'd like something dark and atmospheric",
+                "I want a balanced tone with both light and shadow",
+                surpriseMeSuggestion
+              ];
+            }
+          } else if (description.includes("magic") || description.includes("system")) {
+            // Questions about magic systems
             contextAwareSuggestions = [
-              "I prefer a darker, grittier fantasy tone",
-              "I'd like a more poetic, introspective tone",
-              "I want a blend of both styles",
+              "I want a well-defined, rule-based magic system",
+              "I prefer mysterious, unexplained magical elements",
+              "I'd like magic to be rare and powerful",
               surpriseMeSuggestion
             ];
-          } else if (description.includes("tone") || description.includes("style")) {
+          } else if (description.includes("character") || description.includes("protagonist")) {
+            // Questions about character types
             contextAwareSuggestions = [
-              "I prefer an upbeat, hopeful tone",
-              "I'd like something dark and atmospheric",
-              "I want a balanced tone with both light and shadow",
+              "I want complex, morally gray characters",
+              "I'd like heroic characters with clear moral values",
+              "I prefer characters who evolve significantly throughout the story",
+              surpriseMeSuggestion
+            ];
+          } else if (description.includes("world") || description.includes("setting")) {
+            // Questions about worldbuilding
+            contextAwareSuggestions = [
+              "I want a detailed, expansive world with diverse cultures",
+              "I prefer a focused setting with depth in specific locations",
+              "I'd like a world with unusual geography or physics",
+              surpriseMeSuggestion
+            ];
+          } else if (description.includes("theme") || description.includes("explore")) {
+            // Questions about themes
+            contextAwareSuggestions = [
+              "I'm interested in themes of redemption and personal growth",
+              "I want to explore power dynamics and political intrigue",
+              "I'd like to focus on relationships and emotional journeys",
+              surpriseMeSuggestion
+            ];
+          } else if (description.includes("author") || description.includes("book") || 
+                    description.includes("favorite") || description.includes("similar")) {
+            // Questions about influences
+            contextAwareSuggestions = [
+              "I love authors like Brandon Sanderson and Neil Gaiman",
+              "My favorite books include The Lord of the Rings and Dune",
+              "I enjoy stories similar to Harry Potter or Percy Jackson",
               surpriseMeSuggestion
             ];
           }
-        } else if (description.includes("magic") || description.includes("system")) {
-          // Questions about magic systems
-          contextAwareSuggestions = [
-            "I want a well-defined, rule-based magic system",
-            "I prefer mysterious, unexplained magical elements",
-            "I'd like magic to be rare and powerful",
-            surpriseMeSuggestion
-          ];
-        } else if (description.includes("character") || description.includes("protagonist")) {
-          // Questions about character types
-          contextAwareSuggestions = [
-            "I want complex, morally gray characters",
-            "I'd like heroic characters with clear moral values",
-            "I prefer characters who evolve significantly throughout the story",
-            surpriseMeSuggestion
-          ];
-        } else if (description.includes("world") || description.includes("setting")) {
-          // Questions about worldbuilding
-          contextAwareSuggestions = [
-            "I want a detailed, expansive world with diverse cultures",
-            "I prefer a focused setting with depth in specific locations",
-            "I'd like a world with unusual geography or physics",
-            surpriseMeSuggestion
-          ];
-        } else if (description.includes("theme") || description.includes("explore")) {
-          // Questions about themes
-          contextAwareSuggestions = [
-            "I'm interested in themes of redemption and personal growth",
-            "I want to explore power dynamics and political intrigue",
-            "I'd like to focus on relationships and emotional journeys",
-            surpriseMeSuggestion
-          ];
-        } else if (description.includes("author") || description.includes("book") || 
-                  description.includes("favorite") || description.includes("similar")) {
-          // Questions about influences
-          contextAwareSuggestions = [
-            "I love authors like Brandon Sanderson and Neil Gaiman",
-            "My favorite books include The Lord of the Rings and Dune",
-            "I enjoy stories similar to Harry Potter or Percy Jackson",
-            surpriseMeSuggestion
-          ];
-        }
-        
-        // If we couldn't generate context-specific suggestions, use these defaults
-        if (contextAwareSuggestions.length === 0) {
-          contextAwareSuggestions = [
-            "I like fantasy books with dragons and magic",
-            "I want something like Harry Potter or Lord of the Rings",
-            "I prefer dark and gritty fantasy stories",
-            "I enjoy stories with complex political intrigue"
-          ];
-        }
+          
+          // If we couldn't generate context-specific suggestions, use these defaults
+          if (contextAwareSuggestions.length === 0) {
+            contextAwareSuggestions = [
+              "I like fantasy books with dragons and magic",
+              "I want something like Harry Potter or Lord of the Rings",
+              "I prefer dark and gritty fantasy stories",
+              "I enjoy stories with complex political intrigue"
+            ];
+          }
+        } // End of contextAwareSuggestions.length <= 1 block
         
         // Return a special response for the frontend to handle
         return res.status(202).json({
@@ -1125,12 +1132,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Extract the question from the error message
         const question = error.message.replace("CONVERSATION_IN_PROGRESS: ", "");
         
+        // Use our advanced suggestion extraction to generate dynamic options
+        const contextAwareSuggestions = extractSuggestionsFromQuestion(question);
+        
         // Return a special response for the frontend to handle
         return res.status(202).json({
           conversationInProgress: true,
           question: question,
           threadId: req.body.threadId || null,
-          needsMoreInput: true
+          needsMoreInput: true,
+          suggestions: contextAwareSuggestions
         });
       }
       

@@ -10,6 +10,118 @@ const HYPER_REALISTIC_CHARACTER_CREATOR_ID = "asst_zHYBFg9Om7fnilOfGTnVztF1";
 // The assistant's name is StoryFlow_GenreCreator
 const GENRE_CREATOR_ASSISTANT_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
 // The assistant's name is StoryFlow_WorldBuilder
+
+/**
+ * Extract potential response options from an AI question
+ * This helps generate more context-relevant suggestions based on the AI's question
+ */
+export function extractSuggestionsFromQuestion(question: string): string[] {
+  const suggestions: string[] = [];
+  const surpriseMeSuggestion = "Surprise me! You decide what works best.";
+  
+  // Check if the question contains explicit options in the text
+  // Common pattern: "would you prefer A, B, or C?"
+  const lines = question.split(/[.?!]\s+/);
+  
+  for (const line of lines) {
+    // Skip lines that are too short
+    if (line.length < 15) continue;
+    
+    // Check for lines with "or" which often indicate options
+    if (line.includes(" or ")) {
+      const parts = line.split(/\s+or\s+/);
+      
+      // Check first part for comma-separated list: "A, B, C, or D"
+      if (parts[0].includes(",")) {
+        const commaOptions = parts[0].split(",").map(opt => opt.trim());
+        // Add all but the last one (which is handled by the "or" split)
+        for (const opt of commaOptions) {
+          if (opt && opt.length > 2 && !opt.includes("?")) {
+            // Clean up the option
+            let cleanOption = opt.replace(/would you prefer|do you prefer|would you like|how about/gi, "").trim();
+            
+            // Remove starting articles and conjunctions
+            cleanOption = cleanOption.replace(/^(a|an|the|or|and|but|if|when)\s+/i, "").trim();
+            
+            // Skip if too short after cleaning
+            if (cleanOption.length > 3) {
+              suggestions.push(cleanOption);
+            }
+          }
+        }
+      }
+      
+      // Add the last option after "or"
+      let lastOption = parts[parts.length - 1].trim();
+      
+      // Clean up question marks, prefixes
+      lastOption = lastOption.replace(/\?.*$/, "").trim();
+      lastOption = lastOption.replace(/^(a|an|the|maybe|perhaps|possibly)\s+/i, "").trim();
+      
+      if (lastOption.length > 3 && !lastOption.toLowerCase().includes("what") && !lastOption.toLowerCase().includes("why")) {
+        suggestions.push(lastOption);
+      }
+    }
+  }
+  
+  // Look for numbered or bulleted options
+  const optionPatterns = [
+    /\b(\d+\.\s*|•\s*|\*\s*|-\s*)([^.?!:]+)/g,
+    /\b([A-Z])\)\s*([^.?!:]+)/g
+  ];
+  
+  for (const pattern of optionPatterns) {
+    // Use a more compatible approach instead of matchAll
+    let match;
+    while ((match = pattern.exec(question)) !== null) {
+      const option = match[2].trim();
+      if (option.length > 3) {
+        suggestions.push(option);
+      }
+    }
+  }
+  
+  // Extract directly quoted options (in quotes)
+  const quotePattern = /"([^"]+)"/g;
+  let quoteMatch;
+  while ((quoteMatch = quotePattern.exec(question)) !== null) {
+    const option = quoteMatch[1].trim();
+    if (option.length > 3) {
+      suggestions.push(option);
+    }
+  }
+  
+  // If we have specific tone words, extract them
+  const toneWords = [
+    "darker", "grittier", "poetic", "introspective", "mysterious", 
+    "adventurous", "wonder", "melancholy", "reflection", "atmospheric"
+  ];
+  
+  for (const tone of toneWords) {
+    if (question.toLowerCase().includes(tone)) {
+      suggestions.push(tone);
+    }
+  }
+  
+  // Deduplicate and limit to a reasonable number of suggestions
+  // Use a manual deduplication approach to avoid Set iterator compatibility issues
+  const uniqueSuggestions: string[] = [];
+  for (const suggestion of suggestions) {
+    if (!uniqueSuggestions.includes(suggestion)) {
+      uniqueSuggestions.push(suggestion);
+    }
+  }
+  
+  // Take the 3-4 most relevant suggestions
+  const finalSuggestions = uniqueSuggestions.slice(0, 4);
+  
+  // Always add the "Surprise me" option if we have room
+  if (finalSuggestions.length < 5) {
+    finalSuggestions.push(surpriseMeSuggestion);
+  }
+  
+  return finalSuggestions;
+}
 const WORLD_BUILDER_ASSISTANT_ID = "asst_0nfAuLNqDs7g84Q9UHwFyPjB";
 
 // Interface for genre creation input
