@@ -274,7 +274,10 @@ const Dashboard: React.FC = () => {
                     className={`bg-white shadow-sm hover:shadow transition-shadow cursor-pointer ${selectedFoundation?.id === foundation.id ? 'border-2 border-primary-500' : ''}`}
                     onClick={() => {
                       setSelectedFoundation(foundation);
-                      navigate(`/foundation-details?foundationId=${foundation.id}`);
+                      // Navigate to foundation-details with the correct foundationId parameter
+                      if (foundation && foundation.id) {
+                        navigate(`/foundation-details?foundationId=${foundation.id}`);
+                      }
                     }}
                   >
                     <CardContent className="p-4">

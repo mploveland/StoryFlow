@@ -367,8 +367,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteVersionsByChapterId(chapterId: number): Promise<boolean> {
-    const result = await db.delete(versions).where(eq(versions.chapterId, chapterId));
-    return result.count > 0;
+    await db.delete(versions).where(eq(versions.chapterId, chapterId));
+    return true;
   }
   
   // Suggestion operations
