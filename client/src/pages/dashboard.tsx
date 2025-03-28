@@ -66,6 +66,8 @@ const Dashboard: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user?.id}`] });
       // Select the newly created foundation
       setSelectedFoundation(newFoundation);
+      // Navigate to foundation details page
+      navigate(`/foundation-details?foundationId=${newFoundation.id}`);
     },
     onError: (error: any) => {
       toast({
@@ -270,7 +272,10 @@ const Dashboard: React.FC = () => {
                   <Card 
                     key={foundation.id} 
                     className={`bg-white shadow-sm hover:shadow transition-shadow cursor-pointer ${selectedFoundation?.id === foundation.id ? 'border-2 border-primary-500' : ''}`}
-                    onClick={() => setSelectedFoundation(foundation)}
+                    onClick={() => {
+                      setSelectedFoundation(foundation);
+                      navigate(`/foundation-details?foundationId=${foundation.id}`);
+                    }}
                   >
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
