@@ -542,17 +542,10 @@ const CharacterDetailsPage: React.FC = () => {
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Personality Traits</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {character?.personality && 
-                          (Array.isArray(character.personality) 
-                            ? character.personality.map((trait: string, index: number) => (
-                                <li key={index}>{trait}</li>
-                              ))
-                            : typeof character.personality === 'string'
-                              ? character.personality.split(',').map((trait: string, index: number) => (
-                                  <li key={index}>{trait.trim()}</li>
-                                ))
-                              : null
-                          )
+                        {character?.personality && Array.isArray(character.personality) && 
+                          character.personality.map((trait: string, index: number) => (
+                            <li key={index}>{trait}</li>
+                          ))
                         }
                       </ul>
                     </CardContent>
@@ -562,17 +555,10 @@ const CharacterDetailsPage: React.FC = () => {
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Skills & Abilities</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {character?.skills && 
-                          (Array.isArray(character.skills) 
-                            ? character.skills.map((skill: string, index: number) => (
-                                <li key={index}>{skill}</li>
-                              ))
-                            : typeof character.skills === 'string'
-                              ? character.skills.split(',').map((skill: string, index: number) => (
-                                  <li key={index}>{skill.trim()}</li>
-                                ))
-                              : null
-                          )
+                        {character?.skills && Array.isArray(character.skills) && 
+                          character.skills.map((skill: string, index: number) => (
+                            <li key={index}>{skill}</li>
+                          ))
                         }
                       </ul>
                     </CardContent>
@@ -582,10 +568,11 @@ const CharacterDetailsPage: React.FC = () => {
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Goals</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {character?.goals && typeof character.goals === 'string' && 
-                          character.goals.split(',').map((goal: string, index: number) => (
-                            <li key={index}>{goal.trim()}</li>
-                          ))}
+                        {character?.goals && Array.isArray(character.goals) && 
+                          character.goals.map((goal: string, index: number) => (
+                            <li key={index}>{goal}</li>
+                          ))
+                        }
                       </ul>
                     </CardContent>
                   </Card>
@@ -594,82 +581,61 @@ const CharacterDetailsPage: React.FC = () => {
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Fears</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {character?.fears && typeof character.fears === 'string' && 
-                          character.fears.split(',').map((fear: string, index: number) => (
-                            <li key={index}>{fear.trim()}</li>
-                          ))}
+                        {character?.fears && Array.isArray(character.fears) && 
+                          character.fears.map((fear: string, index: number) => (
+                            <li key={index}>{fear}</li>
+                          ))
+                        }
                       </ul>
                     </CardContent>
                   </Card>
                 </div>
                 
-                {/* Safely handle relationships property which might not exist in some character types */}
-                {character && 'relationships' in character && character.relationships && (
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Relationships</h3>
-                      <ul className="list-disc list-inside text-neutral-600">
-                        {Array.isArray(character.relationships) 
-                          ? character.relationships.map((relationship: string, index: number) => (
-                              <li key={index}>{relationship}</li>
-                            ))
-                          : typeof character.relationships === 'string'
-                            ? character.relationships.split(',').map((relationship: string, index: number) => (
-                                <li key={index}>{relationship.trim()}</li>
-                              ))
-                            : null
-                        }
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Relationships will be shown here in the future */}
                 
                 {character?.secrets && (
                   <Card>
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Secrets</h3>
-                      <p className="text-neutral-600 whitespace-pre-line">{character?.secrets}</p>
+                      <p className="text-neutral-600 whitespace-pre-line">{character.secrets}</p>
                     </CardContent>
                   </Card>
                 )}
                 
-                {character?.quirks && (
+                {character?.quirks && Array.isArray(character.quirks) && (
                   <Card>
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Quirks</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {typeof character.quirks === 'string' && 
-                          character.quirks.split(',').map((quirk: string, index: number) => (
-                            <li key={index}>{quirk.trim()}</li>
-                          ))}
+                        {character.quirks.map((quirk: string, index: number) => (
+                          <li key={index}>{quirk}</li>
+                        ))}
                       </ul>
                     </CardContent>
                   </Card>
                 )}
                 
-                {character?.motivations && (
+                {character?.motivations && Array.isArray(character.motivations) && (
                   <Card>
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Motivations</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {typeof character.motivations === 'string' && 
-                          character.motivations.split(',').map((motivation: string, index: number) => (
-                            <li key={index}>{motivation.trim()}</li>
-                          ))}
+                        {character.motivations.map((motivation: string, index: number) => (
+                          <li key={index}>{motivation}</li>
+                        ))}
                       </ul>
                     </CardContent>
                   </Card>
                 )}
                 
-                {character?.flaws && (
+                {character?.flaws && Array.isArray(character.flaws) && (
                   <Card>
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Flaws</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {typeof character.flaws === 'string' && 
-                          character.flaws.split(',').map((flaw: string, index: number) => (
-                            <li key={index}>{flaw.trim()}</li>
-                          ))}
+                        {character.flaws.map((flaw: string, index: number) => (
+                          <li key={index}>{flaw}</li>
+                        ))}
                       </ul>
                     </CardContent>
                   </Card>

@@ -252,10 +252,12 @@ export async function createDetailedCharacter(characterInput: CharacterCreationI
  * @returns A detailed genre profile
  */
 export async function createGenreDetails(genreInput: GenreCreationInput): Promise<GenreDetails & { threadId: string }> {
+  // Define threadId outside of try block so it's available in catch block
+  let thread;
+  let isNewThread = false;
+  let threadId: string = ''; // Initialize with empty string
+  
   try {
-    let thread;
-    let isNewThread = false;
-    let threadId: string;
     
     // Check if we're continuing an existing conversation
     if (genreInput.threadId) {
@@ -427,6 +429,9 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       }
     }
     
+    console.log(`Genre name selected: ${genreName}`);
+    console.log(`Using thread ID in response: ${thread.id}`);
+    
     // Extract likely themes from the text
     const themeKeywords = [
       "adventure", "love", "betrayal", "redemption", "justice", "good vs evil",
@@ -527,9 +532,13 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       // This is not a failure but a special case where we need more input
       // Attach the thread ID to the error before propagating it
       const conversationError = new Error(typedError.message);
+      
+      // Create a new dummy thread ID if one isn't available
+      const errorThreadId = threadId || `error-thread-${Date.now()}`;
+      
       // Add the threadId to the error object for the API to use
-      Object.assign(conversationError, { threadId: threadId });
-      console.log(`Throwing conversation-in-progress error with threadId: ${threadId}`);
+      Object.assign(conversationError, { threadId: errorThreadId });
+      console.log(`Throwing conversation-in-progress error with threadId: ${errorThreadId}`);
       throw conversationError;
     }
     
