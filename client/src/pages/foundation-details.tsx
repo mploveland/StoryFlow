@@ -617,13 +617,13 @@ const FoundationDetails: React.FC = () => {
                   sender: 'ai',
                   timestamp: new Date(),
                   suggestions: [
-                    "I'd like to create a Fantasy story with magic and adventure",
-                    "Let's build a Science Fiction world with advanced technology",
-                    "I want to develop a Mystery/Thriller with suspense and intrigue",
-                    "I'm interested in Historical Fiction set in a specific time period",
-                    "I enjoy Romance stories focused on relationships and emotions",
-                    "How about Horror with supernatural or psychological elements",
-                    "I'd like to mix multiple genres - surprise me with something unique!"
+                    "Fantasy",
+                    "Science Fiction",
+                    "Mystery",
+                    "Romance",
+                    "Horror",
+                    "Historical Fiction",
+                    "Surprise me!"
                   ]
                 }] : undefined}
               />
