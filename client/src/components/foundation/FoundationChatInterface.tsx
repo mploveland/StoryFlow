@@ -66,6 +66,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId || propThreadId);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   
   // Debug log for threadId state
   useEffect(() => {
@@ -367,6 +368,9 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     resetTranscript();
     setIsProcessing(true);
     
+    // Hide suggestions while processing
+    setShowSuggestions(false);
+    
     try {
       // Send message to AI using the appropriate handler
       const response = await messageHandler(userMessage.content, threadId);
@@ -408,16 +412,19 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
           if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
             console.log('Using AI-generated chat suggestions:', data.suggestions);
             setSuggestions(data.suggestions);
+            setShowSuggestions(true);
           } else if (response.suggestions) {
             // Fallback to provided suggestions if AI ones failed
             console.log('Falling back to provided suggestions:', response.suggestions);
             setSuggestions(response.suggestions);
+            setShowSuggestions(true);
           }
         } else {
           // If API call fails, use the provided suggestions
           if (response.suggestions) {
             console.log('Using provided suggestions due to API error:', response.suggestions);
             setSuggestions(response.suggestions);
+            setShowSuggestions(true);
           }
         }
       } catch (suggestionError) {
@@ -425,6 +432,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
         // Fallback to provided suggestions on error
         if (response.suggestions) {
           setSuggestions(response.suggestions);
+          setShowSuggestions(true);
         }
       }
     } catch (error) {
@@ -549,22 +557,24 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
         </div>
       )}
       
-      <div className="mt-2 mb-4">
-        <h4 className="text-sm font-medium mb-2 text-neutral-600">Suggestions:</h4>
-        <div className="flex flex-wrap gap-2">
-          {suggestions.map((suggestion, index) => (
-            <Button 
-              key={index} 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleSuggestionClick(suggestion)}
-              className="text-xs"
-            >
-              {suggestion}
-            </Button>
-          ))}
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="mt-2 mb-4">
+          <h4 className="text-sm font-medium mb-2 text-neutral-600">Suggestions:</h4>
+          <div className="flex flex-wrap gap-2">
+            {suggestions.map((suggestion, index) => (
+              <Button 
+                key={index} 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="text-xs"
+              >
+                {suggestion}
+              </Button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
       
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <div className="flex-1 relative">
