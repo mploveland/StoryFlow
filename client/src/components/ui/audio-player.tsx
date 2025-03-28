@@ -35,103 +35,95 @@ export function AudioPlayer({
   const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 
   useEffect(() => {
-    // Create audio element if it doesn't exist
-    if (!audioRef.current) {
-      console.log('AudioPlayer: Creating new audio element');
-      audioRef.current = new Audio();
+    // Always create a fresh audio element when the URL changes to prevent echo
+    console.log('AudioPlayer: Creating new audio element for URL change');
+    
+    // Always stop any existing audio first
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       
-      // Set initial playback speed
-      audioRef.current.playbackRate = playbackSpeed;
-      
-      // Add event listeners
-      audioRef.current.addEventListener('play', () => {
-        console.log('AudioPlayer: Audio started playing');
-        setIsPlaying(true);
-        onPlayStateChange?.(true);
-      });
-      
-      audioRef.current.addEventListener('ended', () => {
-        console.log('AudioPlayer: Audio playback ended');
-        setIsPlaying(false);
-        onPlayStateChange?.(false);
-      });
-      
-      audioRef.current.addEventListener('pause', () => {
-        console.log('AudioPlayer: Audio paused');
-        setIsPlaying(false);
-        onPlayStateChange?.(false);
-      });
-      
-      audioRef.current.addEventListener('error', (e) => {
-        console.error('AudioPlayer: Audio error:', e);
-        console.error('AudioPlayer: Error code:', audioRef.current?.error?.code);
-        console.error('AudioPlayer: Error message:', audioRef.current?.error?.message);
-        setIsPlaying(false);
-        onPlayStateChange?.(false);
-      });
-
-      // Add canplaythrough event for debugging
-      audioRef.current.addEventListener('canplaythrough', () => {
-        console.log('AudioPlayer: Audio can play through without buffering');
-      });
-
-      // Add loadeddata event for debugging
-      audioRef.current.addEventListener('loadeddata', () => {
-        console.log('AudioPlayer: Audio data is loaded');
-      });
+      // Remove event listeners to prevent memory leaks
+      audioRef.current.onplay = null;
+      audioRef.current.onended = null;
+      audioRef.current.onpause = null;
+      audioRef.current.onerror = null;
+      audioRef.current.oncanplaythrough = null;
+      audioRef.current.onloadeddata = null;
     }
     
-    // Setup audio context for better browser compatibility
-    try {
-      if (!audioContextRef.current) {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioContext) {
-          audioContextRef.current = new AudioContext();
-        }
-      }
+    // Create a completely new audio element
+    const newAudio = new Audio();
+    
+    // Set initial playback speed
+    newAudio.playbackRate = playbackSpeed;
+    
+    // Add event listeners to the new element
+    newAudio.onplay = () => {
+      console.log('AudioPlayer: Audio started playing');
+      setIsPlaying(true);
+      onPlayStateChange?.(true);
+    };
+    
+    newAudio.onended = () => {
+      console.log('AudioPlayer: Audio playback ended');
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
+    
+    newAudio.onpause = () => {
+      console.log('AudioPlayer: Audio paused');
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
+    
+    newAudio.onerror = (e) => {
+      console.error('AudioPlayer: Audio error:', e);
+      console.error('AudioPlayer: Error code:', newAudio.error?.code);
+      console.error('AudioPlayer: Error message:', newAudio.error?.message);
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
+    };
+
+    // Add canplaythrough event for debugging
+    newAudio.oncanplaythrough = () => {
+      console.log('AudioPlayer: Audio can play through without buffering');
+    };
+
+    // Add loadeddata event for debugging
+    newAudio.onloadeddata = () => {
+      console.log('AudioPlayer: Audio data is loaded');
+    };
+    
+    // Set the new audio reference
+    audioRef.current = newAudio;
+    
+    // If we have a URL, set it and potentially play
+    if (audioUrl) {
+      // Set the source on the fresh audio element
+      newAudio.src = audioUrl;
       
-      // Update source and connect to context
-      if (audioUrl && audioRef.current && audioContextRef.current) {
-        // Disconnect any existing source node
-        if (sourceNodeRef.current) {
-          sourceNodeRef.current.disconnect();
-        }
-        
-        // Set the source of the audio element
-        audioRef.current.src = audioUrl;
-        
-        // Create a new source node from the audio element
-        sourceNodeRef.current = audioContextRef.current.createMediaElementSource(audioRef.current);
-        sourceNodeRef.current.connect(audioContextRef.current.destination);
-        
-        // Resume audio context if suspended
-        if (audioContextRef.current.state === 'suspended') {
-          audioContextRef.current.resume();
-        }
-        
-        // Auto-play if specified
-        if (autoPlay) {
-          playAudio();
-        }
-      }
-    } catch (error) {
-      console.warn('Advanced audio context setup failed, using basic audio playback', error);
-      
-      // Fallback to basic audio element
-      if (audioUrl && audioRef.current) {
-        audioRef.current.src = audioUrl;
-        if (autoPlay) {
-          playAudio();
+      // Auto-play if specified
+      if (autoPlay) {
+        console.log('AudioPlayer: Auto-playing new audio');
+        const playPromise = newAudio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            console.error('Error auto-playing audio:', error);
+          });
         }
       }
     }
     
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
+      // Clean up on unmount or URL change
+      if (newAudio) {
+        console.log('AudioPlayer: Cleaning up audio element');
+        newAudio.pause();
+        newAudio.src = '';
       }
     };
-  }, [audioUrl, autoPlay, onPlayStateChange]);
+  }, [audioUrl, autoPlay, onPlayStateChange, playbackSpeed]);
   
   // Update internal playback speed when external prop changes
   useEffect(() => {
@@ -171,7 +163,13 @@ export function AudioPlayer({
   
   const pauseAudio = () => {
     if (audioRef.current) {
+      // Thoroughly stop the audio
       audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      
+      // Make sure the UI reflects the stopped state
+      setIsPlaying(false);
+      onPlayStateChange?.(false);
     }
   };
   
