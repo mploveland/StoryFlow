@@ -253,14 +253,30 @@ const FoundationDetails: React.FC = () => {
       // Use the foundation's threadId if available and no specific threadId was provided
       const chatThreadId = threadId || foundation.threadId;
       
-      const response = await apiRequest('POST', '/api/ai/world-details', {
-        genreContext: foundation.genre,
-        message: message,
-        foundationId: foundationId,
-        threadId: chatThreadId,
-      });
+      // Use genre-details endpoint to properly connect with the Genre Assistant
+      const endpoint = foundation.genre ? '/api/ai/world-details' : '/api/ai/genre-details';
+      
+      console.log(`Using endpoint ${endpoint} for foundation chat message`);
+      
+      const payload = foundation.genre 
+        ? {
+            // World details payload
+            genreContext: foundation.genre,
+            message: message,
+            foundationId: foundationId,
+            threadId: chatThreadId,
+          }
+        : {
+            // Genre details payload
+            userInterests: message,
+            foundationId: foundationId,
+            threadId: chatThreadId,
+          };
+      
+      const response = await apiRequest('POST', endpoint, payload);
       
       const data = await response.json();
+      console.log('Foundation chat response:', data);
       
       // If there's a new threadId and it's different from what we have stored, update it
       if (data.threadId && data.threadId !== foundation.threadId) {
@@ -271,7 +287,7 @@ const FoundationDetails: React.FC = () => {
       }
       
       return {
-        content: data.description || 'Sorry, I could not process your request. Please try again.',
+        content: data.description || data.name || data.question || 'Sorry, I could not process your request. Please try again.',
         suggestions: [
           'Tell me more about this world',
           'What genre is this foundation?',
@@ -485,7 +501,7 @@ const FoundationDetails: React.FC = () => {
                 initialThreadId={foundation.threadId || undefined}
                 initialMessages={!foundation.threadId ? [{
                   id: 'welcome',
-                  content: `Welcome to StoryFlow! I'm your AI assistant, and together we'll create the "${foundation.name}" story foundation. Let's start by discussing what genre you're interested in exploring.`,
+                  content: `Welcome to your new foundation, "${foundation.name}"! I'm here to help you build your story world. Would you like to start by telling me about the genre you're interested in?`,
                   sender: 'ai',
                   timestamp: new Date(),
                   suggestions: [

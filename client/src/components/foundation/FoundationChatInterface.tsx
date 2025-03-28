@@ -105,16 +105,16 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       // Set welcome message for foundation
       const welcomeMessage = {
         role: 'assistant' as const,
-        content: `Welcome to the foundation "${foundation.name}"! I'm here to help you develop your story foundation. How would you like to proceed with creating your world?`
+        content: `Welcome to your new foundation, "${foundation.name}"! I'm here to help you build your story world. Would you like to start by telling me about the genre you're interested in?`
       };
       setMessages([welcomeMessage]);
       
       // Initial suggestions for foundation
       setSuggestions([
-        "Tell me about the genre you're interested in",
-        "What kind of world are you envisioning?",
-        "Do you have any character ideas?",
-        "What themes would you like to explore?",
+        "I want to create a fantasy world",
+        "Let's explore science fiction",
+        "I'm thinking of a mystery/thriller",
+        "I'd like to write historical fiction",
       ]);
     } else if (title) {
       // Set welcome message for world details
