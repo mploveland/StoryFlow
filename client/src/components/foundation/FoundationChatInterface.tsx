@@ -64,11 +64,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId || propThreadId);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [persistenceError, setPersistenceError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
+  const pendingSaveQueue = useRef<{role: 'user' | 'assistant', content: string, foundationId: number}[]>([]);
   
   // Voice input
   const {
@@ -89,50 +92,144 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   // Load saved messages from the server
   const loadMessages = async (foundationId: number) => {
     try {
+      setPersistenceError(null);
+      setIsLoadingMessages(true);
+      
+      // Show loading message
+      setMessages([{
+        role: 'assistant',
+        content: 'Loading your previous conversation...'
+      }]);
+      
       const response = await fetch(`/api/foundations/${foundationId}/messages`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.length > 0) {
-          setMessages(data.map((msg: any) => ({
-            role: msg.role as 'user' | 'assistant',
-            content: msg.content
-          })));
-          
-          // Set suggestions based on the last assistant message
-          const lastAssistantMessage = [...data].reverse().find(msg => msg.role === 'assistant');
-          if (lastAssistantMessage) {
-            // Here we're using default suggestions since saved messages don't have suggestions
-            // In a future enhancement, we could store suggestions with messages
-            setSuggestions([
-              "Tell me more",
-              "Can you explain that differently?",
-              "Let's continue with the next topic",
-              "I'd like to add more details"
-            ]);
-          }
-          return true;
-        }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to load messages: ${response.status} ${response.statusText}`);
       }
-      return false;
+      
+      const data = await response.json();
+      
+      if (data.length > 0) {
+        // Add a small delay so the loading message is visible (better UX)
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        setMessages(data.map((msg: any) => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        })));
+        
+        // Set suggestions based on the last assistant message
+        const lastAssistantMessage = [...data].reverse().find(msg => msg.role === 'assistant');
+        if (lastAssistantMessage) {
+          // Here we're using default suggestions since saved messages don't have suggestions
+          // In a future enhancement, we could store suggestions with messages
+          setSuggestions([
+            "Tell me more",
+            "Can you explain that differently?",
+            "Let's continue with the next topic",
+            "I'd like to add more details"
+          ]);
+        }
+        return true;
+      } else {
+        // Clear the loading message if no messages were found
+        setMessages([]);
+        return false;
+      }
     } catch (error) {
       console.error("Error loading messages:", error);
+      setPersistenceError(`Failed to load conversation history: ${error instanceof Error ? error.message : String(error)}`);
+      // Clear the loading message on error
+      setMessages([]);
       return false;
+    } finally {
+      setIsLoadingMessages(false);
     }
   };
   
-  // Save message to the server
-  const saveMessage = async (foundationId: number, role: 'user' | 'assistant', content: string) => {
+  // Process any pending messages in the save queue
+  const processSaveQueue = useRef<NodeJS.Timeout | null>(null);
+  
+  // Function to retry saving a message with exponential backoff
+  const saveMessageWithRetry = async (
+    foundationId: number, 
+    role: 'user' | 'assistant', 
+    content: string, 
+    retryCount = 0, 
+    maxRetries = 3,
+    baseDelay = 1000
+  ) => {
     try {
-      await fetch(`/api/foundations/${foundationId}/messages`, {
+      const response = await fetch(`/api/foundations/${foundationId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ role, content })
       });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save message: ${response.status} ${response.statusText}`);
+      }
+      
+      // Clear error message on successful save
+      setPersistenceError(null);
+      
+      return true;
     } catch (error) {
-      console.error("Error saving message:", error);
+      console.error(`Error saving message (attempt ${retryCount + 1}):`, error);
+      
+      // If we haven't exceeded max retries, try again with exponential backoff
+      if (retryCount < maxRetries) {
+        const delay = baseDelay * Math.pow(2, retryCount);
+        console.log(`Retrying in ${delay}ms...`);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return saveMessageWithRetry(foundationId, role, content, retryCount + 1, maxRetries, baseDelay);
+      } else {
+        // Add to pending queue for later retry
+        pendingSaveQueue.current.push({ foundationId, role, content });
+        
+        // Set an error message for the user
+        setPersistenceError("Some messages couldn't be saved. The app will keep trying to save them.");
+        
+        // Start a background process to retry pending messages if not already running
+        if (!processSaveQueue.current) {
+          processSaveQueue.current = setInterval(() => {
+            if (pendingSaveQueue.current.length > 0) {
+              // Try to save the oldest message
+              const oldestMessage = pendingSaveQueue.current[0];
+              saveMessageWithRetry(
+                oldestMessage.foundationId, 
+                oldestMessage.role, 
+                oldestMessage.content
+              ).then(success => {
+                if (success) {
+                  // Remove from queue if successful
+                  pendingSaveQueue.current.shift();
+                  
+                  // If queue is empty, clear the interval and error message
+                  if (pendingSaveQueue.current.length === 0) {
+                    if (processSaveQueue.current) {
+                      clearInterval(processSaveQueue.current);
+                      processSaveQueue.current = null;
+                    }
+                    setPersistenceError(null);
+                  }
+                }
+              });
+            }
+          }, 5000); // Try every 5 seconds
+        }
+        
+        return false;
+      }
     }
+  };
+  
+  // Save message to the server with retry mechanism
+  const saveMessage = async (foundationId: number, role: 'user' | 'assistant', content: string) => {
+    return saveMessageWithRetry(foundationId, role, content);
   };
   
   useEffect(() => {
@@ -226,6 +323,16 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       speak(lastMessage.content);
     }
   }, [messages, speak]);
+  
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (processSaveQueue.current) {
+        clearInterval(processSaveQueue.current);
+        processSaveQueue.current = null;
+      }
+    };
+  }, []);
   
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -353,6 +460,45 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
           audioUrl={currentAudioUrl}
           className="mb-4"
         />
+      )}
+      
+      {/* Persistence error message display */}
+      {persistenceError && (
+        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-3">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-amber-800">Persistence Warning</h3>
+              <div className="mt-1 text-sm text-amber-700">
+                <p>{persistenceError}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* Loading messages indicator */}
+      {isLoadingMessages && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-blue-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Loading your conversation</h3>
+              <div className="mt-1 text-sm text-blue-700">
+                <p>Please wait while we retrieve your previous messages...</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       
       <div className="mt-2 mb-4">

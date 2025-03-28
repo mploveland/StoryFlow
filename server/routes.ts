@@ -262,19 +262,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
-        return res.status(400).json({ message: "Invalid foundation ID" });
+        return res.status(400).json({ 
+          message: "Invalid foundation ID",
+          details: "The foundation ID must be a valid number"
+        });
       }
       
       const foundation = await storage.getFoundation(foundationId);
       if (!foundation) {
-        return res.status(404).json({ message: "Foundation not found" });
+        return res.status(404).json({ 
+          message: "Foundation not found",
+          details: `No foundation exists with ID ${foundationId}`
+        });
       }
       
-      const messages = await storage.getFoundationMessages(foundationId);
-      return res.status(200).json(messages);
+      try {
+        const messages = await storage.getFoundationMessages(foundationId);
+        return res.status(200).json(messages);
+      } catch (dbError) {
+        console.error(`Database error retrieving messages for foundation ${foundationId}:`, dbError);
+        return res.status(500).json({ 
+          message: "Database error retrieving messages",
+          details: dbError instanceof Error ? dbError.message : "Unknown database error"
+        });
+      }
     } catch (error) {
       console.error("Error getting foundation messages:", error);
-      return res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ 
+        message: "Server error",
+        details: error instanceof Error ? error.message : "An unexpected error occurred"
+      });
     }
   });
   
@@ -282,34 +299,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
-        return res.status(400).json({ message: "Invalid foundation ID" });
+        return res.status(400).json({ 
+          message: "Invalid foundation ID",
+          details: "The foundation ID must be a valid number"
+        });
       }
       
       const foundation = await storage.getFoundation(foundationId);
       if (!foundation) {
-        return res.status(404).json({ message: "Foundation not found" });
+        return res.status(404).json({ 
+          message: "Foundation not found",
+          details: `No foundation exists with ID ${foundationId}`
+        });
       }
       
       const { role, content } = req.body;
       
-      if (!role || !content) {
-        return res.status(400).json({ message: "Role and content are required" });
+      // Validate required fields
+      if (!role) {
+        return res.status(400).json({ 
+          message: "Missing required field", 
+          details: "The 'role' field is required"
+        });
+      }
+      
+      if (!content) {
+        return res.status(400).json({ 
+          message: "Missing required field", 
+          details: "The 'content' field is required"
+        });
       }
       
       if (role !== 'user' && role !== 'assistant') {
-        return res.status(400).json({ message: "Role must be 'user' or 'assistant'" });
+        return res.status(400).json({ 
+          message: "Invalid role value", 
+          details: "Role must be either 'user' or 'assistant'"
+        });
       }
       
-      const message = await storage.createFoundationMessage({
-        foundationId,
-        role,
-        content
-      });
+      // Check if content is excessively large (prevent DB issues)
+      if (content.length > 100000) { // 100KB limit
+        return res.status(400).json({ 
+          message: "Content too large", 
+          details: "Message content exceeds the maximum allowed size"
+        });
+      }
       
-      return res.status(201).json(message);
+      try {
+        const message = await storage.createFoundationMessage({
+          foundationId,
+          role,
+          content
+        });
+        
+        return res.status(201).json(message);
+      } catch (dbError) {
+        console.error(`Database error saving message for foundation ${foundationId}:`, dbError);
+        return res.status(500).json({ 
+          message: "Database error saving message",
+          details: dbError instanceof Error ? dbError.message : "Unknown database error"
+        });
+      }
     } catch (error) {
       console.error("Error creating foundation message:", error);
-      return res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ 
+        message: "Server error",
+        details: error instanceof Error ? error.message : "An unexpected error occurred" 
+      });
     }
   });
   
