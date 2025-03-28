@@ -292,8 +292,9 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
   
   const handleSuggestionClick = (suggestion: string) => {
     setInputValue(suggestion);
-    // Optional: automatically submit the suggestion
-    // setTimeout(() => handleSubmit(), 100);
+    // Automatically submit the suggestion after a brief delay
+    // This makes the interaction more fluid for users
+    setTimeout(() => handleSubmit(), 100);
   };
   
   const toggleListening = () => {
@@ -327,6 +328,23 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
             </div>
           </div>
         ))}
+        
+        {/* Loading indicator while waiting for assistant response */}
+        {isProcessing && (
+          <div className="mb-4 text-left">
+            <div className="inline-block max-w-[80%] rounded-lg py-2 px-3 bg-white border border-neutral-200 shadow-sm">
+              <div className="flex items-center space-x-2">
+                <div className="flex space-x-1">
+                  <div className="h-2 w-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                  <div className="h-2 w-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  <div className="h-2 w-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '600ms' }}></div>
+                </div>
+                <span className="text-sm text-neutral-500">Thinking...</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </div>
       
