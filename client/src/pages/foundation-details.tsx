@@ -613,14 +613,17 @@ const FoundationDetails: React.FC = () => {
                 initialThreadId={foundation.threadId || undefined}
                 initialMessages={!foundation.threadId ? [{
                   id: 'welcome',
-                  content: `Welcome to your new foundation, "${foundation.name}"! I'm here to help you build your story world. Would you like to start by telling me about the genre you're interested in?`,
+                  content: `Welcome to StoryFlow! I'm your AI storytelling partner, and I'm excited to help you create "${foundation.name}". Let's start by defining a genre that will shape this story world. What type of genre interests you?`,
                   sender: 'ai',
                   timestamp: new Date(),
                   suggestions: [
-                    "I want to create a fantasy world",
-                    "Let's explore science fiction",
-                    "I'm thinking of a mystery/thriller",
-                    "I'd like to write historical fiction"
+                    "I'd like to create a Fantasy story with magic and adventure",
+                    "Let's build a Science Fiction world with advanced technology",
+                    "I want to develop a Mystery/Thriller with suspense and intrigue",
+                    "I'm interested in Historical Fiction set in a specific time period",
+                    "I enjoy Romance stories focused on relationships and emotions",
+                    "How about Horror with supernatural or psychological elements",
+                    "I'd like to mix multiple genres - surprise me with something unique!"
                   ]
                 }] : undefined}
               />
