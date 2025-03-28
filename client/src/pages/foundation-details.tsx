@@ -302,20 +302,29 @@ const FoundationDetails: React.FC = () => {
           };
         }
         
-        // If we got a genre name back, update the foundation with both the threadId and genre
-        if (data.name && !hasDefinedGenre) {
-          console.log(`Updating foundation with genre: ${data.name}`);
-          updateFoundationMutation.mutate({
-            id: foundation.id,
-            threadId: data.threadId,
-            genre: data.name
-          });
-        } else if (data.threadId && data.threadId !== foundation.threadId) {
-          // Just update the threadId
+        // ONLY update the threadId for now, not the genre
+        // This ensures we stay in the genre creation flow until we get a final summary
+        if (data.threadId && data.threadId !== foundation.threadId) {
           console.log(`Updating foundation with threadId: ${data.threadId}`);
           updateFoundationMutation.mutate({
             id: foundation.id,
             threadId: data.threadId
+          });
+        }
+        
+        // Only update the genre when we have a complete conversation 
+        // and it's not just a question (we need a complete genre description)
+        const hasCompleteGenreDescription = data.description && 
+          data.description.length > 100 && 
+          !data.description.includes("?") &&
+          data.themes && 
+          data.themes.length > 0;
+          
+        if (data.name && !hasDefinedGenre && hasCompleteGenreDescription) {
+          console.log(`Updating foundation with complete genre: ${data.name}`);
+          updateFoundationMutation.mutate({
+            id: foundation.id,
+            genre: data.name
           });
         }
         

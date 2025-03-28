@@ -736,6 +736,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Returning threadId: ${genreDetails.threadId.substring(0, 10)}...`);
       }
       
+      // Check if this is an informative response or just a question
+      // If it's just a question, treat it as an conversation in progress
+      const isQuestionOnly = genreDetails.description && 
+        genreDetails.description.includes("?") && 
+        genreDetails.description.length < 100;
+        
+      if (isQuestionOnly) {
+        console.log("Detected question-only response, treating as conversation in progress");
+        return res.status(202).json({
+          conversationInProgress: true,
+          question: genreDetails.description,
+          threadId: genreDetails.threadId,
+          needsMoreInput: true,
+          suggestions: [
+            "I love fantasy books like Lord of the Rings",
+            "I'm a fan of sci-fi like Dune",
+            "My favorite authors are Stephen King and Neil Gaiman",
+            "I enjoy books with complex characters and deep worldbuilding"
+          ]
+        });
+      }
+      
       return res.status(200).json(genreDetails);
     } catch (error: any) {
       console.error("Error creating genre details:", error);
