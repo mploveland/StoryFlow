@@ -155,10 +155,19 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       loadMessages(foundation.id).then(hasMessages => {
         // If no existing messages, show the welcome message
         if (!hasMessages) {
-          // Set welcome message for foundation
+          // Set welcome message for foundation with stages explanation
           const welcomeMessage = {
             role: 'assistant' as const,
-            content: `Welcome to your new foundation, "${foundation.name}"! I'm here to help you build your story world. Would you like to start by telling me about the genre you're interested in?`
+            content: `Welcome to StoryFlow! I'll help you build your new foundation, "${foundation.name}". 
+
+We'll go through these stages together:
+1. Genre - what type of story you want to create
+2. World - the setting and environment for your stories
+3. Characters - the people who inhabit your world
+4. Influences - inspirations and references for your creation
+5. Details - additional aspects to make your world unique
+
+Let's start with the genre. What kind of genre interests you? Feel free to give me just 1-2 words like "fantasy" or "sci-fi".`
           };
           setMessages([welcomeMessage]);
           
@@ -167,12 +176,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             saveMessage(foundation.id, 'assistant', welcomeMessage.content);
           }
           
-          // Initial suggestions for foundation
+          // Initial suggestions for foundation - simple 1-2 word genres with "Surprise me!" option
           setSuggestions([
-            "I want to create a fantasy world",
-            "Let's explore science fiction",
-            "I'm thinking of a mystery/thriller",
-            "I'd like to write historical fiction",
+            "Fantasy",
+            "Sci-fi",
+            "Mystery",
+            "Historical fiction",
+            "Romance",
+            "Surprise me!"
           ]);
         }
       });
