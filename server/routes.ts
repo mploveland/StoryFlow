@@ -975,12 +975,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check for conversation stage and message count
         // This helps identify when to transition from genre to world-building
         const messageCount = req.body.previousMessages ? req.body.previousMessages.length : 0;
-        const isLateStageConversation = messageCount >= 10; // 5 user messages + 5 AI responses
         
+        // Lower the threshold from 10 to 6 exchanges (3 user messages + 3 AI responses)
+        const isLateStageConversation = messageCount >= 6;
+        
+        // Make the world-building detection more robust by adding more keywords
         // Check if the question is about world-building (which suggests genre might be complete)
         const worldBuildingKeywords = [
           "environment", "setting", "historical period", "world", "geography",
-          "civilization", "culture", "politics", "society", "location"
+          "civilization", "culture", "politics", "society", "location", "map",
+          "kingdom", "realm", "nation", "city", "town", "landscape", "region",
+          "terrain", "climate", "history", "technology", "magic system", "religion"
         ];
         const isWorldBuildingQuestion = worldBuildingKeywords.some(keyword => 
           question.toLowerCase().includes(keyword.toLowerCase())
@@ -988,9 +993,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`Genre conversation check: messageCount=${messageCount}, isLateStage=${isLateStageConversation}, isWorldBuildingQuestion=${isWorldBuildingQuestion}`);
         
-        // If we're in a late stage conversation AND the AI is asking about world-building,
-        // we'll treat this as a completed genre with a transition to world building
-        if (isLateStageConversation && isWorldBuildingQuestion && question.length > 200) {
+        // Make the world-building transition more lenient - either:
+        // 1. We're in a late stage conversation AND the AI is asking about world-building, OR
+        // 2. We're in a very late stage conversation (6+ messages) with a substantial response
+        if ((isLateStageConversation && isWorldBuildingQuestion && question.length > 100) || 
+            (messageCount >= 6 && question.length > 150)) {
           console.log("Detected transition from genre to world-building stage!");
           
           // Extract a genre name from the conversation history or input

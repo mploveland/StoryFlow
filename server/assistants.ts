@@ -720,8 +720,9 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     const messageCount = genreInput.previousMessages ? genreInput.previousMessages.length : 0;
     console.log(`Message count in conversation: ${messageCount}`);
     
-    // After 5+ exchanges, we're more lenient about accepting genre completion
-    const isLateStageConversation = messageCount >= 10; // 5 user messages and 5 AI responses
+    // After several exchanges, we should be more lenient about accepting genre completion
+    // Lower from 10 to 6 exchanges (3 user messages and 3 AI responses)
+    const isLateStageConversation = messageCount >= 6;
     
     // Text is short OR contains a question mark OR has question phrase patterns OR doesn't have enough descriptive content
     // UNLESS it's a completed genre with world building transition OR we're in late stage conversation

@@ -351,12 +351,14 @@ const FoundationDetails: React.FC = () => {
         const questionWords = ["?", "would you", "could you", "do you", "tell me", "what", "how", "which"];
         const hasQuestion = questionWords.some(word => data.description?.includes(word));
         
-        const hasCompleteGenreDescription = data.description && 
-          data.description.length > 200 && // Must be longer
-          !hasQuestion &&  // No questions
-          data.themes && 
-          data.themes.length > 0 &&  // Must have themes
-          data.name?.length > 3;     // Must have a proper name
+        // Make the genre completion criteria more lenient:
+        // - Either we have themes and a proper name with a decent description, OR
+        // - The description is very substantial (over 500 chars) with a proper name
+        const hasCompleteGenreDescription = data.description && (
+          (data.description.length > 200 && !hasQuestion && data.themes && 
+           data.themes.length > 0 && data.name?.length > 3) ||
+          (data.description.length > 500 && data.name?.length > 3)
+        );
           
         if (data.name && !hasDefinedGenre && hasCompleteGenreDescription) {
           console.log(`Updating foundation with complete genre: ${data.name}`);
