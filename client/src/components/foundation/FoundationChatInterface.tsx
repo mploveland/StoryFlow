@@ -89,17 +89,39 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   // Load saved messages from the server
   const loadMessages = async (foundationId: number) => {
     try {
+      console.log(`Loading messages for foundation ${foundationId}`);
+      
+      // Validate foundationId
+      if (!foundationId || isNaN(foundationId)) {
+        throw new Error(`Invalid foundation ID: ${foundationId}`);
+      }
+      
       const response = await fetch(`/api/foundations/${foundationId}/messages`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.length > 0) {
-          setMessages(data.map((msg: any) => ({
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Server error fetching messages: ${response.status} - ${errorText}`);
+        return false;
+      }
+      
+      const data = await response.json();
+      console.log(`Loaded ${data?.length || 0} messages for foundation ${foundationId}`);
+      
+      if (Array.isArray(data) && data.length > 0) {
+        // Filter out invalid messages and map to correct format
+        const validMessages = data
+          .filter((msg: any) => msg && typeof msg === 'object' && msg.role && msg.content)
+          .map((msg: any) => ({
             role: msg.role as 'user' | 'assistant',
             content: msg.content
-          })));
+          }));
+        
+        if (validMessages.length > 0) {
+          console.log(`Setting ${validMessages.length} valid messages from database`);
+          setMessages(validMessages);
           
           // Set suggestions based on the last assistant message
-          const lastAssistantMessage = [...data].reverse().find(msg => msg.role === 'assistant');
+          const lastAssistantMessage = [...validMessages].reverse().find(msg => msg.role === 'assistant');
           if (lastAssistantMessage) {
             // Here we're using default suggestions since saved messages don't have suggestions
             // In a future enhancement, we could store suggestions with messages
@@ -111,7 +133,11 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             ]);
           }
           return true;
+        } else {
+          console.warn("Found data but no valid messages");
         }
+      } else {
+        console.log("No messages found for this foundation");
       }
       return false;
     } catch (error) {
@@ -123,15 +149,38 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   // Save message to the server
   const saveMessage = async (foundationId: number, role: 'user' | 'assistant', content: string) => {
     try {
-      await fetch(`/api/foundations/${foundationId}/messages`, {
+      console.log(`Saving ${role} message for foundation ${foundationId}`);
+      
+      // Validate inputs
+      if (!foundationId || isNaN(foundationId)) {
+        throw new Error(`Invalid foundation ID: ${foundationId}`);
+      }
+      
+      if (!content || content.trim() === '') {
+        throw new Error('Message content cannot be empty');
+      }
+      
+      if (role !== 'user' && role !== 'assistant') {
+        throw new Error(`Invalid role: ${role}`);
+      }
+      
+      const response = await fetch(`/api/foundations/${foundationId}/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ role, content })
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+        throw new Error(`Server error: ${response.status} - ${errorData.message || response.statusText}`);
+      }
+      
+      return await response.json();
     } catch (error) {
       console.error("Error saving message:", error);
+      throw error; // Re-throw to allow proper error handling by caller
     }
   };
   
@@ -335,8 +384,11 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
-    // Don't submit if already processing or empty message
-    if (isProcessing || !inputValue.trim() || !messageHandler) return;
+    // Don't submit if already processing or empty message or no message handler
+    if (isProcessing || !inputValue.trim() || !messageHandler) {
+      console.log("Cannot submit:", { isProcessing, inputValue: !!inputValue.trim(), hasMessageHandler: !!messageHandler });
+      return;
+    }
     
     // Add user message to chat
     const userMessage = { role: 'user' as const, content: inputValue };
@@ -344,7 +396,12 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     
     // Save user message to database if we have a foundation ID
     if (foundation && foundation.id) {
-      saveMessage(foundation.id, 'user', userMessage.content);
+      try {
+        await saveMessage(foundation.id, 'user', userMessage.content);
+        console.log("User message saved successfully");
+      } catch (saveError) {
+        console.error("Failed to save user message:", saveError);
+      }
     }
     
     // Clear input and start processing
@@ -353,9 +410,17 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     setIsProcessing(true);
     
     try {
+      console.log("Sending message to AI handler...");
+      
       // Send message to AI using the appropriate handler
-      if (!messageHandler) return;
       const response = await messageHandler(userMessage.content, threadId);
+      
+      console.log("Received response from AI handler:", response);
+      
+      // Safety check for response
+      if (!response || typeof response.content === 'undefined') {
+        throw new Error("Invalid response from message handler");
+      }
       
       // Add AI response to chat
       const assistantMessage = { 
@@ -366,16 +431,23 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       
       // Save assistant message to database if we have a foundation ID
       if (foundation && foundation.id) {
-        saveMessage(foundation.id, 'assistant', assistantMessage.content);
+        try {
+          await saveMessage(foundation.id, 'assistant', assistantMessage.content);
+          console.log("Assistant message saved successfully");
+        } catch (saveError) {
+          console.error("Failed to save assistant message:", saveError);
+        }
       }
       
       // Save thread ID if provided
       if (response.threadId) {
+        console.log("Updating thread ID:", response.threadId);
         setThreadId(response.threadId);
       }
       
       // Update suggestions if provided
-      if (response.suggestions) {
+      if (response.suggestions && Array.isArray(response.suggestions)) {
+        console.log("Updating suggestions:", response.suggestions);
         setSuggestions(response.suggestions);
       }
     } catch (error) {
@@ -389,7 +461,11 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       
       // Also save error message to database
       if (foundation && foundation.id) {
-        saveMessage(foundation.id, 'assistant', errorMessage.content);
+        try {
+          await saveMessage(foundation.id, 'assistant', errorMessage.content);
+        } catch (saveError) {
+          console.error("Failed to save error message:", saveError);
+        }
       }
     } finally {
       setIsProcessing(false);

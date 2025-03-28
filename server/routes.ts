@@ -260,45 +260,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Foundation message routes
   apiRouter.get("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
     try {
+      console.log(`GET request for foundation messages with ID: ${req.params.foundationId}`);
+      
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
+        console.warn(`Invalid foundation ID provided: ${req.params.foundationId}`);
         return res.status(400).json({ message: "Invalid foundation ID" });
       }
       
       const foundation = await storage.getFoundation(foundationId);
       if (!foundation) {
+        console.warn(`Foundation not found with ID: ${foundationId}`);
         return res.status(404).json({ message: "Foundation not found" });
       }
       
       const messages = await storage.getFoundationMessages(foundationId);
+      console.log(`Retrieved ${messages.length} messages for foundation ID: ${foundationId}`);
       return res.status(200).json(messages);
     } catch (error) {
       console.error("Error getting foundation messages:", error);
-      return res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ 
+        message: "Server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
   apiRouter.post("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
     try {
+      console.log(`POST request for foundation message with ID: ${req.params.foundationId}`);
+      
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
+        console.warn(`Invalid foundation ID provided: ${req.params.foundationId}`);
         return res.status(400).json({ message: "Invalid foundation ID" });
       }
       
       const foundation = await storage.getFoundation(foundationId);
       if (!foundation) {
+        console.warn(`Foundation not found with ID: ${foundationId}`);
         return res.status(404).json({ message: "Foundation not found" });
       }
       
       const { role, content } = req.body;
       
-      if (!role || !content) {
-        return res.status(400).json({ message: "Role and content are required" });
+      // Input validation
+      if (!role) {
+        return res.status(400).json({ message: "Role is required" });
+      }
+      
+      if (!content || typeof content !== 'string') {
+        return res.status(400).json({ message: "Content is required and must be a string" });
+      }
+      
+      if (content.trim() === '') {
+        return res.status(400).json({ message: "Content cannot be empty" });
       }
       
       if (role !== 'user' && role !== 'assistant') {
         return res.status(400).json({ message: "Role must be 'user' or 'assistant'" });
       }
+      
+      console.log(`Creating foundation message for ID: ${foundationId}, role: ${role}, content length: ${content.length}`);
       
       const message = await storage.createFoundationMessage({
         foundationId,
@@ -306,10 +329,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content
       });
       
+      console.log(`Successfully created message ID: ${message.id}`);
       return res.status(201).json(message);
     } catch (error) {
       console.error("Error creating foundation message:", error);
-      return res.status(500).json({ message: "Server error" });
+      return res.status(500).json({ 
+        message: "Server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   
