@@ -43,7 +43,10 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
   // Check for common phrases about book or author preference (the second typical question)
   if ((question.toLowerCase().includes("book") || question.toLowerCase().includes("author")) &&
       (question.toLowerCase().includes("like") || question.toLowerCase().includes("prefer") || 
-       question.toLowerCase().includes("favorite") || question.toLowerCase().includes("enjoy"))) {
+       question.toLowerCase().includes("favorite") || question.toLowerCase().includes("enjoy") ||
+       question.toLowerCase().includes("reference") || question.toLowerCase().includes("example"))) {
+    
+    console.log("Detected book or author preference question");
     
     // Try to detect which genre was previously selected to provide relevant author suggestions
     const lowerQuestion = question.toLowerCase();
