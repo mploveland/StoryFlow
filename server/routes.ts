@@ -972,6 +972,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`Using threadId for conversation response: ${threadId ? threadId.substring(0, 10) + '...' : 'null'}`);
         
+        // Check for conversation stage and message count
+        // This helps identify when to transition from genre to world-building
+        const messageCount = req.body.previousMessages ? req.body.previousMessages.length : 0;
+        const isLateStageConversation = messageCount >= 10; // 5 user messages + 5 AI responses
+        
+        // Check if the question is about world-building (which suggests genre might be complete)
+        const worldBuildingKeywords = [
+          "environment", "setting", "historical period", "world", "geography",
+          "civilization", "culture", "politics", "society", "location"
+        ];
+        const isWorldBuildingQuestion = worldBuildingKeywords.some(keyword => 
+          question.toLowerCase().includes(keyword.toLowerCase())
+        );
+        
+        console.log(`Genre conversation check: messageCount=${messageCount}, isLateStage=${isLateStageConversation}, isWorldBuildingQuestion=${isWorldBuildingQuestion}`);
+        
+        // If we're in a late stage conversation AND the AI is asking about world-building,
+        // we'll treat this as a completed genre with a transition to world building
+        if (isLateStageConversation && isWorldBuildingQuestion && question.length > 200) {
+          console.log("Detected transition from genre to world-building stage!");
+          
+          // Extract a genre name from the conversation history or input
+          const genreKeywords = {
+            "fantasy": "Fantasy Fiction",
+            "sci-fi": "Science Fiction", 
+            "science fiction": "Science Fiction",
+            "mystery": "Mystery",
+            "thriller": "Thriller",
+            "horror": "Horror",
+            "romance": "Romance",
+            "historical": "Historical Fiction",
+            "adventure": "Adventure",
+            "dystopian": "Dystopian Fiction",
+            "cyberpunk": "Cyberpunk",
+            "steampunk": "Steampunk"
+          };
+          
+          // Try to find a genre in the user's interests first
+          let genreName = "Custom Genre";
+          const userInterests = req.body.userInterests || "";
+          
+          for (const [keyword, name] of Object.entries(genreKeywords)) {
+            if (userInterests.toLowerCase().includes(keyword)) {
+              genreName = name;
+              break;
+            }
+          }
+          
+          // If not found in user interests, try the question itself
+          if (genreName === "Custom Genre") {
+            for (const [keyword, name] of Object.entries(genreKeywords)) {
+              if (question.toLowerCase().includes(keyword)) {
+                genreName = name;
+                break;
+              }
+            }
+          }
+          
+          // Return a response that completes the genre stage and includes the world-building question
+          return res.json({
+            name: genreName,
+            description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
+            themes: ["Identity", "Growth", "Challenge"],
+            tropes: ["Hero's Journey", "Coming of Age"],
+            commonSettings: ["Detailed World", "Rich Environment"],
+            typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
+            question: question, // Include the full question about world-building
+            suggestions: extractSuggestionsFromQuestion(question),
+            threadId
+          });
+        }
+        
         // Use intelligent suggestion extraction to generate dynamic options based on the question
         // This analyzes the AI's question and extracts relevant options directly from the text
         let contextAwareSuggestions = extractSuggestionsFromQuestion(question);

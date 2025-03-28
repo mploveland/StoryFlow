@@ -695,15 +695,44 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       responseText.toLowerCase().includes(indicator.toLowerCase())
     );
     
-    // Text is short OR contains a question mark OR has question phrase patterns OR doesn't have enough descriptive content
-    const isQuestionResponse = 
-      responseText.length < 500 || // Response is too short to be complete
-      containsQuestion ||         // Contains any question
-      hasQuestionIndicator ||     // Contains question indicator phrases
-      responseText.split(".").length < 5 || // Fewer than 5 sentences
-      !responseText.includes("genre"); // Doesn't mention "genre" at all
+    // Check if this appears to be a transition to world-building questions
+    // indicated by specific keywords related to world-building
+    const worldBuildingKeywords = [
+      "environment", "setting", "historical period", "world", "geography",
+      "civilization", "culture", "politics", "society", "location"
+    ];
+    const isWorldBuildingTransition = worldBuildingKeywords.some(keyword => 
+      responseText.toLowerCase().includes(keyword.toLowerCase())
+    );
     
-    console.log(`Question detection: containsQuestion=${containsQuestion}, hasQuestionIndicator=${hasQuestionIndicator}, responseLength=${responseText.length}, sentences=${responseText.split(".").length}, isQuestionResponse=${isQuestionResponse}`);
+    // If we have a substantial response that mentions genre AND
+    // appears to be transitioning to world building, consider it a complete genre response
+    const isCompletedGenreWithWorldBuilding = 
+      responseText.length > 400 && 
+      responseText.split(".").length >= 3 &&
+      responseText.includes("genre") &&
+      isWorldBuildingTransition;
+      
+    // Track what iteration/message number we're on in the conversation
+    const messageCount = genreInput.previousMessages ? genreInput.previousMessages.length : 0;
+    console.log(`Message count in conversation: ${messageCount}`);
+    
+    // After 5+ exchanges, we're more lenient about accepting genre completion
+    const isLateStageConversation = messageCount >= 10; // 5 user messages and 5 AI responses
+    
+    // Text is short OR contains a question mark OR has question phrase patterns OR doesn't have enough descriptive content
+    // UNLESS it's a completed genre with world building transition OR we're in late stage conversation
+    const isQuestionResponse = 
+      !isCompletedGenreWithWorldBuilding && 
+      !isLateStageConversation && (
+        responseText.length < 500 || // Response is too short to be complete
+        containsQuestion ||         // Contains any question
+        hasQuestionIndicator ||     // Contains question indicator phrases
+        responseText.split(".").length < 5 || // Fewer than 5 sentences
+        !responseText.includes("genre") // Doesn't mention "genre" at all
+      );
+    
+    console.log(`Question detection: containsQuestion=${containsQuestion}, hasQuestionIndicator=${hasQuestionIndicator}, responseLength=${responseText.length}, sentences=${responseText.split(".").length}, isWorldBuildingTransition=${isWorldBuildingTransition}, isCompletedGenre=${isCompletedGenreWithWorldBuilding}, isLateStage=${isLateStageConversation}, isQuestionResponse=${isQuestionResponse}`);
     
     if (isQuestionResponse) {
       // The assistant is asking a question, this is a conversation in progress
