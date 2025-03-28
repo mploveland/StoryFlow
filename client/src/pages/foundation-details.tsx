@@ -285,8 +285,26 @@ const FoundationDetails: React.FC = () => {
         const data = await response.json();
         console.log('Genre assistant response:', data);
         
+        // Special handling for conversation in progress response
+        if (data.conversationInProgress && data.question) {
+          console.log('Conversation in progress, received question:', data.question);
+          
+          // Just return the question from the assistant
+          return {
+            content: data.question,
+            suggestions: data.suggestions || [
+              "I love fantasy books like Lord of the Rings",
+              "I'm a fan of sci-fi like Dune",
+              "My favorite authors are Stephen King and Neil Gaiman",
+              "I enjoy books with complex characters and deep worldbuilding"
+            ],
+            threadId: data.threadId
+          };
+        }
+        
         // If we got a genre name back, update the foundation with both the threadId and genre
         if (data.name && !hasDefinedGenre) {
+          console.log(`Updating foundation with genre: ${data.name}`);
           updateFoundationMutation.mutate({
             id: foundation.id,
             threadId: data.threadId,
@@ -294,15 +312,29 @@ const FoundationDetails: React.FC = () => {
           });
         } else if (data.threadId && data.threadId !== foundation.threadId) {
           // Just update the threadId
+          console.log(`Updating foundation with threadId: ${data.threadId}`);
           updateFoundationMutation.mutate({
             id: foundation.id,
             threadId: data.threadId
           });
         }
         
+        // Extract the content from the response, prioritizing different fields
+        let content;
+        if (data.question) {
+          content = data.question;
+        } else if (data.description) {
+          content = data.description;
+        } else if (data.name) {
+          content = `Your genre has been set to: ${data.name}`;
+        } else {
+          content = 'I\'m the Genre Creator assistant. Let\'s explore what genre would work best for your story foundation.';
+        }
+        
+        console.log('Returning genre content:', content);
+        
         return {
-          content: data.description || data.name || data.question || 
-                  'I\'m the Genre Creator assistant. Let\'s explore what genre would work best for your story foundation.',
+          content: content,
           suggestions: data.suggestions || [
             "I want to create a fantasy world",
             "Let's explore science fiction",

@@ -699,7 +699,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inspirations, 
         additionalInfo,
         threadId, // New parameter for continuing conversation
-        previousMessages // New parameter for conversation history
+        previousMessages, // New parameter for conversation history
+        isInitialStage // Flag to indicate if this is the first conversation stage
       } = req.body;
       
       // Log the request details
@@ -710,7 +711,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         targetAudience,
         inspirations,
         additionalInfo,
-        threadId: threadId ? `${threadId.substring(0, 10)}...` : undefined // Log partial thread ID for privacy
+        threadId: threadId ? `${threadId.substring(0, 10)}...` : undefined, // Log partial thread ID for privacy
+        isInitialStage
       });
       
       // Call assistant with all parameters including thread ID if provided
@@ -726,6 +728,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       console.log("Genre created successfully:", genreDetails.name);
+      
+      // Verify we're returning a proper threadId in the response
+      if (!genreDetails.threadId) {
+        console.warn("Warning: No threadId in the genre details response");
+      } else {
+        console.log(`Returning threadId: ${genreDetails.threadId.substring(0, 10)}...`);
+      }
+      
       return res.status(200).json(genreDetails);
     } catch (error: any) {
       console.error("Error creating genre details:", error);
@@ -734,13 +744,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error.message && error.message.startsWith("CONVERSATION_IN_PROGRESS:")) {
         // Extract the question from the error message
         const question = error.message.replace("CONVERSATION_IN_PROGRESS: ", "");
+        console.log("Conversation in progress, extracted question:", question);
+        
+        // Extract threadId from the error object if possible
+        let threadId = req.body.threadId || null;
+        
+        // The error object might contain a threadId directly
+        if (error.threadId) {
+          threadId = error.threadId;
+          console.log(`Found threadId in error object: ${threadId.substring(0, 10)}...`);
+        }
+        
+        console.log(`Using threadId for conversation response: ${threadId ? threadId.substring(0, 10) + '...' : 'null'}`);
         
         // Return a special response for the frontend to handle
         return res.status(202).json({
           conversationInProgress: true,
           question: question,
-          threadId: req.body.threadId || null,
-          needsMoreInput: true
+          threadId: threadId,
+          needsMoreInput: true,
+          suggestions: [
+            "I like fantasy books with dragons and magic",
+            "I want something like Harry Potter or Lord of the Rings",
+            "I prefer dark and gritty fantasy stories",
+            "I enjoy stories with complex political intrigue"
+          ]
         });
       }
       

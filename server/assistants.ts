@@ -255,10 +255,12 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
   try {
     let thread;
     let isNewThread = false;
+    let threadId: string;
     
     // Check if we're continuing an existing conversation
     if (genreInput.threadId) {
       console.log(`Attempting to continue conversation in existing thread: ${genreInput.threadId}`);
+      threadId = genreInput.threadId;
       
       try {
         // Verify the thread exists by retrieving its messages
@@ -270,7 +272,9 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
           console.log(`Found existing thread with ${existingMessages.data.length} messages`);
         } else {
           console.warn(`Thread ${genreInput.threadId} exists but has no messages, creating a new thread`);
-          thread = await openai.beta.threads.create();
+          const newThread = await openai.beta.threads.create();
+          thread = newThread;
+          threadId = newThread.id;
           isNewThread = true;
           console.log(`Created new thread: ${thread.id}`);
         }
@@ -284,14 +288,18 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
         
         // If there's an error accessing the thread, create a new one
         console.log('Creating new thread due to error accessing existing thread');
-        thread = await openai.beta.threads.create();
+        const newThread = await openai.beta.threads.create();
+        thread = newThread;
+        threadId = newThread.id;
         isNewThread = true;
         console.log(`Created new thread: ${thread.id}`);
       }
     } else {
       // Create a new thread
       console.log('No thread ID provided, creating a new thread');
-      thread = await openai.beta.threads.create();
+      const newThread = await openai.beta.threads.create();
+      thread = newThread;
+      threadId = newThread.id;
       isNewThread = true;
       console.log(`Created new thread: ${thread.id}`);
     }
@@ -517,8 +525,12 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     const typedError = error as { message?: string };
     if (typedError.message && typedError.message.startsWith("CONVERSATION_IN_PROGRESS:")) {
       // This is not a failure but a special case where we need more input
-      // Forward this specific error to the client
-      throw error;
+      // Attach the thread ID to the error before propagating it
+      const conversationError = new Error(typedError.message);
+      // Add the threadId to the error object for the API to use
+      Object.assign(conversationError, { threadId: threadId });
+      console.log(`Throwing conversation-in-progress error with threadId: ${threadId}`);
+      throw conversationError;
     }
     
     // Create a new thread for fallback responses
