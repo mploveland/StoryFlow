@@ -263,16 +263,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           // Set welcome message for foundation with stages explanation
           const welcomeMessage = {
             role: 'assistant' as const,
-            content: `Welcome to your story creation journey! Together we'll craft a living story world for "${foundation.name}" that evolves with each character and narrative you develop.
-
-Our creative process includes:
-1. Genre - establishing the tone, themes, and storytelling conventions
-2. World - designing the setting, environment, and rules of your universe
-3. Characters - creating compelling individuals with rich histories and motivations
-4. Influences - incorporating inspirations that shape your unique vision
-5. Details - refining the small elements that make your world authentic
-
-Let's begin with genre - what type of storytelling interests you for this world? A simple word or two like "fantasy" or "sci-fi" is a great starting point.`
+            content: `Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we'll build the foundation for a living story world that will evolve as you create characters and narratives within it. We'll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?`
           };
           setMessages([welcomeMessage]);
           
