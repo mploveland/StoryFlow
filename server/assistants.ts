@@ -206,6 +206,34 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
     }
   }
   
+  // Check for a specific pattern where the assistant asks about preferences with "more toward X, Y, or Z?"
+  const preferencePattern = /(?:leaning|prefer|interested in|like)\s+more\s+(?:toward|in|for|about)\s+(?:a|an)?\s*([^,]+?)(?:,|or|\?)(?:\s+(?:a|an)?\s*([^,]+?)(?:,|or|\?))?(?:\s+(?:a|an|or)?\s*([^?]+?)(?:\?|$))?/i;
+  const preferenceMatch = question.match(preferencePattern);
+  
+  if (preferenceMatch) {
+    console.log("Detected preference options in question");
+    const cleanedSuggestions = [];
+    for (let i = 1; i < preferenceMatch.length; i++) {
+      if (preferenceMatch[i]) {
+        // Clean up each option
+        let option = preferenceMatch[i].trim();
+        // If the option starts with "or", remove it
+        option = option.replace(/^or\s+/i, '').trim();
+        // If the option is "possibly a blend of both", simplify it
+        if (option.includes("blend") && option.includes("both")) {
+          option = "a blend of both";
+        }
+        cleanedSuggestions.push(option);
+      }
+    }
+    
+    // If we found structured options, add the surprise me option and return
+    if (cleanedSuggestions.length > 0) {
+      cleanedSuggestions.push(surpriseMeSuggestion);
+      return cleanedSuggestions;
+    }
+  }
+  
   // Deduplicate and limit to a reasonable number of suggestions
   // Use a manual deduplication approach to avoid Set iterator compatibility issues
   const uniqueSuggestions: string[] = [];
