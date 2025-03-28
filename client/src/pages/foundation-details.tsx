@@ -28,9 +28,21 @@ const FoundationDetails: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Get foundationId from URL query params
+  console.log('URL location:', location);
+  
   const params = new URLSearchParams(location.split('?')[1] || '');
   const foundationIdParam = params.get('foundationId');
-  const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
+  
+  console.log('Raw foundation ID param:', foundationIdParam);
+  
+  // Validate foundationId is a proper number
+  if (!foundationIdParam || foundationIdParam.trim() === '' || isNaN(parseInt(foundationIdParam))) {
+    console.error('Invalid foundation ID in URL:', foundationIdParam);
+  }
+  
+  const foundationId = foundationIdParam && !isNaN(parseInt(foundationIdParam)) 
+    ? parseInt(foundationIdParam) 
+    : 0;
   
   const [activeTab, setActiveTab] = useState('overview');
   

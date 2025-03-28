@@ -105,8 +105,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   apiRouter.get("/foundations/:id", async (req: Request, res: Response) => {
     try {
+      console.log(`GET foundation by ID: ${req.params.id}, type: ${typeof req.params.id}`);
+      
+      if (!req.params.id || isNaN(parseInt(req.params.id))) {
+        console.error(`Invalid foundation ID format: ${req.params.id}`);
+        return res.status(400).json({ message: "Invalid foundation ID format" });
+      }
+      
       const id = parseInt(req.params.id);
+      console.log(`Parsed foundation ID: ${id}, type: ${typeof id}`);
+      
       const foundation = await storage.getFoundation(id);
+      console.log(`Foundation lookup result:`, foundation ? `Found foundation ${foundation.id}` : 'Not found');
       
       if (!foundation) {
         return res.status(404).json({ message: "Foundation not found" });

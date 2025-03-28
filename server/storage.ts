@@ -127,8 +127,21 @@ export class DatabaseStorage implements IStorage {
   }
   
   async getFoundation(id: number): Promise<Foundation | undefined> {
-    const [foundation] = await db.select().from(foundations).where(eq(foundations.id, id));
-    return foundation;
+    console.log(`Storage: Fetching foundation with ID: ${id}, type: ${typeof id}`);
+    
+    if (isNaN(id)) {
+      console.error(`Storage: Invalid foundation ID: ${id}`);
+      return undefined;
+    }
+    
+    try {
+      const [foundation] = await db.select().from(foundations).where(eq(foundations.id, id));
+      console.log(`Storage: Foundation lookup result:`, foundation ? `Found foundation with ID ${foundation.id}` : 'Foundation not found');
+      return foundation;
+    } catch (error) {
+      console.error(`Storage: Error fetching foundation with ID ${id}:`, error);
+      throw error;
+    }
   }
   
   async createFoundation(insertFoundation: InsertFoundation): Promise<Foundation> {

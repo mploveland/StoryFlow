@@ -279,13 +279,40 @@ const Dashboard: React.FC = () => {
                         
                         // Make sure foundation has a valid ID before navigating
                         if (foundation && typeof foundation.id === 'number' && foundation.id > 0) {
-                          console.log(`Navigating to foundation ${foundation.id}`);
+                          console.log(`Attempting to navigate to foundation ${foundation.id}`);
+                          
+                          // Create a proper URL with query parameters
+                          const url = new URL(window.location.origin);
+                          url.pathname = '/foundation-details';
+                          url.searchParams.append('foundationId', foundation.id.toString());
+                          
+                          console.log('Navigating to URL:', url.toString());
+                          
+                          // Use navigate with the properly formed URL
                           navigate(`/foundation-details?foundationId=${foundation.id}`);
+                          
+                          // After a very brief delay, check if navigation failed and try direct location change
+                          setTimeout(() => {
+                            if (window.location.pathname !== '/foundation-details') {
+                              console.log('Navigation with wouter failed, trying window.location');
+                              window.location.href = url.toString();
+                            }
+                          }, 100);
                         } else {
                           console.error('Invalid foundation ID:', foundation);
+                          toast({
+                            title: 'Error',
+                            description: 'Could not access this foundation. Please try again.',
+                            variant: 'destructive',
+                          });
                         }
                       } catch (error) {
                         console.error('Error navigating to foundation:', error);
+                        toast({
+                          title: 'Navigation Error',
+                          description: 'An error occurred while accessing the foundation.',
+                          variant: 'destructive',
+                        });
                       }
                     }}
                   >
