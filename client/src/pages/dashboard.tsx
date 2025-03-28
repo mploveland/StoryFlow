@@ -402,18 +402,7 @@ const Dashboard: React.FC = () => {
                         <Globe className="h-5 w-5 text-primary-500" />
                       </div>
                       
-                      <div className="mt-4 flex justify-end space-x-2">
-                        <Button 
-                          variant="destructive"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation(); // Prevent card click
-                            handleDeleteFoundation(foundation);
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-1" /> Delete
-                        </Button>
-                      </div>
+                      {/* Delete button removed as requested */}
                     </CardContent>
                   </Card>
                 ))}
