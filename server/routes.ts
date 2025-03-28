@@ -20,9 +20,16 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter, createGenreDetails, createWorldDetails, extractSuggestionsFromQuestion, generateChatSuggestions } from "./assistants";
+import { createDetailedCharacter, createGenreDetails, createWorldDetails, extractSuggestionsFromQuestion, generateChatSuggestions, getAppropriateAssistant, waitForRunCompletion } from "./assistants";
+import OpenAI from "openai";
+
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
+
+// Initialize OpenAI client for dynamic assistant API
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
@@ -365,6 +372,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ 
         message: "Server error",
         details: error instanceof Error ? error.message : "An unexpected error occurred" 
+      });
+    }
+  });
+  
+  // Dynamic foundation assistant API endpoint - this is a newer alternative to the regular foundation messages
+  // that automatically detects and switches assistants based on the message content
+  apiRouter.post("/foundations/:foundationId/dynamic-assistant", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({
+          message: "Invalid foundation ID",
+          details: "The foundation ID must be a valid number"
+        });
+      }
+      
+      // Verify foundation exists
+      const foundation = await storage.getFoundation(foundationId);
+      if (!foundation) {
+        return res.status(404).json({
+          message: "Foundation not found",
+          details: `No foundation exists with ID ${foundationId}`
+        });
+      }
+      
+      const { message, currentAssistantType, threadId } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({
+          message: "Message is required",
+          details: "The message field cannot be empty"
+        });
+      }
+      
+      console.log(`Dynamic assistant request for foundation ${foundationId}: "${message.substring(0, 50)}..."`);
+      
+      // Determine appropriate assistant based on message content and current state
+      const { assistantId, contextType } = await getAppropriateAssistant(
+        message,
+        currentAssistantType || null,
+        foundationId
+      );
+      
+      console.log(`Selected assistant: ${contextType} (${assistantId.substring(0, 10)}...)`);
+      
+      // Process the message with the selected assistant
+      let conversationThreadId = threadId;
+      
+      // Create a new thread if none exists
+      if (!conversationThreadId) {
+        console.log("No thread ID provided, creating a new thread");
+        const thread = await openai.beta.threads.create();
+        conversationThreadId = thread.id;
+        console.log(`Created new thread: ${conversationThreadId}`);
+      }
+      
+      // Add the user message to the thread
+      await openai.beta.threads.messages.create(conversationThreadId, {
+        role: "user",
+        content: message
+      });
+      
+      // Run the assistant on the thread
+      const run = await openai.beta.threads.runs.create(conversationThreadId, {
+        assistant_id: assistantId
+      });
+      
+      // Wait for the run to complete
+      await waitForRunCompletion(conversationThreadId, run.id);
+      
+      // Get the latest messages from the thread
+      const messages = await openai.beta.threads.messages.list(conversationThreadId);
+      
+      // Extract the assistant's response (assuming it's the most recent message)
+      // Note: messages are in reverse chronological order
+      const assistantMessages = messages.data.filter((msg: { role: string }) => msg.role === "assistant");
+      
+      if (assistantMessages.length === 0) {
+        throw new Error("No assistant response found in thread");
+      }
+      
+      const latestAssistantMessage = assistantMessages[0];
+      
+      // Extract text content from the message
+      let content = "";
+      if (latestAssistantMessage.content && latestAssistantMessage.content.length > 0) {
+        const textParts = latestAssistantMessage.content.filter((part: { type: string }) => part.type === "text");
+        if (textParts.length > 0 && 'text' in textParts[0]) {
+          content = textParts[0].text.value;
+        }
+      }
+      
+      // Save the response in the database if needed
+      try {
+        await storage.createFoundationMessage({
+          foundationId,
+          role: "user",
+          content: message
+        });
+        
+        await storage.createFoundationMessage({
+          foundationId,
+          role: "assistant",
+          content: content
+        });
+      } catch (dbError) {
+        console.error("Error saving messages to database:", dbError);
+        // Continue despite database error
+      }
+      
+      // Update the foundation's thread ID if it changed
+      if (threadId !== conversationThreadId || foundation.threadId !== conversationThreadId) {
+        console.log(`Updating foundation ${foundationId} with thread ID: ${conversationThreadId}`);
+        await storage.updateFoundation(foundationId, {
+          threadId: conversationThreadId
+        });
+      }
+      
+      // Generate chat suggestions for the response
+      const chatSuggestions = extractSuggestionsFromQuestion(content);
+      
+      // Return the AI response with context details and thread ID
+      return res.status(200).json({
+        content,
+        contextType,
+        assistantId,
+        threadId: conversationThreadId,
+        suggestions: chatSuggestions
+      });
+    } catch (error: unknown) {
+      console.error("Error in dynamic assistant processing:", error);
+      return res.status(500).json({
+        message: "Error processing message with dynamic assistant",
+        error: error instanceof Error ? error.message : "Unknown error"
       });
     }
   });
@@ -1037,6 +1178,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
+          // Create a complete genre details object
+          const genreData = {
+            name: genreName,
+            description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
+            themes: ["Identity", "Growth", "Challenge"],
+            tropes: ["Hero's Journey", "Coming of Age"],
+            commonSettings: ["Detailed World", "Rich Environment"],
+            typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
+            plotStructures: ["Three-Act Structure", "Hero's Journey"],
+            styleGuide: {
+              tone: "Balanced",
+              pacing: "Medium",
+              perspective: "Third person",
+              dialogueStyle: "Natural"
+            },
+            recommendedReading: [],
+            popularExamples: [],
+            worldbuildingElements: [],
+            threadId: threadId
+          };
+          
+          try {
+            // Look up the foundation ID from the request
+            const foundationId = parseInt(req.body.foundationId);
+            
+            if (foundationId && !isNaN(foundationId)) {
+              console.log(`Saving complete genre details for foundation ID: ${foundationId}`);
+              
+              // First, check if genre details already exist for this foundation
+              const existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+              
+              if (existingGenreDetails) {
+                // Update existing genre details
+                console.log(`Updating existing genre details ID: ${existingGenreDetails.id}`);
+                await storage.updateGenreDetails(existingGenreDetails.id, {
+                  ...genreData,
+                  foundationId: foundationId
+                });
+              } else {
+                // Create new genre details
+                console.log(`Creating new genre details for foundation ID: ${foundationId}`);
+                await storage.createGenreDetails({
+                  ...genreData,
+                  foundationId: foundationId
+                });
+              }
+            } else {
+              console.log(`Cannot save genre details: Invalid or missing foundation ID: ${req.body.foundationId}`);
+            }
+          } catch (error) {
+            console.error('Error saving genre details to database:', error);
+            // Continue despite the error - don't block the response
+          }
+          
           // Return a response that completes the genre stage and includes the world-building question
           return res.json({
             name: genreName,
@@ -1202,6 +1397,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       console.log("World created successfully:", worldDetails.name);
+      
+      try {
+        // Save detailed environment data to the database
+        const foundationId = parseInt(req.body.foundationId);
+        
+        if (foundationId && !isNaN(foundationId)) {
+          console.log(`Saving environment details for foundation ID: ${foundationId}`);
+          
+          // Check if environment details already exist for this foundation
+          const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+          
+          // Prepare the data to save - normalize empty arrays
+          const envData = {
+            name: worldDetails.name || 'Custom Environment',
+            description: worldDetails.description || '',
+            era: worldDetails.era || '',
+            geography: worldDetails.geography || [],
+            locations: worldDetails.locations || [],
+            culture: worldDetails.culture || {},
+            politics: worldDetails.politics || {},
+            economy: worldDetails.economy || {},
+            technology: worldDetails.technology || {},
+            conflicts: worldDetails.conflicts || [],
+            history: worldDetails.history || {},
+            magicSystem: worldDetails.magicSystem,
+            threadId: worldDetails.threadId
+          };
+          
+          if (existingDetails) {
+            // Update existing environment details
+            console.log(`Updating existing environment details ID: ${existingDetails.id}`);
+            await storage.updateEnvironmentDetails(existingDetails.id, {
+              ...envData,
+              foundationId
+            });
+          } else {
+            // Create new environment details
+            console.log(`Creating new environment details for foundation ID: ${foundationId}`);
+            await storage.createEnvironmentDetails({
+              ...envData,
+              foundationId
+            });
+          }
+        } else {
+          console.log(`Cannot save environment details: Invalid foundation ID: ${req.body.foundationId}`);
+        }
+      } catch (saveError) {
+        console.error('Error saving environment details to database:', saveError);
+        // Continue despite the error - don't block the response
+      }
+      
       return res.status(200).json(worldDetails);
     } catch (error: any) {
       console.error("Error creating world details:", error);

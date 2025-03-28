@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 import { 
   Mic, MicOff, Send, RefreshCw, VolumeX, Volume2, 
   Map, User, Sparkles, Wand2, ArrowRight, 
@@ -251,9 +252,21 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
   });
   
   // Speech synthesis setup - using OpenAI TTS instead of ElevenLabs
-  const { speak, isPlaying, stop: stopSpeaking, voices, voicesLoading, selectedVoice, changeVoice, currentAudioUrl } = useTTS({
+  const { 
+    speak, 
+    isPlaying, 
+    stop: stopSpeaking, 
+    voices, 
+    voicesLoading, 
+    selectedVoice, 
+    changeVoice, 
+    currentAudioUrl, 
+    playbackSpeed, 
+    changePlaybackSpeed 
+  } = useTTS({
     defaultVoiceId: "alloy", // Use OpenAI's Alloy voice
-    defaultProvider: "openai"
+    defaultProvider: "openai",
+    defaultPlaybackSpeed: 1.0
   });
   
   // Log any TTS-related state changes
@@ -1441,6 +1454,8 @@ Common character types in this genre include: ${genreConversation.summary?.typic
                 <AudioPlayer 
                   audioUrl={currentAudioUrl} 
                   onPlayStateChange={(isPlaying) => setIsSpeaking(isPlaying)}
+                  playbackSpeed={playbackSpeed}
+                  onPlaybackSpeedChange={changePlaybackSpeed}
                 />
               </div>
             )}

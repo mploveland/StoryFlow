@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 interface UseTTSOptions {
   defaultVoiceId?: string;
   defaultProvider?: 'elevenlabs' | 'openai';
+  defaultPlaybackSpeed?: number;
 }
 
 export function useTTS(options: UseTTSOptions = {}) {
@@ -13,11 +14,13 @@ export function useTTS(options: UseTTSOptions = {}) {
   // Default to the first ElevenLabs voice (Rachel)
   const defaultVoiceId = options.defaultVoiceId || '21m00Tcm4TlvDq8ikWAM';
   const defaultProvider = options.defaultProvider || 'elevenlabs';
+  const defaultPlaybackSpeed = options.defaultPlaybackSpeed || 1.0;
   
   // State
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<VoiceOption | null>(null);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
+  const [playbackSpeed, setPlaybackSpeed] = useState(defaultPlaybackSpeed);
   
   // Refs for audio elements
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -189,12 +192,16 @@ export function useTTS(options: UseTTSOptions = {}) {
     console.log("useTTS: Audio element current src:", audioRef.current.src ? audioRef.current.src.substring(0, 40) + "..." : "none");
     console.log("useTTS: Audio element readyState:", audioRef.current.readyState);
     console.log("useTTS: Audio element muted:", audioRef.current.muted);
+    console.log("useTTS: Audio playback speed:", playbackSpeed);
     
     // Make sure audio is not muted
     audioRef.current.muted = false;
     
     // Set volume to maximum to ensure audibility
     audioRef.current.volume = 1.0;
+    
+    // Set playback speed
+    audioRef.current.playbackRate = playbackSpeed;
     
     // Force autoplay by playing in response to a user gesture (even a synthetic one)
     const playPromise = audioRef.current.play();
@@ -249,7 +256,7 @@ export function useTTS(options: UseTTSOptions = {}) {
           }
         });
     }
-  }, []);
+  }, [playbackSpeed]);
   
   // Stop playback
   const stop = useCallback(() => {
@@ -294,7 +301,7 @@ export function useTTS(options: UseTTSOptions = {}) {
         console.log("useTTS: Attempting direct audio playback");
         const directAudio = new Audio(audioDataUrl);
         directAudio.volume = 1.0;
-        directAudio.playbackRate = 1.0;
+        directAudio.playbackRate = playbackSpeed;
         directAudio.muted = false;
         directAudio.oncanplaythrough = () => {
           console.log("useTTS: Direct audio can play through");
@@ -358,6 +365,17 @@ export function useTTS(options: UseTTSOptions = {}) {
     }
   }, [voices]);
   
+  // Change the playback speed
+  const changePlaybackSpeed = useCallback((speed: number) => {
+    console.log(`Changing playback speed to ${speed}x`);
+    setPlaybackSpeed(speed);
+    
+    // Update the speed immediately if audio is currently playing
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  }, []);
+  
   return {
     speak,
     stop,
@@ -366,6 +384,8 @@ export function useTTS(options: UseTTSOptions = {}) {
     voicesLoading,
     selectedVoice,
     changeVoice,
-    currentAudioUrl
+    currentAudioUrl,
+    playbackSpeed,
+    changePlaybackSpeed
   };
 }

@@ -90,7 +90,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   } = useSpeechRecognition();
   
   // Text-to-speech
-  const { speak, isPlaying, currentAudioUrl, stop } = useTTS();
+  const { speak, isPlaying, currentAudioUrl, stop, playbackSpeed, changePlaybackSpeed } = useTTS({
+    defaultPlaybackSpeed: 1.0
+  });
   
   // Get effective message handler (prefer sendMessage if provided)
   const messageHandler = sendMessage || onSendMessage;
@@ -515,6 +517,8 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
         <AudioPlayer 
           audioUrl={currentAudioUrl}
           className="mb-4"
+          playbackSpeed={playbackSpeed}
+          onPlaybackSpeedChange={changePlaybackSpeed}
         />
       )}
       

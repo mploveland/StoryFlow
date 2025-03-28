@@ -15,6 +15,109 @@ const WORLD_BUILDER_ASSISTANT_ID = "asst_1uR8DP6BZB3CdrUDm6Me7vHA";
 const CHAT_SUGGESTIONS_ASSISTANT_ID = "asst_qRnUXdtrdWBC5Zb5DOU1o5bO";
 
 /**
+ * Helper function to detect conversation context from a message
+ * This is used to dynamically switch between assistants based on the content
+ * 
+ * @param message The user's message to analyze
+ * @returns The detected context type ('character', 'world', 'genre', or null)
+ */
+export function detectConversationContext(message: string): 'character' | 'world' | 'genre' | null {
+  const cleanedMessage = message.toLowerCase();
+  
+  // Character-related keywords
+  const characterKeywords = [
+    'character', 'protagonist', 'antagonist', 'villain', 'hero', 'heroine',
+    'personality', 'backstory', 'motivation', 'goal', 'fear', 'flaw',
+    'trait', 'appearance', 'skill', 'ability', 'relationship', 'family',
+    'friend', 'enemy', 'ally', 'rival', 'lover', 'spouse', 'parent', 'child',
+    'mentor', 'student', 'age', 'gender', 'occupation', 'profession',
+    'name', 'physical', 'height', 'weight', 'hair', 'eyes'
+  ];
+  
+  // World-related keywords
+  const worldKeywords = [
+    'world', 'environment', 'setting', 'geography', 'location', 'landscape',
+    'city', 'town', 'village', 'kingdom', 'empire', 'country', 'nation',
+    'continent', 'ocean', 'sea', 'mountain', 'river', 'forest', 'desert',
+    'climate', 'weather', 'region', 'territory', 'area', 'map', 'realm',
+    'politics', 'government', 'ruler', 'law', 'society', 'culture',
+    'religion', 'economy', 'trade', 'technology', 'history', 'civilization',
+    'race', 'species', 'language', 'magic', 'system', 'planet'
+  ];
+  
+  // Genre-related keywords
+  const genreKeywords = [
+    'genre', 'style', 'tone', 'theme', 'mood', 'atmosphere', 'trope',
+    'fantasy', 'sci-fi', 'science fiction', 'horror', 'mystery', 'thriller',
+    'romance', 'historical', 'adventure', 'drama', 'comedy', 'tragedy',
+    'western', 'noir', 'dystopian', 'utopian', 'steampunk', 'cyberpunk',
+    'supernatural', 'paranormal', 'fairy tale', 'myth', 'legend',
+    'epic', 'saga', 'young adult', 'children', 'adult', 'literary'
+  ];
+  
+  // Count occurrences of keywords in each category
+  let characterScore = 0;
+  let worldScore = 0;
+  let genreScore = 0;
+  
+  // Check character keywords
+  for (const keyword of characterKeywords) {
+    if (cleanedMessage.includes(keyword)) {
+      characterScore += 1;
+    }
+  }
+  
+  // Check world keywords
+  for (const keyword of worldKeywords) {
+    if (cleanedMessage.includes(keyword)) {
+      worldScore += 1;
+    }
+  }
+  
+  // Check genre keywords
+  for (const keyword of genreKeywords) {
+    if (cleanedMessage.includes(keyword)) {
+      genreScore += 1;
+    }
+  }
+  
+  // Add weight to more specific phrases
+  if (cleanedMessage.includes('main character') || 
+      cleanedMessage.includes('character design') ||
+      cleanedMessage.includes('character profile') ||
+      cleanedMessage.includes('character description')) {
+    characterScore += 3;
+  }
+  
+  if (cleanedMessage.includes('world building') || 
+      cleanedMessage.includes('build a world') ||
+      cleanedMessage.includes('world design') ||
+      cleanedMessage.includes('story setting')) {
+    worldScore += 3;
+  }
+  
+  if (cleanedMessage.includes('genre conventions') || 
+      cleanedMessage.includes('genre elements') ||
+      cleanedMessage.includes('genre tropes') ||
+      cleanedMessage.includes('genre themes')) {
+    genreScore += 3;
+  }
+  
+  // Determine the highest score
+  const highestScore = Math.max(characterScore, worldScore, genreScore);
+  
+  // Return the context type with the highest score, if it's significant enough
+  if (highestScore > 1) {
+    if (characterScore === highestScore) return 'character';
+    if (worldScore === highestScore) return 'world';
+    if (genreScore === highestScore) return 'genre';
+  }
+  
+  // If no clear context detected or scores too low, return null
+  return null;
+}
+
+/**
  * Extract potential response options from an AI question
  * This helps generate more context-relevant suggestions based on the AI's question
  */
@@ -1425,6 +1528,94 @@ export async function generateChatSuggestions(
 }
 
 /**
+ * Get the appropriate assistant ID based on conversation context
+ * This enables dynamically switching between different assistants based on the content
+ * 
+ * @param message The user's message to analyze
+ * @param currentAssistantType The current assistant type (if known)
+ * @param foundationId The foundation ID for context
+ * @returns Object with assistantId and contextType
+ */
+export async function getAppropriateAssistant(
+  message: string, 
+  currentAssistantType: 'genre' | 'world' | 'character' | null = null,
+  foundationId?: number
+): Promise<{
+  assistantId: string;
+  contextType: 'genre' | 'world' | 'character';
+}> {
+  // Detect the conversation context from the message
+  const detectedContext = detectConversationContext(message);
+  console.log(`Context detection for message: "${message.substring(0, 50)}..." detected: ${detectedContext}`);
+  
+  // If we have a foundation ID, check the foundation's stage to provide context
+  let foundationStage: 'genre' | 'world' | 'character' | null = null;
+  
+  if (foundationId) {
+    try {
+      // This logic would check the database to determine the foundation's current stage
+      // For now, we'll use a simple approach based on the presence of genre and world details
+      
+      // More sophisticated implementation would go here in a full version
+      // For now, we'll prioritize the detected context over the current assistant
+    } catch (error) {
+      console.error("Error determining foundation stage:", error);
+    }
+  }
+  
+  // If we detected a specific context in the message, use that
+  if (detectedContext) {
+    console.log(`Using detected context: ${detectedContext}`);
+    
+    if (detectedContext === 'character') {
+      return { 
+        assistantId: HYPER_REALISTIC_CHARACTER_CREATOR_ID, 
+        contextType: 'character' 
+      };
+    } else if (detectedContext === 'world') {
+      return { 
+        assistantId: WORLD_BUILDER_ASSISTANT_ID, 
+        contextType: 'world' 
+      };
+    } else if (detectedContext === 'genre') {
+      return { 
+        assistantId: GENRE_CREATOR_ASSISTANT_ID, 
+        contextType: 'genre' 
+      };
+    }
+  }
+  
+  // If no context was detected and we have a current assistant, stick with it
+  if (currentAssistantType) {
+    console.log(`No context detected, continuing with current assistant: ${currentAssistantType}`);
+    
+    if (currentAssistantType === 'character') {
+      return { 
+        assistantId: HYPER_REALISTIC_CHARACTER_CREATOR_ID, 
+        contextType: 'character' 
+      };
+    } else if (currentAssistantType === 'world') {
+      return { 
+        assistantId: WORLD_BUILDER_ASSISTANT_ID, 
+        contextType: 'world' 
+      };
+    } else {
+      return { 
+        assistantId: GENRE_CREATOR_ASSISTANT_ID, 
+        contextType: 'genre' 
+      };
+    }
+  }
+  
+  // Default to genre creator if all else fails (starting point)
+  console.log("No context detected and no current assistant, defaulting to genre assistant");
+  return { 
+    assistantId: GENRE_CREATOR_ASSISTANT_ID, 
+    contextType: 'genre' 
+  };
+}
+
+/**
  * Generate default chat suggestions based on the assistant's reply
  * 
  * @param assistantReply The assistant's message to extract suggestions from
@@ -1451,7 +1642,7 @@ function defaultSuggestions(assistantReply: string): string[] {
 /**
  * Wait for an assistant run to complete by polling
  */
-async function waitForRunCompletion(threadId: string, runId: string, maxAttempts = 60): Promise<OpenAI.Beta.Threads.Runs.Run> {
+export async function waitForRunCompletion(threadId: string, runId: string, maxAttempts = 60): Promise<OpenAI.Beta.Threads.Runs.Run> {
   let attempts = 0;
   console.log(`Waiting for run ${runId} on thread ${threadId} to complete...`);
   
