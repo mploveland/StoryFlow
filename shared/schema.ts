@@ -27,6 +27,7 @@ export const foundations = pgTable("foundations", {
   name: text("name").notNull(),
   description: text("description"),
   genre: text("genre"),
+  threadId: text("thread_id"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -36,6 +37,7 @@ export const insertFoundationSchema = createInsertSchema(foundations).pick({
   name: true,
   description: true,
   genre: true,
+  threadId: true,
 });
 
 // Story schema - now referencing foundations instead of directly containing world data

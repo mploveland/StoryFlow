@@ -8,7 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation, Story, Character } from '@shared/schema';
-import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus } from 'lucide-react';
+import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare } from 'lucide-react';
+import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
 
 const FoundationDetails: React.FC = () => {
   const [location, navigate] = useLocation();
@@ -21,6 +22,9 @@ const FoundationDetails: React.FC = () => {
   const foundationId = parseInt(params.get('foundationId') || '0');
   
   const [activeTab, setActiveTab] = useState('overview');
+  
+  // State to track if UI has been initialized
+  const [initialized, setInitialized] = useState(false);
   
   // Query foundation details
   const { 
@@ -49,6 +53,33 @@ const FoundationDetails: React.FC = () => {
     queryKey: [`/api/foundations/${foundationId}/characters`],
     enabled: !!foundationId,
   });
+  
+  // Function to check if foundation is complete (has genre, world details, and at least one character)
+  const isFoundationComplete = (foundation?: Foundation, characters?: Character[]) => {
+    if (!foundation) return false;
+    
+    // Check if genre is defined
+    const hasGenre = !!foundation.genre;
+    
+    // Check if world details exist
+    const hasWorldDetails = !!foundation.description;
+    
+    // Check if at least one character exists
+    const hasCharacters = Array.isArray(characters) && characters.length > 0;
+    
+    return hasGenre && hasWorldDetails && hasCharacters;
+  };
+  
+  // Effect to automatically switch to chat tab when foundation is incomplete
+  useEffect(() => {
+    if (!initialized && foundation && characters) {
+      const isComplete = isFoundationComplete(foundation, characters);
+      if (!isComplete) {
+        setActiveTab('chat');
+      }
+      setInitialized(true);
+    }
+  }, [foundation, characters, initialized]);
   
   // Create story mutation
   const createStoryMutation = useMutation({
@@ -94,6 +125,65 @@ const FoundationDetails: React.FC = () => {
       title: 'Coming Soon',
       description: 'Foundation editing will be available soon.',
     });
+  };
+  
+  // Update foundation mutation to store threadId
+  const updateFoundationMutation = useMutation({
+    mutationFn: async (updateData: { id: number, threadId: string }) => {
+      const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, {
+        threadId: updateData.threadId
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}`] });
+    },
+    onError: (error: any) => {
+      console.error('Failed to update foundation threadId:', error);
+    }
+  });
+
+  // Function to send messages to the foundation chat
+  const sendFoundationChatMessage = async (message: string, threadId?: string) => {
+    try {
+      if (!foundation) {
+        throw new Error('Foundation not found');
+      }
+      
+      // Use the foundation's threadId if available and no specific threadId was provided
+      const chatThreadId = threadId || foundation.threadId;
+      
+      const response = await apiRequest('POST', '/api/ai/world-details', {
+        genreContext: foundation.genre,
+        message: message,
+        foundationId: foundationId,
+        threadId: chatThreadId,
+      });
+      
+      const data = await response.json();
+      
+      // If there's a new threadId and it's different from what we have stored, update it
+      if (data.threadId && data.threadId !== foundation.threadId) {
+        updateFoundationMutation.mutate({
+          id: foundation.id,
+          threadId: data.threadId
+        });
+      }
+      
+      return {
+        content: data.description || 'Sorry, I could not process your request. Please try again.',
+        suggestions: [
+          'Tell me more about this world',
+          'What genre is this foundation?',
+          'How do I add characters?',
+          'What should I do next?'
+        ],
+        threadId: data.threadId
+      };
+    } catch (error) {
+      console.error('Error sending message to foundation AI:', error);
+      throw error;
+    }
   };
   
   if (isLoadingFoundation) {
@@ -164,7 +254,10 @@ const FoundationDetails: React.FC = () => {
             <Button variant="outline" onClick={handleEditFoundation} className="mr-2">
               <Edit className="mr-2 h-4 w-4" /> Edit Foundation
             </Button>
-            <Button onClick={handleCreateStory} disabled={createStoryMutation.isPending}>
+            <Button 
+              onClick={handleCreateStory} 
+              disabled={createStoryMutation.isPending || !isFoundationComplete(foundation, characters)}
+            >
               <Plus className="mr-2 h-4 w-4" /> New Story
             </Button>
           </div>
@@ -175,6 +268,12 @@ const FoundationDetails: React.FC = () => {
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="stories">Stories</TabsTrigger>
             <TabsTrigger value="characters">Characters</TabsTrigger>
+            <TabsTrigger value="chat">
+              <div className="flex items-center">
+                <MessageSquare className="mr-2 h-4 w-4" />
+                Chat
+              </div>
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="overview" className="space-y-6">
@@ -285,7 +384,11 @@ const FoundationDetails: React.FC = () => {
           <TabsContent value="stories" className="space-y-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Stories</h2>
-              <Button onClick={handleCreateStory} disabled={createStoryMutation.isPending} size="sm">
+              <Button 
+                onClick={handleCreateStory} 
+                disabled={createStoryMutation.isPending || !isFoundationComplete(foundation, characters)} 
+                size="sm"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 New Story
               </Button>
@@ -313,7 +416,7 @@ const FoundationDetails: React.FC = () => {
                 </p>
                 <Button 
                   onClick={handleCreateStory}
-                  disabled={createStoryMutation.isPending}
+                  disabled={createStoryMutation.isPending || !isFoundationComplete(foundation, characters)}
                 >
                   <Sparkles className="h-4 w-4 mr-2" />
                   Create Your First Story
@@ -392,14 +495,14 @@ const FoundationDetails: React.FC = () => {
                   <Card 
                     key={character.id} 
                     className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/character-details?foundationId=${foundation.id}&characterId=${character.id}`)}
+                    onClick={() => navigate(`/character-details?characterId=${character.id}`)}
                   >
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div>
                           <h3 className="text-lg font-semibold text-neutral-800 mb-2">{character.name}</h3>
                           {character.role && (
-                            <p className="text-sm text-neutral-500 mb-1">Role: {character.role}</p>
+                            <p className="text-sm text-neutral-500 mb-1">{character.role}</p>
                           )}
                           {character.updatedAt && (
                             <p className="text-sm text-neutral-500">
@@ -414,6 +517,24 @@ const FoundationDetails: React.FC = () => {
                 ))}
               </div>
             )}
+          </TabsContent>
+          
+          <TabsContent value="chat" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Chat with the Foundation Assistant</CardTitle>
+                <CardDescription>
+                  Discuss and develop your story foundation through natural conversation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <FoundationChatInterface 
+                  foundation={foundation}
+                  sendMessage={sendFoundationChatMessage}
+                  initialThreadId={foundation.threadId || undefined}
+                />
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

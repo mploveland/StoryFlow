@@ -1,307 +1,312 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, RefreshCw, Volume2, VolumeX, Mic, MicOff } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Foundation } from '@shared/schema';
+import { Mic, Send, Pause, Volume2 } from 'lucide-react';
+import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { AudioPlayer } from '@/components/ui/audio-player';
 
 interface Message {
-  id: string;
+  role: 'user' | 'assistant';
   content: string;
-  sender: 'user' | 'ai';
-  timestamp: Date;
-  suggestions?: string[];
 }
 
-export interface ChatInterfaceProps {
-  title: string;
+interface FoundationChatInterfaceProps {
+  // Foundation details (required in foundation-details.tsx)
+  foundation?: Foundation;
+  // Direct properties (used in world-details.tsx)
+  title?: string;
   description?: string;
-  foundationId: number;
+  foundationId?: number;
   threadId?: string;
-  onSendMessage: (message: string, threadId?: string) => Promise<{
+  
+  // Messaging functionality
+  sendMessage?: (message: string, threadId?: string) => Promise<{
     content: string;
     suggestions?: string[];
     threadId?: string;
   }>;
-  initialMessages?: Message[];
-  onComplete?: (threadId: string, summary: any) => void;
+  onSendMessage?: (message: string, threadId?: string) => Promise<{
+    content: any;
+    threadId: any;
+    suggestions: string[];
+  }>;
+  
+  initialThreadId?: string;
+  
+  // Initial messages (for world-details.tsx)
+  initialMessages?: Array<{
+    id: string;
+    content: string;
+    sender: 'ai' | 'user';
+    timestamp: Date;
+    suggestions?: string[];
+  }>;
 }
 
-const FoundationChatInterface: React.FC<ChatInterfaceProps> = ({
+const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
+  // Foundation props
+  foundation,
+  // Direct props
   title,
   description,
   foundationId,
-  threadId: initialThreadId,
+  threadId: propThreadId, 
+  // Message handlers
+  sendMessage,
   onSendMessage,
-  initialMessages = [],
-  onComplete
+  // Initial data
+  initialThreadId,
+  initialMessages,
 }) => {
-  const [messages, setMessages] = useState<Message[]>(initialMessages);
-  const [inputText, setInputText] = useState('');
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [threadId, setThreadId] = useState<string | undefined>(initialThreadId);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { toast } = useToast();
+  const [threadId, setThreadId] = useState<string | undefined>(initialThreadId || propThreadId);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   
-  // Voice features
-  const { 
-    speak: speakMessage, 
-    isPlaying: isSpeaking, 
-    currentAudioUrl
-  } = useTTS();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageContainerRef = useRef<HTMLDivElement>(null);
   
-  const { 
-    isListening, 
-    transcript: finalTranscript,
-    start: startListening, 
-    stop: stopListening
+  // Voice input
+  const {
+    isListening,
+    transcript,
+    start: startListening,
+    stop: stopListening,
+    clear: resetTranscript,
+    supported: browserSupportsSpeechRecognition
   } = useSpeechRecognition();
   
-  const toggleVoiceRecognition = () => {
-    if (isListening) {
-      stopListening();
-    } else {
-      startListening();
-    }
-  };
+  // Text-to-speech
+  const { speak, isPlaying, currentAudioUrl, stop } = useTTS();
   
-  // Automatically scroll to bottom when messages change
+  // Get effective message handler (prefer sendMessage if provided)
+  const messageHandler = sendMessage || onSendMessage;
+  
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
+    if (initialMessages && initialMessages.length > 0) {
+      // Convert format from world-details.tsx to our internal format
+      const convertedMessages = initialMessages.map(msg => ({
+        role: msg.sender === 'ai' ? 'assistant' as const : 'user' as const,
+        content: msg.content
+      }));
+      
+      setMessages(convertedMessages);
+      
+      // Set initial suggestions if available in the first message
+      const firstAiMessage = initialMessages.find(msg => msg.sender === 'ai');
+      if (firstAiMessage?.suggestions) {
+        setSuggestions(firstAiMessage.suggestions);
+      }
+    } else if (foundation && foundation.name) {
+      // Set welcome message for foundation
+      const welcomeMessage = {
+        role: 'assistant' as const,
+        content: `Welcome to the foundation "${foundation.name}"! I'm here to help you develop your story foundation. How would you like to proceed with creating your world?`
+      };
+      setMessages([welcomeMessage]);
+      
+      // Initial suggestions for foundation
+      setSuggestions([
+        "Tell me about the genre you're interested in",
+        "What kind of world are you envisioning?",
+        "Do you have any character ideas?",
+        "What themes would you like to explore?",
+      ]);
+    } else if (title) {
+      // Set welcome message for world details
+      const welcomeMessage = {
+        role: 'assistant' as const,
+        content: `Welcome to ${title}! How can I help you develop this world?`
+      };
+      setMessages([welcomeMessage]);
+      
+      // Default suggestions for world details
+      setSuggestions([
+        "Tell me more about this world",
+        "How can I develop the culture?",
+        "What kind of geography exists here?",
+        "How should I approach conflicts in this world?",
+      ]);
+    }
+  }, [foundation, initialMessages, title]);
+  
+  // Update input value with transcript when speech recognition is active
+  useEffect(() => {
+    if (transcript) {
+      setInputValue(transcript);
+    }
+  }, [transcript]);
+  
+  // Auto-scroll to the latest message
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
   
-  // Handle voice recognition results
+  // TTS for assistant messages
   useEffect(() => {
-    if (finalTranscript) {
-      const cleanText = finalTranscript.trim();
-      if (cleanText.length > 0) {
-        console.log("Auto-submitting voice input:", cleanText);
-        setInputText(cleanText);
-        // Auto-submit after a brief delay
-        setTimeout(() => {
-          handleSendMessage();
-        }, 500);
-      }
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage && lastMessage.role === 'assistant') {
+      speak(lastMessage.content);
     }
-  }, [finalTranscript]);
+  }, [messages, speak]);
   
-  const handleSendMessage = async () => {
-    if (inputText.trim() === '' || isProcessing) return;
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    // Don't submit if already processing or empty message
+    if (isProcessing || !inputValue.trim() || !messageHandler) return;
     
     // Add user message to chat
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: inputText,
-      sender: 'user',
-      timestamp: new Date()
-    };
-    
+    const userMessage = { role: 'user' as const, content: inputValue };
     setMessages(prev => [...prev, userMessage]);
-    setInputText('');
+    
+    // Clear input and start processing
+    setInputValue('');
+    resetTranscript();
     setIsProcessing(true);
     
-    // Add AI "thinking" message
-    const thinkingMessage: Message = {
-      id: 'thinking-' + Date.now().toString(),
-      content: `Processing your input about: "${inputText.substring(0, 30)}..."`,
-      sender: 'ai',
-      timestamp: new Date()
-    };
-    
-    setMessages(prev => [...prev, thinkingMessage]);
-    
     try {
-      // Process the message
-      const response = await onSendMessage(inputText, threadId);
+      // Send message to AI using the appropriate handler
+      const response = await messageHandler(userMessage.content, threadId);
       
-      // Remove the thinking message
-      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
+      // Add AI response to chat
+      const assistantMessage = { 
+        role: 'assistant' as const, 
+        content: response.content 
+      };
+      setMessages(prev => [...prev, assistantMessage]);
       
-      // Update threadId if provided in response
+      // Save thread ID if provided
       if (response.threadId) {
         setThreadId(response.threadId);
       }
       
-      // Add real AI response
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        content: response.content,
-        sender: 'ai',
-        timestamp: new Date(),
-        suggestions: response.suggestions
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
-      
-      // Automatically read the message if not too long
-      if (response.content.length < 500) {
-        speakMessage(response.content);
+      // Update suggestions if provided
+      if (response.suggestions) {
+        setSuggestions(response.suggestions);
       }
-      
     } catch (error) {
       console.error('Error processing message:', error);
-      
-      // Remove the thinking message
-      setMessages(prev => prev.filter(m => m.id !== thinkingMessage.id));
-      
       // Add error message
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        content: 'Sorry, I had trouble processing that. Could you try again?',
-        sender: 'ai',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-      
-      toast({
-        title: 'Error',
-        description: 'Failed to process your message. Please try again.',
-        variant: 'destructive'
-      });
+      setMessages(prev => [
+        ...prev, 
+        { 
+          role: 'assistant', 
+          content: 'Sorry, I had trouble processing your request. Please try again.' 
+        }
+      ]);
     } finally {
       setIsProcessing(false);
     }
   };
   
+  const handleSuggestionClick = (suggestion: string) => {
+    setInputValue(suggestion);
+    // Optional: automatically submit the suggestion
+    // setTimeout(() => handleSubmit(), 100);
+  };
+  
+  const toggleListening = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      resetTranscript();
+      startListening();
+    }
+  };
+  
   return (
-    <Card className="w-full h-full flex flex-col">
-      <CardContent className="p-0 flex-grow flex flex-col h-full">
-        <div className="p-4 border-b">
-          <h3 className="text-lg font-semibold">{title}</h3>
-          {description && <p className="text-sm text-muted-foreground">{description}</p>}
-        </div>
-        
-        <ScrollArea className="flex-grow px-4 py-4" ref={scrollRef}>
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex flex-col ${
-                  message.sender === 'user' ? 'items-end' : 'items-start'
-                }`}
-              >
-                <div
-                  className={`rounded-lg p-3 max-w-[80%] ${
-                    message.sender === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted'
-                  }`}
-                >
-                  <div className="whitespace-pre-wrap">{message.content}</div>
-                  
-                  {/* Show suggestions if available */}
-                  {message.sender === 'ai' && message.suggestions && message.suggestions.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {message.suggestions.map((suggestion, i) => (
-                        <Badge
-                          key={i}
-                          variant="secondary"
-                          className="cursor-pointer hover:bg-secondary/80 transition-colors p-1.5"
-                          onClick={() => {
-                            setInputText(suggestion);
-                            // Auto-submit after a brief delay
-                            setTimeout(() => {
-                              handleSendMessage();
-                            }, 500);
-                          }}
-                        >
-                          {suggestion}
-                        </Badge>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
-                <div className="text-xs text-muted-foreground mt-1 px-2">
-                  {message.sender === 'user' ? 'You' : 'AI'} · {message.timestamp.toLocaleTimeString()}
-                </div>
-              </div>
-            ))}
+    <div className="flex flex-col h-[70vh]">
+      <div 
+        ref={messageContainerRef}
+        className="flex-1 overflow-y-auto mb-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200"
+      >
+        {messages.map((message, index) => (
+          <div 
+            key={index} 
+            className={`mb-4 ${message.role === 'user' ? 'text-right' : 'text-left'}`}
+          >
+            <div 
+              className={`inline-block max-w-[80%] rounded-lg py-2 px-3 ${
+                message.role === 'user' 
+                  ? 'bg-primary-100 text-primary-900' 
+                  : 'bg-white border border-neutral-200 shadow-sm'
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+            </div>
           </div>
-        </ScrollArea>
-        
-        <div className="p-4 border-t flex flex-col gap-2">
-          {currentAudioUrl && (
-            <div className="w-full mb-2">
-              <AudioPlayer 
-                audioUrl={currentAudioUrl} 
-              />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+      
+      {currentAudioUrl && (
+        <AudioPlayer 
+          audioUrl={currentAudioUrl}
+          className="mb-4"
+        />
+      )}
+      
+      <div className="mt-2 mb-4">
+        <h4 className="text-sm font-medium mb-2 text-neutral-600">Suggestions:</h4>
+        <div className="flex flex-wrap gap-2">
+          {suggestions.map((suggestion, index) => (
+            <Button 
+              key={index} 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleSuggestionClick(suggestion)}
+              className="text-xs"
+            >
+              {suggestion}
+            </Button>
+          ))}
+        </div>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        <div className="flex-1 relative">
+          <Textarea
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Type your message..."
+            className="min-h-[80px] resize-none"
+            disabled={isProcessing}
+          />
+          {isListening && (
+            <div className="absolute bottom-2 left-2 text-xs text-red-500 animate-pulse">
+              Listening...
             </div>
           )}
-          
-          <div className="flex gap-2 items-center">
-            <Textarea
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder={isListening ? 'Listening...' : 'Type your message...'}
-              className="resize-none flex-1"
-              disabled={isProcessing}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSendMessage();
-                }
-              }}
-            />
-            <Button
-              onClick={handleSendMessage}
-              disabled={isProcessing || inputText.trim() === ''}
-            >
-              {isProcessing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </div>
-          
-          {/* Controls for voice interaction */}
-          <div className="flex gap-2 mt-2 justify-center">
-            {/* Button to replay the last AI message */}
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              onClick={() => {
-                const lastAiMessage = [...messages].reverse().find(msg => msg.sender === 'ai');
-                if (lastAiMessage) {
-                  speakMessage(lastAiMessage.content);
-                }
-              }}
-              disabled={isSpeaking}
-            >
-              <Volume2 className="h-4 w-4 mr-2" />
-              Replay Last Message
-            </Button>
-            
-            {/* Button to toggle speech recognition */}
-            <Button 
-              variant={isListening ? "default" : "outline"}
-              className="flex-1"
-              onClick={toggleVoiceRecognition}
-            >
-              {isListening ? (
-                <>
-                  <MicOff className="h-4 w-4 mr-2" />
-                  Stop Listening
-                </>
-              ) : (
-                <>
-                  <Mic className="h-4 w-4 mr-2" />
-                  Start Listening
-                </>
-              )}
-            </Button>
-          </div>
         </div>
-      </CardContent>
-    </Card>
+        
+        {browserSupportsSpeechRecognition && (
+          <Button 
+            type="button" 
+            variant={isListening ? "destructive" : "outline"}
+            onClick={toggleListening}
+            className="h-10 w-10 p-0"
+            disabled={isProcessing}
+          >
+            {isListening ? <Pause className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+          </Button>
+        )}
+        
+        <Button 
+          type="submit" 
+          disabled={!inputValue.trim() || isProcessing || !messageHandler}
+          className="h-10 w-10 p-0"
+        >
+          <Send className="h-4 w-4" />
+        </Button>
+      </form>
+    </div>
   );
 };
 
