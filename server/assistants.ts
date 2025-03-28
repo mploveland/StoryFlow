@@ -19,6 +19,106 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
   const suggestions: string[] = [];
   const surpriseMeSuggestion = "Surprise me! You decide what works best.";
   
+  // Check for common phrases that indicate initial genre selection
+  if (question.toLowerCase().includes("what genre") || 
+      question.toLowerCase().includes("which genre") ||
+      question.toLowerCase().includes("type of story")) {
+    // This is likely the first question asking about genre, return extended genre list with single words
+    console.log("Detected initial genre question, returning extended genre list");
+    return [
+      "Fantasy",
+      "Mystery",
+      "Romance",
+      "Sci-Fi",
+      "Western",
+      "Horror",
+      "Thriller",
+      "Adventure",
+      "Historical",
+      "Drama",
+      surpriseMeSuggestion
+    ];
+  }
+  
+  // Check for common phrases about book or author preference (the second typical question)
+  if ((question.toLowerCase().includes("book") || question.toLowerCase().includes("author")) &&
+      (question.toLowerCase().includes("like") || question.toLowerCase().includes("prefer") || 
+       question.toLowerCase().includes("favorite") || question.toLowerCase().includes("enjoy"))) {
+    
+    // Try to detect which genre was previously selected to provide relevant author suggestions
+    const lowerQuestion = question.toLowerCase();
+    
+    // Fantasy genre authors and books
+    if (lowerQuestion.includes("fantasy")) {
+      console.log("Detected fantasy genre author question");
+      return [
+        "Tolkien and The Lord of the Rings",
+        "George R.R. Martin and Game of Thrones",
+        "Brandon Sanderson and Mistborn",
+        "Patrick Rothfuss and The Name of the Wind",
+        surpriseMeSuggestion
+      ];
+    }
+    
+    // Sci-Fi genre authors and books
+    if (lowerQuestion.includes("sci-fi") || lowerQuestion.includes("science fiction")) {
+      console.log("Detected sci-fi genre author question");
+      return [
+        "Frank Herbert and Dune",
+        "Douglas Adams and Hitchhiker's Guide",
+        "Isaac Asimov and Foundation",
+        "Andy Weir and The Martian",
+        surpriseMeSuggestion
+      ];
+    }
+    
+    // Mystery genre authors and books
+    if (lowerQuestion.includes("mystery") || lowerQuestion.includes("detective")) {
+      console.log("Detected mystery genre author question");
+      return [
+        "Agatha Christie and Hercule Poirot novels",
+        "Arthur Conan Doyle and Sherlock Holmes",
+        "Gillian Flynn and Gone Girl",
+        "Stieg Larsson and The Girl with the Dragon Tattoo",
+        surpriseMeSuggestion
+      ];
+    }
+    
+    // Romance genre authors and books
+    if (lowerQuestion.includes("romance")) {
+      console.log("Detected romance genre author question");
+      return [
+        "Jane Austen and Pride and Prejudice",
+        "Nicholas Sparks and The Notebook",
+        "Emily Brontë and Wuthering Heights",
+        "Danielle Steel's contemporary romance novels",
+        surpriseMeSuggestion
+      ];
+    }
+    
+    // Horror genre authors and books
+    if (lowerQuestion.includes("horror")) {
+      console.log("Detected horror genre author question");
+      return [
+        "Stephen King and The Shining",
+        "H.P. Lovecraft and Cthulhu mythology",
+        "Shirley Jackson and The Haunting of Hill House",
+        "Clive Barker and The Hellbound Heart",
+        surpriseMeSuggestion
+      ];
+    }
+    
+    // Default author suggestions if we can't detect the genre
+    console.log("No specific genre detected for author question, using general suggestions");
+    return [
+      "Stephen King's horror novels",
+      "J.K. Rowling and Harry Potter",
+      "Ernest Hemingway's classic literature",
+      "Agatha Christie's mystery novels",
+      surpriseMeSuggestion
+    ];
+  }
+  
   // Check if the question contains explicit options in the text
   // Common pattern: "would you prefer A, B, or C?"
   const lines = question.split(/[.?!]\s+/);
