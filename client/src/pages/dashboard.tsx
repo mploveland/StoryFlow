@@ -166,13 +166,14 @@ const Dashboard: React.FC = () => {
   
   // Delete foundation mutation
   const deleteFoundationMutation = useMutation({
-    mutationFn: async (foundationId: number) => {
-      const response = await apiRequest('DELETE', `/api/foundations/${foundationId}`);
+    mutationFn: async ({ foundationId, force }: { foundationId: number, force: boolean }) => {
+      const url = `/api/foundations/${foundationId}${force ? '?force=true' : ''}`;
+      const response = await apiRequest('DELETE', url);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete foundation');
       }
-      return response.json();
+      return response.status === 204 ? {} : response.json();
     },
     onSuccess: () => {
       toast({
@@ -219,7 +220,10 @@ const Dashboard: React.FC = () => {
   // Function to confirm deletion
   const confirmDelete = () => {
     if (foundationToDelete) {
-      deleteFoundationMutation.mutate(foundationToDelete.id);
+      deleteFoundationMutation.mutate({ 
+        foundationId: foundationToDelete.id,
+        force: isDeleteDialogOpen // If we're using the story warning dialog, we want to force delete
+      });
     }
   };
 
