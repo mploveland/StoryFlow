@@ -389,9 +389,43 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
         setThreadId(response.threadId);
       }
       
-      // Update suggestions if provided
-      if (response.suggestions) {
-        setSuggestions(response.suggestions);
+      // Get intelligent suggestions using our new API endpoint
+      try {
+        // Use the new chat suggestions endpoint which uses OpenAI Assistant
+        const suggestionsResponse = await fetch('/api/ai/chat-suggestions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userMessage: userMessage.content,
+            assistantReply: response.content
+          }),
+        });
+        
+        if (suggestionsResponse.ok) {
+          const data = await suggestionsResponse.json();
+          if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+            console.log('Using AI-generated chat suggestions:', data.suggestions);
+            setSuggestions(data.suggestions);
+          } else if (response.suggestions) {
+            // Fallback to provided suggestions if AI ones failed
+            console.log('Falling back to provided suggestions:', response.suggestions);
+            setSuggestions(response.suggestions);
+          }
+        } else {
+          // If API call fails, use the provided suggestions
+          if (response.suggestions) {
+            console.log('Using provided suggestions due to API error:', response.suggestions);
+            setSuggestions(response.suggestions);
+          }
+        }
+      } catch (suggestionError) {
+        console.error('Error fetching intelligent suggestions:', suggestionError);
+        // Fallback to provided suggestions on error
+        if (response.suggestions) {
+          setSuggestions(response.suggestions);
+        }
       }
     } catch (error) {
       console.error('Error processing message:', error);
