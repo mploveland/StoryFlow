@@ -175,51 +175,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.delete("/foundations/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
-      const forceDelete = req.query.force === 'true';
       
-      console.log(`Attempting to delete foundation ${id}, force=${forceDelete}`);
-      console.log('Query parameters:', req.query);
-      
-      // First, check if this foundation has any stories associated with it
-      const storiesForFoundation = await storage.getStoriesByFoundation(id);
-      console.log(`Foundation ${id} has ${storiesForFoundation.length} stories associated with it`);
-      
-      // If there are stories and force is not true, we don't delete the foundation directly
-      if (!forceDelete && storiesForFoundation.length > 0) {
-        console.log(`Rejecting deletion - stories exist and force=false`);
-        return res.status(400).json({ 
-          message: "Foundation has stories associated with it", 
-          hasStories: true,
-          storyCount: storiesForFoundation.length
-        });
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
       }
       
-      console.log(`Proceeding with foundation deletion for ID ${id}`);
+      console.log(`API: Attempting to delete foundation ${id}`);
       
-      // Delete associated stories first if force is true
-      if (forceDelete && storiesForFoundation.length > 0) {
-        console.log(`Force deleting ${storiesForFoundation.length} stories for foundation ${id}`);
-        for (const story of storiesForFoundation) {
-          await storage.deleteStory(story.id);
-        }
-      }
-      
-      // Delete foundation messages
-      console.log(`Deleting chat messages for foundation ${id}`);
-      await storage.deleteFoundationMessagesByFoundationId(id);
-      
-      // Now delete the foundation
-      const success = await storage.deleteFoundation(id);
-      console.log(`Foundation deletion result: ${success ? 'success' : 'failed'}`);
-      
-      if (!success) {
+      // Check if foundation exists
+      const foundation = await storage.getFoundation(id);
+      if (!foundation) {
+        console.log(`API: Foundation ${id} not found, cannot delete`);
         return res.status(404).json({ message: "Foundation not found" });
       }
       
-      return res.status(204).send();
+      console.log(`API: Foundation ${id} found, proceeding with deletion`);
+      
+      // Our updated storage.deleteFoundation method now handles all the cascade deletions
+      try {
+        const success = await storage.deleteFoundation(id);
+        
+        if (success) {
+          console.log(`API: Foundation ${id} successfully deleted`);
+          return res.status(204).send();
+        } else {
+          console.log(`API: Foundation ${id} not deleted (unexpected)`);
+          return res.status(500).json({ message: "Failed to delete foundation for unknown reason" });
+        }
+      } catch (deleteError) {
+        console.error(`API: Error during deletion of foundation ${id}:`, deleteError);
+        return res.status(500).json({ 
+          message: "Error deleting foundation",
+          error: deleteError instanceof Error ? deleteError.message : String(deleteError)
+        });
+      }
     } catch (error) {
-      console.error("Error deleting foundation:", error);
-      return res.status(500).json({ message: "Server error" });
+      console.error("API: Error in foundation deletion handler:", error);
+      return res.status(500).json({ 
+        message: "Server error",
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   });
   

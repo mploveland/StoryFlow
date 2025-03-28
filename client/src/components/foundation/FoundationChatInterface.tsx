@@ -384,25 +384,23 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     
+    // Cache the current input value
+    const messageText = inputValue.trim();
+    
     // Don't submit if already processing or empty message or no message handler
-    if (isProcessing || !inputValue.trim() || !messageHandler) {
-      console.log("Cannot submit:", { isProcessing, inputValue: !!inputValue.trim(), hasMessageHandler: !!messageHandler });
+    if (isProcessing || !messageText || !messageHandler) {
+      console.log("Cannot submit:", { 
+        isProcessing, 
+        hasInputValue: !!messageText, 
+        hasMessageHandler: !!messageHandler,
+        foundationId: foundation?.id || foundationId
+      });
       return;
     }
     
-    // Add user message to chat
-    const userMessage = { role: 'user' as const, content: inputValue };
+    // Add user message to chat immediately
+    const userMessage = { role: 'user' as const, content: messageText };
     setMessages(prev => [...prev, userMessage]);
-    
-    // Save user message to database if we have a foundation ID
-    if (foundation && foundation.id) {
-      try {
-        await saveMessage(foundation.id, 'user', userMessage.content);
-        console.log("User message saved successfully");
-      } catch (saveError) {
-        console.error("Failed to save user message:", saveError);
-      }
-    }
     
     // Clear input and start processing
     setInputValue('');
@@ -410,17 +408,57 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     setIsProcessing(true);
     
     try {
-      console.log("Sending message to AI handler...");
+      // Save user message to database if we have a foundation ID
+      const currentFoundationId = foundation?.id || foundationId;
+      if (currentFoundationId) {
+        try {
+          console.log(`Saving user message to foundation ${currentFoundationId}`);
+          await saveMessage(currentFoundationId, 'user', userMessage.content);
+          console.log("User message saved successfully");
+        } catch (saveError) {
+          console.error("Failed to save user message:", saveError);
+          // Continue with the chat even if saving fails
+        }
+      }
       
-      // Send message to AI using the appropriate handler
-      const response = await messageHandler(userMessage.content, threadId);
+      console.log(`Sending message to AI handler with threadId: ${threadId || 'none'}`);
+      
+      // Send message to AI using the appropriate handler with timeout
+      const responsePromise = messageHandler(messageText, threadId);
+      
+      // Set up a timeout to display a waiting message if the AI takes too long
+      const timeoutId = setTimeout(() => {
+        // Add a thinking message that will be replaced when the response arrives
+        setMessages(prev => [
+          ...prev, 
+          { 
+            role: 'assistant' as const, 
+            content: 'Thinking...' 
+          }
+        ]);
+      }, 3000); // Show thinking message after 3 seconds
+      
+      // Wait for the response
+      const response = await responsePromise;
+      
+      // Clear the timeout since we got a response
+      clearTimeout(timeoutId);
       
       console.log("Received response from AI handler:", response);
       
       // Safety check for response
-      if (!response || typeof response.content === 'undefined') {
-        throw new Error("Invalid response from message handler");
+      if (!response) {
+        throw new Error("No response received from message handler");
       }
+      
+      if (typeof response.content === 'undefined') {
+        throw new Error("Response missing required 'content' field");
+      }
+      
+      // Remove any "thinking" message before adding the real response
+      setMessages(prev => 
+        prev.filter(msg => msg.content !== 'Thinking...')
+      );
       
       // Add AI response to chat
       const assistantMessage = { 
@@ -430,12 +468,14 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       setMessages(prev => [...prev, assistantMessage]);
       
       // Save assistant message to database if we have a foundation ID
-      if (foundation && foundation.id) {
+      if (currentFoundationId) {
         try {
-          await saveMessage(foundation.id, 'assistant', assistantMessage.content);
+          console.log(`Saving assistant response to foundation ${currentFoundationId}`);
+          await saveMessage(currentFoundationId, 'assistant', assistantMessage.content);
           console.log("Assistant message saved successfully");
         } catch (saveError) {
           console.error("Failed to save assistant message:", saveError);
+          // Continue even if saving fails
         }
       }
       
@@ -449,25 +489,49 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       if (response.suggestions && Array.isArray(response.suggestions)) {
         console.log("Updating suggestions:", response.suggestions);
         setSuggestions(response.suggestions);
+      } else {
+        // Default suggestions if none provided
+        setSuggestions([
+          "Tell me more",
+          "Can you explain that differently?",
+          "Let's continue with the next topic",
+          "I'd like to add more details"
+        ]);
       }
     } catch (error) {
       console.error('Error processing message:', error);
-      // Add error message
+      
+      // Remove any "thinking" message
+      setMessages(prev => 
+        prev.filter(msg => msg.content !== 'Thinking...')
+      );
+      
+      // Add detailed error message
       const errorMessage = { 
         role: 'assistant' as const, 
-        content: 'Sorry, I had trouble processing your request. Please try again.' 
+        content: `Sorry, I encountered an issue while processing your request. ${error instanceof Error ? error.message : 'Please try again in a moment.'}` 
       };
       setMessages(prev => [...prev, errorMessage]);
       
       // Also save error message to database
-      if (foundation && foundation.id) {
+      const currentFoundationId = foundation?.id || foundationId;
+      if (currentFoundationId) {
         try {
-          await saveMessage(foundation.id, 'assistant', errorMessage.content);
+          await saveMessage(currentFoundationId, 'assistant', errorMessage.content);
         } catch (saveError) {
           console.error("Failed to save error message:", saveError);
         }
       }
+      
+      // Set error-specific suggestions
+      setSuggestions([
+        "Let me try again",
+        "Can we start over?",
+        "Let's try something different",
+        "I need help"
+      ]);
     } finally {
+      // Always ensure processing is complete
       setIsProcessing(false);
     }
   };
