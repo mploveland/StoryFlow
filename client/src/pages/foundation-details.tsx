@@ -312,13 +312,32 @@ const FoundationDetails: React.FC = () => {
           });
         }
         
+        // SPECIAL CASE: If the response indicates a conversation in progress, we definitely don't update genre
+        if (data.conversationInProgress || data.needsMoreInput) {
+          console.log('Conversation still in progress, not updating genre');
+          return {
+            content: data.question || 'Please tell me more about the genre you want.',
+            suggestions: data.suggestions || [
+              "I love fantasy books like Lord of the Rings",
+              "I'm a fan of sci-fi like Dune",
+              "My favorite authors are Stephen King and Neil Gaiman",
+              "I enjoy books with complex characters and deep worldbuilding"
+            ],
+            threadId: data.threadId
+          };
+        }
+        
         // Only update the genre when we have a complete conversation 
         // and it's not just a question (we need a complete genre description)
+        const questionWords = ["?", "would you", "could you", "do you", "tell me", "what", "how", "which"];
+        const hasQuestion = questionWords.some(word => data.description?.includes(word));
+        
         const hasCompleteGenreDescription = data.description && 
-          data.description.length > 100 && 
-          !data.description.includes("?") &&
+          data.description.length > 200 && // Must be longer
+          !hasQuestion &&  // No questions
           data.themes && 
-          data.themes.length > 0;
+          data.themes.length > 0 &&  // Must have themes
+          data.name?.length > 3;     // Must have a proper name
           
         if (data.name && !hasDefinedGenre && hasCompleteGenreDescription) {
           console.log(`Updating foundation with complete genre: ${data.name}`);
@@ -326,6 +345,9 @@ const FoundationDetails: React.FC = () => {
             id: foundation.id,
             genre: data.name
           });
+        } else {
+          console.log('Genre description not complete yet, continuing conversation');
+          console.log(`Description length: ${data.description?.length}, has question: ${hasQuestion}, themes: ${data.themes?.length}, name length: ${data.name?.length}`);
         }
         
         // Extract the content from the response, prioritizing different fields

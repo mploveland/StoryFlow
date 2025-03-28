@@ -383,43 +383,58 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     console.log("Received response from Genre Creator assistant:", responseText);
     
     // Parse the response content to extract genre information
-    // Check if we've received an informative response or if we're still in question mode
-    const isQuestionResponse = responseText.includes("?") && 
-                              (responseText.includes("tell me") || 
-                               responseText.includes("could you") ||
-                               responseText.includes("would you") ||
-                               responseText.includes("what kind"));
+    // More robust check if we've received an informative response or if we're still in question mode
+    const containsQuestion = responseText.includes("?");
+    
+    // Look for common question patterns
+    const questionIndicators = [
+      "tell me", "could you", "would you", "what kind", "which", "how", 
+      "leaning", "prefer", "like to", "do you", "in your", "are you", "aspects",
+      "elements", "tell me more", "can you share", "any specific", "what themes", "what are",
+      "choices", "distinct", "atmospheric", "introspective", "more toward"
+    ];
+    
+    // Check if the response contains any of these question indicators
+    const hasQuestionIndicator = questionIndicators.some(indicator => 
+      responseText.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    // Text is short OR contains a question mark OR has question phrase patterns OR doesn't have enough descriptive content
+    const isQuestionResponse = 
+      responseText.length < 500 || // Response is too short to be complete
+      containsQuestion ||         // Contains any question
+      hasQuestionIndicator ||     // Contains question indicator phrases
+      responseText.split(".").length < 5 || // Fewer than 5 sentences
+      !responseText.includes("genre"); // Doesn't mention "genre" at all
+    
+    console.log(`Question detection: containsQuestion=${containsQuestion}, hasQuestionIndicator=${hasQuestionIndicator}, responseLength=${responseText.length}, sentences=${responseText.split(".").length}, isQuestionResponse=${isQuestionResponse}`);
     
     if (isQuestionResponse) {
       // The assistant is asking a question, this is a conversation in progress
       // We should return a special response that indicates we need more input
+      console.log("Identified as a question response, triggering CONVERSATION_IN_PROGRESS");
       throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
     }
     
     // Try to extract a genre name from the response text or from user interests
-    let genreName = "Custom Genre";  // Default name
-    const genreKeywords = [
-      "fantasy", "science fiction", "sci-fi", "mystery", "thriller", 
-      "horror", "romance", "western", "historical", "adventure",
-      "dystopian", "cyberpunk", "steampunk", "urban fantasy", 
-      "young adult", "crime", "noir", "magical realism"
-    ];
+    // IMPORTANT: Only set a real genre name when we have a complete response
+    // This prevents prematurely setting "Custom Genre" and moving to world building
     
-    // First try to find the genre name in the response text
-    for (const keyword of genreKeywords) {
-      if (responseText.toLowerCase().includes(keyword)) {
-        // Capitalize each word in the genre name
-        genreName = keyword.split(' ')
-          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(' ');
-        break;
-      }
-    }
+    let genreName = null;  // Start with no genre detected
     
-    // If we didn't find a genre in the response, check the user interests
-    if (genreName === "Custom Genre" && genreInput.userInterests) {
+    // Only look for a genre if we have a substantial response
+    if (responseText.length > 500 && responseText.split(".").length >= 5) {
+      // Now try to find the genre name in the response text
+      const genreKeywords = [
+        "fantasy", "science fiction", "sci-fi", "mystery", "thriller", 
+        "horror", "romance", "western", "historical", "adventure",
+        "dystopian", "cyberpunk", "steampunk", "urban fantasy", 
+        "young adult", "crime", "noir", "magical realism"
+      ];
+      
+      // First try to find the genre name in the response text
       for (const keyword of genreKeywords) {
-        if (genreInput.userInterests.toLowerCase().includes(keyword)) {
+        if (responseText.toLowerCase().includes(keyword)) {
           // Capitalize each word in the genre name
           genreName = keyword.split(' ')
             .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -427,6 +442,15 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
           break;
         }
       }
+      
+      // If we didn't find a genre keyword, ONLY then use "Custom Genre" as fallback
+      if (!genreName) {
+        genreName = "Custom Genre";
+      }
+    } else {
+      // If response is not complete, we're still in the genre conversation phase
+      // CRITICAL: Don't set any genre name, which triggers conversation in progress
+      throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
     }
     
     console.log(`Genre name selected: ${genreName}`);
