@@ -51,8 +51,11 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
     // Try to detect which genre was previously selected to provide relevant author suggestions
     const lowerQuestion = question.toLowerCase();
     
-    // Fantasy genre authors and books
-    if (lowerQuestion.includes("fantasy")) {
+    // Fantasy genre authors and books (check for both "fantasy" keyword and popular fantasy references)
+    if (lowerQuestion.includes("fantasy") || 
+        lowerQuestion.includes("harry potter") || lowerQuestion.includes("rowling") ||
+        lowerQuestion.includes("lord of the rings") || lowerQuestion.includes("tolkien") ||
+        lowerQuestion.includes("game of thrones") || lowerQuestion.includes("rothfuss")) {
       console.log("Detected fantasy genre author question");
       return [
         "Tolkien and The Lord of the Rings",
@@ -207,8 +210,14 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
   }
   
   // Check for a specific pattern where the assistant asks about preferences with "more toward X, Y, or Z?"
+  // This pattern handles questions like "would you prefer X, Y, or Z?"
   const preferencePattern = /(?:leaning|prefer|interested in|like)\s+more\s+(?:toward|in|for|about)\s+(?:a|an)?\s*([^,]+?)(?:,|or|\?)(?:\s+(?:a|an)?\s*([^,]+?)(?:,|or|\?))?(?:\s+(?:a|an|or)?\s*([^?]+?)(?:\?|$))?/i;
+  
+  // This pattern handles tone/atmosphere questions like "are you envisioning a whimsical tone or darker atmosphere?"
+  const tonePattern = /(?:envision|imagine|want|looking for|thinking of)(?:ing)?\s+(?:a|an)?\s*([^,]+?)(?:(?:,|or)\s+(?:a|an)?\s*([^,]+?))?(?:(?:,|or)\s+(?:a|an)?\s*([^?]+?))?(?:\?|$)/i;
+  
   const preferenceMatch = question.match(preferencePattern);
+  const toneMatch = question.match(tonePattern);
   
   if (preferenceMatch) {
     console.log("Detected preference options in question");
@@ -229,6 +238,50 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
     
     // If we found structured options, add the surprise me option and return
     if (cleanedSuggestions.length > 0) {
+      cleanedSuggestions.push(surpriseMeSuggestion);
+      return cleanedSuggestions;
+    }
+  }
+  
+  // Process tone match (specifically for whimsical vs darker atmosphere type questions)
+  if (toneMatch) {
+    console.log("Detected tone/atmosphere options in question");
+    const cleanedSuggestions = [];
+    for (let i = 1; i < toneMatch.length; i++) {
+      if (toneMatch[i]) {
+        // Clean up each option
+        let option = toneMatch[i].trim();
+        // Remove trailing punctuation
+        option = option.replace(/[,.?!;:]+$/, '').trim();
+        // If the option starts with "or", remove it
+        option = option.replace(/^or\s+/i, '').trim();
+        
+        // Try to make options more readable by adding "a " prefix if needed
+        if (!option.match(/^(a|an|the)\s+/i) && option.length > 3) {
+          option = "a " + option;
+        }
+        
+        cleanedSuggestions.push(option);
+      }
+    }
+    
+    // Handle specific case for whimsical vs darker match
+    if (question.toLowerCase().includes("whimsical") && question.toLowerCase().includes("darker")) {
+      if (!cleanedSuggestions.some(s => s.includes("whimsical"))) {
+        cleanedSuggestions.push("a whimsical, adventurous tone");
+      }
+      if (!cleanedSuggestions.some(s => s.includes("darker"))) {
+        cleanedSuggestions.push("a darker, more mature atmosphere");
+      }
+    }
+    
+    // If we found structured options, add the surprise me option and return
+    if (cleanedSuggestions.length > 0) {
+      // Add a blend option if we have multiple choices
+      if (cleanedSuggestions.length >= 2) {
+        cleanedSuggestions.push("a blend of both styles");
+      }
+      
       cleanedSuggestions.push(surpriseMeSuggestion);
       return cleanedSuggestions;
     }
