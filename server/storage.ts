@@ -165,60 +165,8 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteFoundation(id: number): Promise<boolean> {
-    try {
-      console.log(`Storage: Beginning deletion process for foundation ID ${id}`);
-      
-      // 1. First, delete all characters associated with this foundation
-      console.log(`Storage: Deleting characters for foundation ID ${id}`);
-      await db.delete(characters).where(eq(characters.foundationId, id));
-      
-      // 2. Delete foundation messages
-      console.log(`Storage: Deleting messages for foundation ID ${id}`);
-      await db.delete(foundationMessages).where(eq(foundationMessages.foundationId, id));
-      
-      // 3. Delete genre details
-      console.log(`Storage: Deleting genre details for foundation ID ${id}`);
-      await db.delete(genreDetails).where(eq(genreDetails.foundationId, id));
-      
-      // 4. Delete environment details
-      console.log(`Storage: Deleting environment details for foundation ID ${id}`);
-      await db.delete(environmentDetails).where(eq(environmentDetails.foundationId, id));
-      
-      // 5. Delete all stories associated with this foundation first
-      console.log(`Storage: Getting stories for foundation ID ${id}`);
-      const storiesForFoundation = await db.select().from(stories).where(eq(stories.foundationId, id));
-      
-      for (const story of storiesForFoundation) {
-        console.log(`Storage: Deleting story ID ${story.id} for foundation ID ${id}`);
-        
-        // 5a. Delete all chapters associated with this story
-        const chaptersForStory = await db.select().from(chapters).where(eq(chapters.storyId, story.id));
-        
-        for (const chapter of chaptersForStory) {
-          console.log(`Storage: Deleting versions for chapter ID ${chapter.id}`);
-          // 5b. Delete all versions associated with this chapter
-          await db.delete(versions).where(eq(versions.chapterId, chapter.id));
-        }
-        
-        console.log(`Storage: Deleting chapters for story ID ${story.id}`);
-        // 5c. Delete all chapters for this story
-        await db.delete(chapters).where(eq(chapters.storyId, story.id));
-      }
-      
-      // 5d. Now delete all stories
-      console.log(`Storage: Deleting stories for foundation ID ${id}`);
-      await db.delete(stories).where(eq(stories.foundationId, id));
-      
-      // 6. Finally, delete the foundation itself
-      console.log(`Storage: Deleting foundation ID ${id}`);
-      const [deleted] = await db.delete(foundations).where(eq(foundations.id, id)).returning();
-      
-      console.log(`Storage: Foundation deletion result:`, deleted ? 'success' : 'not found');
-      return !!deleted;
-    } catch (error) {
-      console.error(`Storage: Error deleting foundation ${id}:`, error);
-      throw error;
-    }
+    const [deleted] = await db.delete(foundations).where(eq(foundations.id, id)).returning();
+    return !!deleted;
   }
   
   // Story operations

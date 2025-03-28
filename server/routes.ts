@@ -175,46 +175,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.delete("/foundations/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      const forceDelete = req.query.force === 'true';
       
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Invalid foundation ID" });
+      console.log(`Attempting to delete foundation ${id}, force=${forceDelete}`);
+      console.log('Query parameters:', req.query);
+      
+      // First, check if this foundation has any stories associated with it
+      const storiesForFoundation = await storage.getStoriesByFoundation(id);
+      console.log(`Foundation ${id} has ${storiesForFoundation.length} stories associated with it`);
+      
+      // If there are stories and force is not true, we don't delete the foundation directly
+      if (!forceDelete && storiesForFoundation.length > 0) {
+        console.log(`Rejecting deletion - stories exist and force=false`);
+        return res.status(400).json({ 
+          message: "Foundation has stories associated with it", 
+          hasStories: true,
+          storyCount: storiesForFoundation.length
+        });
       }
       
-      console.log(`API: Attempting to delete foundation ${id}`);
+      console.log(`Proceeding with foundation deletion for ID ${id}`);
       
-      // Check if foundation exists
-      const foundation = await storage.getFoundation(id);
-      if (!foundation) {
-        console.log(`API: Foundation ${id} not found, cannot delete`);
+      // Delete associated stories first if force is true
+      if (forceDelete && storiesForFoundation.length > 0) {
+        console.log(`Force deleting ${storiesForFoundation.length} stories for foundation ${id}`);
+        for (const story of storiesForFoundation) {
+          await storage.deleteStory(story.id);
+        }
+      }
+      
+      // Delete foundation messages
+      console.log(`Deleting chat messages for foundation ${id}`);
+      await storage.deleteFoundationMessagesByFoundationId(id);
+      
+      // Now delete the foundation
+      const success = await storage.deleteFoundation(id);
+      console.log(`Foundation deletion result: ${success ? 'success' : 'failed'}`);
+      
+      if (!success) {
         return res.status(404).json({ message: "Foundation not found" });
       }
       
-      console.log(`API: Foundation ${id} found, proceeding with deletion`);
-      
-      // Our updated storage.deleteFoundation method now handles all the cascade deletions
-      try {
-        const success = await storage.deleteFoundation(id);
-        
-        if (success) {
-          console.log(`API: Foundation ${id} successfully deleted`);
-          return res.status(204).send();
-        } else {
-          console.log(`API: Foundation ${id} not deleted (unexpected)`);
-          return res.status(500).json({ message: "Failed to delete foundation for unknown reason" });
-        }
-      } catch (deleteError) {
-        console.error(`API: Error during deletion of foundation ${id}:`, deleteError);
-        return res.status(500).json({ 
-          message: "Error deleting foundation",
-          error: deleteError instanceof Error ? deleteError.message : String(deleteError)
-        });
-      }
+      return res.status(204).send();
     } catch (error) {
-      console.error("API: Error in foundation deletion handler:", error);
-      return res.status(500).json({ 
-        message: "Server error",
-        error: error instanceof Error ? error.message : String(error)
-      });
+      console.error("Error deleting foundation:", error);
+      return res.status(500).json({ message: "Server error" });
     }
   });
   
@@ -255,68 +260,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Foundation message routes
   apiRouter.get("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
     try {
-      console.log(`GET request for foundation messages with ID: ${req.params.foundationId}`);
-      
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
-        console.warn(`Invalid foundation ID provided: ${req.params.foundationId}`);
         return res.status(400).json({ message: "Invalid foundation ID" });
       }
       
       const foundation = await storage.getFoundation(foundationId);
       if (!foundation) {
-        console.warn(`Foundation not found with ID: ${foundationId}`);
         return res.status(404).json({ message: "Foundation not found" });
       }
       
       const messages = await storage.getFoundationMessages(foundationId);
-      console.log(`Retrieved ${messages.length} messages for foundation ID: ${foundationId}`);
       return res.status(200).json(messages);
     } catch (error) {
       console.error("Error getting foundation messages:", error);
-      return res.status(500).json({ 
-        message: "Server error",
-        error: error instanceof Error ? error.message : String(error)
-      });
+      return res.status(500).json({ message: "Server error" });
     }
   });
   
   apiRouter.post("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
     try {
-      console.log(`POST request for foundation message with ID: ${req.params.foundationId}`);
-      
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
-        console.warn(`Invalid foundation ID provided: ${req.params.foundationId}`);
         return res.status(400).json({ message: "Invalid foundation ID" });
       }
       
       const foundation = await storage.getFoundation(foundationId);
       if (!foundation) {
-        console.warn(`Foundation not found with ID: ${foundationId}`);
         return res.status(404).json({ message: "Foundation not found" });
       }
       
       const { role, content } = req.body;
       
-      // Input validation
-      if (!role) {
-        return res.status(400).json({ message: "Role is required" });
-      }
-      
-      if (!content || typeof content !== 'string') {
-        return res.status(400).json({ message: "Content is required and must be a string" });
-      }
-      
-      if (content.trim() === '') {
-        return res.status(400).json({ message: "Content cannot be empty" });
+      if (!role || !content) {
+        return res.status(400).json({ message: "Role and content are required" });
       }
       
       if (role !== 'user' && role !== 'assistant') {
         return res.status(400).json({ message: "Role must be 'user' or 'assistant'" });
       }
-      
-      console.log(`Creating foundation message for ID: ${foundationId}, role: ${role}, content length: ${content.length}`);
       
       const message = await storage.createFoundationMessage({
         foundationId,
@@ -324,14 +306,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content
       });
       
-      console.log(`Successfully created message ID: ${message.id}`);
       return res.status(201).json(message);
     } catch (error) {
       console.error("Error creating foundation message:", error);
-      return res.status(500).json({ 
-        message: "Server error",
-        error: error instanceof Error ? error.message : String(error)
-      });
+      return res.status(500).json({ message: "Server error" });
     }
   });
   
