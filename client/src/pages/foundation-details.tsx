@@ -250,24 +250,30 @@ const FoundationDetails: React.FC = () => {
             </Button>
             <h1 className="text-2xl font-bold">{foundation.name}</h1>
           </div>
-          <div className="flex mt-4 md:mt-0">
-            <Button variant="outline" onClick={handleEditFoundation} className="mr-2">
-              <Edit className="mr-2 h-4 w-4" /> Edit Foundation
-            </Button>
-            <Button 
-              onClick={handleCreateStory} 
-              disabled={createStoryMutation.isPending || !isFoundationComplete(foundation, characters)}
-            >
-              <Plus className="mr-2 h-4 w-4" /> New Story
-            </Button>
-          </div>
+          {isFoundationComplete(foundation, characters) && (
+            <div className="flex mt-4 md:mt-0">
+              <Button variant="outline" onClick={handleEditFoundation} className="mr-2">
+                <Edit className="mr-2 h-4 w-4" /> Edit Foundation
+              </Button>
+              <Button 
+                onClick={handleCreateStory} 
+                disabled={createStoryMutation.isPending}
+              >
+                <Plus className="mr-2 h-4 w-4" /> New Story
+              </Button>
+            </div>
+          )}
         </div>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="stories">Stories</TabsTrigger>
-            <TabsTrigger value="characters">Characters</TabsTrigger>
+            {isFoundationComplete(foundation, characters) && (
+              <>
+                <TabsTrigger value="overview">Overview</TabsTrigger>
+                <TabsTrigger value="stories">Stories</TabsTrigger>
+                <TabsTrigger value="characters">Characters</TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="chat">
               <div className="flex items-center">
                 <MessageSquare className="mr-2 h-4 w-4" />
