@@ -324,6 +324,16 @@ const FoundationDetails: React.FC = () => {
         // SPECIAL CASE: If the response indicates a conversation in progress, we definitely don't update genre
         if (data.conversationInProgress || data.needsMoreInput) {
           console.log('Conversation still in progress, not updating genre');
+          
+          // Always update with the latest threadId to maintain conversation state, even during ongoing conversations
+          if (data.threadId) {
+            console.log(`Updating foundation with genre conversation threadId: ${data.threadId}`);
+            updateFoundationMutation.mutate({
+              id: foundation.id,
+              threadId: data.threadId
+            });
+          }
+          
           return {
             content: data.question || 'Please tell me more about the genre you want.',
             suggestions: data.suggestions || [
