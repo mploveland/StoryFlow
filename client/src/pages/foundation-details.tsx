@@ -29,7 +29,8 @@ const FoundationDetails: React.FC = () => {
   
   // Get foundationId from URL query params
   const params = new URLSearchParams(location.split('?')[1] || '');
-  const foundationId = parseInt(params.get('foundationId') || '0');
+  const foundationIdParam = params.get('foundationId');
+  const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
   
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -330,11 +331,10 @@ const FoundationDetails: React.FC = () => {
               </Button>
             )}
             <Button 
-              variant="outline" 
+              variant="destructive" 
               onClick={handleDeleteFoundation}
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
             >
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+              <Trash2 className="mr-2 h-4 w-4" /> Delete Foundation
             </Button>
           </div>
         </div>

@@ -273,10 +273,19 @@ const Dashboard: React.FC = () => {
                     key={foundation.id} 
                     className={`bg-white shadow-sm hover:shadow transition-shadow cursor-pointer ${selectedFoundation?.id === foundation.id ? 'border-2 border-primary-500' : ''}`}
                     onClick={() => {
-                      setSelectedFoundation(foundation);
-                      // Navigate to foundation-details with the correct foundationId parameter
-                      if (foundation && foundation.id) {
-                        navigate(`/foundation-details?foundationId=${foundation.id}`);
+                      try {
+                        // First set the selected foundation in state
+                        setSelectedFoundation(foundation);
+                        
+                        // Make sure foundation has a valid ID before navigating
+                        if (foundation && typeof foundation.id === 'number' && foundation.id > 0) {
+                          console.log(`Navigating to foundation ${foundation.id}`);
+                          navigate(`/foundation-details?foundationId=${foundation.id}`);
+                        } else {
+                          console.error('Invalid foundation ID:', foundation);
+                        }
+                      } catch (error) {
+                        console.error('Error navigating to foundation:', error);
                       }
                     }}
                   >
