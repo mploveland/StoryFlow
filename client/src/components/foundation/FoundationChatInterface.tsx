@@ -136,6 +136,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   };
   
   useEffect(() => {
+    // Handle initial messages from props (for world-details.tsx)
     if (initialMessages && initialMessages.length > 0) {
       // Convert format from world-details.tsx to our internal format
       const convertedMessages = initialMessages.map(msg => ({
@@ -150,15 +151,39 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       if (firstAiMessage?.suggestions) {
         setSuggestions(firstAiMessage.suggestions);
       }
-    } else if (foundation && foundation.id) {
+      return;
+    }
+    
+    // Handle foundation chat interface
+    if (foundation && foundation.id) {
       // Try to load existing messages for this foundation
-      loadMessages(foundation.id).then(hasMessages => {
-        // If no existing messages, show the welcome message
-        if (!hasMessages) {
-          // Set welcome message for foundation with stages explanation
-          const welcomeMessage = {
-            role: 'assistant' as const,
-            content: `Welcome to StoryFlow! I'll help you build your new foundation, "${foundation.name}". 
+      loadMessages(foundation.id)
+        .then(hasMessages => {
+          // If we already have messages, we're done
+          if (hasMessages) {
+            return;
+          }
+          
+          // If no existing messages, create a welcome message
+          // First check if characters exist for this foundation
+          return fetch(`/api/foundations/${foundation.id}/characters`)
+            .then(response => response.ok ? response.json() : [])
+            .catch(error => {
+              console.error("Error fetching characters:", error);
+              return []; // Return empty array on error
+            })
+            .then(charactersList => {
+              // Generate welcome message based on foundation progress
+              let welcomeMessageContent = '';
+              let initialSuggestions: string[] = [];
+              
+              // Check what information is already available in the foundation
+              const hasGenre = foundation.genre && foundation.genre !== 'Undecided';
+              const hasWorld = foundation.description && foundation.description?.length > 20; // Basic check for meaningful description
+              
+              if (!hasGenre && !hasWorld) {
+                // Brand new foundation - standard welcome
+                welcomeMessageContent = `Welcome to StoryFlow! I'll help you build your new foundation, "${foundation.name}".
 
 We'll go through these stages together:
 1. Genre - what type of story you want to create
@@ -167,27 +192,107 @@ We'll go through these stages together:
 4. Influences - inspirations and references for your creation
 5. Details - additional aspects to make your world unique
 
-Let's start with the genre. What kind of genre interests you? Feel free to give me just 1-2 words like "fantasy" or "sci-fi".`
-          };
-          setMessages([welcomeMessage]);
-          
-          // Save welcome message to the database for persistence
-          if (foundation.id) {
-            saveMessage(foundation.id, 'assistant', welcomeMessage.content);
-          }
-          
-          // Initial suggestions for foundation - simple 1-2 word genres with "Surprise me!" option
-          setSuggestions([
-            "Fantasy",
-            "Sci-fi",
-            "Mystery",
-            "Historical fiction",
-            "Romance",
-            "Surprise me!"
-          ]);
-        }
-      });
-    } else if (title) {
+Let's start with the genre. What kind of genre interests you? Feel free to give me just 1-2 words like "fantasy" or "sci-fi".`;
+
+                // Initial suggestions for foundation - simple 1-2 word genres with "Surprise me!" option
+                initialSuggestions = [
+                  "Fantasy",
+                  "Sci-fi",
+                  "Mystery",
+                  "Historical fiction",
+                  "Romance",
+                  "Surprise me!"
+                ];
+              } else {
+                // Welcome back message with foundation progress summary
+                welcomeMessageContent = `Welcome back to "${foundation.name}"! Here's what we have so far:\n\n`;
+                
+                // Add genre information if available
+                if (hasGenre) {
+                  welcomeMessageContent += `• Genre: ${foundation.genre}\n`;
+                } else {
+                  welcomeMessageContent += `• Genre: Not decided yet\n`;
+                }
+                
+                // Add world information if available
+                if (hasWorld && foundation.description) {
+                  const desc = foundation.description;
+                  welcomeMessageContent += `• World: ${desc.substring(0, 100)}${desc.length > 100 ? '...' : ''}\n`;
+                } else {
+                  welcomeMessageContent += `• World: Not developed yet\n`;
+                }
+                
+                // Add character information if available
+                if (charactersList && charactersList.length > 0) {
+                  welcomeMessageContent += `• Characters: ${charactersList.length} character${charactersList.length === 1 ? '' : 's'} created\n`;
+                  // List first 2 character names if available
+                  if (charactersList.length > 0) {
+                    const characterNames = charactersList.slice(0, 2).map((char: any) => char.name).join(', ');
+                    welcomeMessageContent += `  Including: ${characterNames}${charactersList.length > 2 ? ', and more...' : ''}\n`;
+                  }
+                } else {
+                  welcomeMessageContent += `• Characters: None created yet\n`;
+                }
+                
+                // Add next steps
+                welcomeMessageContent += `\nWould you like to continue where we left off?`;
+                
+                // Suggestions based on foundation progress
+                if (!hasGenre) {
+                  initialSuggestions = [
+                    "Yes, let's decide on a genre",
+                    "Tell me more about genres",
+                    "I'd like to explore different genre options",
+                    "Surprise me with a genre suggestion"
+                  ];
+                } else if (!hasWorld) {
+                  initialSuggestions = [
+                    "Yes, let's develop the world",
+                    "Tell me more about world-building",
+                    "How can we expand on the genre?",
+                    "What kind of world fits this genre?"
+                  ];
+                } else if (charactersList.length === 0) {
+                  initialSuggestions = [
+                    "Let's create some characters",
+                    "Tell me more about character creation",
+                    "What kind of characters would fit this world?",
+                    "Suggest a character for this world"
+                  ];
+                } else {
+                  initialSuggestions = [
+                    "Let's develop the existing characters further",
+                    "Let's create another character",
+                    "How can we add depth to this world?",
+                    "What influences could shape this world?"
+                  ];
+                }
+              }
+              
+              // Set the welcome message
+              const welcomeMessage = {
+                role: 'assistant' as const,
+                content: welcomeMessageContent
+              };
+              
+              setMessages([welcomeMessage]);
+              
+              // Save welcome message to the database for persistence
+              saveMessage(foundation.id, 'assistant', welcomeMessage.content);
+              
+              // Set initial suggestions
+              setSuggestions(initialSuggestions);
+            });
+        })
+        .catch(error => {
+          console.error("Error loading messages:", error);
+        });
+      
+      return;
+    }
+    
+    // Handle world details view
+    if (title) {
       // Set welcome message for world details
       const welcomeMessage = {
         role: 'assistant' as const,
@@ -203,7 +308,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
         "How should I approach conflicts in this world?",
       ]);
     }
-  }, [foundation, initialMessages, title]);
+  }, [foundation, initialMessages, title, loadMessages, saveMessage]);
   
   // Update input value with transcript when speech recognition is active
   useEffect(() => {
@@ -238,7 +343,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     setMessages(prev => [...prev, userMessage]);
     
     // Save user message to database if we have a foundation ID
-    if (foundation?.id) {
+    if (foundation && foundation.id) {
       saveMessage(foundation.id, 'user', userMessage.content);
     }
     
@@ -249,6 +354,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     
     try {
       // Send message to AI using the appropriate handler
+      if (!messageHandler) return;
       const response = await messageHandler(userMessage.content, threadId);
       
       // Add AI response to chat
@@ -259,7 +365,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       setMessages(prev => [...prev, assistantMessage]);
       
       // Save assistant message to database if we have a foundation ID
-      if (foundation?.id) {
+      if (foundation && foundation.id) {
         saveMessage(foundation.id, 'assistant', assistantMessage.content);
       }
       
@@ -282,7 +388,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       setMessages(prev => [...prev, errorMessage]);
       
       // Also save error message to database
-      if (foundation?.id) {
+      if (foundation && foundation.id) {
         saveMessage(foundation.id, 'assistant', errorMessage.content);
       }
     } finally {
