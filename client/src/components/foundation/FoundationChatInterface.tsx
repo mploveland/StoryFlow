@@ -66,6 +66,11 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId || propThreadId);
+  
+  // Debug log for threadId state
+  useEffect(() => {
+    console.log(`FoundationChatInterface - threadId initialized/changed: ${threadId || 'undefined'}`);
+  }, [threadId]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   
@@ -309,6 +314,14 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
     }
   }, [transcript]);
   
+  // Update threadId when foundation prop changes
+  useEffect(() => {
+    if (foundation?.threadId && foundation.threadId !== threadId) {
+      console.log(`FoundationChatInterface - Updating threadId from foundation prop: ${threadId || 'undefined'} -> ${foundation.threadId}`);
+      setThreadId(foundation.threadId);
+    }
+  }, [foundation?.threadId, threadId]);
+  
   // Auto-scroll to the latest message
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -372,6 +385,7 @@ Let's start with the genre. What kind of genre interests you? Feel free to give 
       
       // Save thread ID if provided
       if (response.threadId) {
+        console.log(`FoundationChatInterface - Updating threadId: ${threadId || 'undefined'} -> ${response.threadId}`);
         setThreadId(response.threadId);
       }
       

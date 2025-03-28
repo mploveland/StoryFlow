@@ -78,6 +78,13 @@ const FoundationDetails: React.FC = () => {
     enabled: !!foundationId,
   });
   
+  // Log the threadId when foundation is loaded
+  useEffect(() => {
+    if (foundation) {
+      console.log(`Foundation loaded with threadId: ${foundation.threadId || 'undefined'}`);
+    }
+  }, [foundation]);
+  
   // Query stories for this foundation
   const { 
     data: stories = [], 
@@ -304,7 +311,9 @@ const FoundationDetails: React.FC = () => {
         
         // ONLY update the threadId for now, not the genre
         // This ensures we stay in the genre creation flow until we get a final summary
-        if (data.threadId && data.threadId !== foundation.threadId) {
+        if (data.threadId) {
+          // Always update with the current threadId even if it appears same as stored one
+          // This guarantees we're using the latest one
           console.log(`Updating foundation with threadId: ${data.threadId}`);
           updateFoundationMutation.mutate({
             id: foundation.id,
@@ -389,8 +398,9 @@ const FoundationDetails: React.FC = () => {
         const data = await response.json();
         console.log('World builder response:', data);
         
-        // If there's a new threadId and it's different from what we have stored, update it
-        if (data.threadId && data.threadId !== foundation.threadId) {
+        // Always update with the latest threadId to maintain conversation state
+        if (data.threadId) {
+          console.log(`Updating foundation with world threadId: ${data.threadId}`);
           updateFoundationMutation.mutate({
             id: foundation.id,
             threadId: data.threadId
