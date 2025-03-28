@@ -39,6 +39,7 @@ export interface IStorage {
   
   // Chapter operations
   getChapters(storyId: number): Promise<Chapter[]>;
+  getChaptersByStoryId(storyId: number): Promise<Chapter[]>;
   getChapter(id: number): Promise<Chapter | undefined>;
   createChapter(chapter: InsertChapter): Promise<Chapter>;
   updateChapter(id: number, chapter: Partial<InsertChapter>): Promise<Chapter | undefined>;
@@ -78,6 +79,7 @@ export interface IStorage {
   getVersions(chapterId: number): Promise<Version[]>;
   getVersion(id: number): Promise<Version | undefined>;
   createVersion(version: InsertVersion): Promise<Version>;
+  deleteVersionsByChapterId(chapterId: number): Promise<boolean>;
   
   // Suggestion operations
   getSuggestions(chapterId: number): Promise<Suggestion[]>;
@@ -188,6 +190,13 @@ export class DatabaseStorage implements IStorage {
       .from(chapters)
       .where(eq(chapters.storyId, storyId))
       .orderBy(chapters.order);
+  }
+  
+  async getChaptersByStoryId(storyId: number): Promise<Chapter[]> {
+    return db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.storyId, storyId));
   }
   
   async getChapter(id: number): Promise<Chapter | undefined> {
@@ -355,6 +364,11 @@ export class DatabaseStorage implements IStorage {
   async createVersion(insertVersion: InsertVersion): Promise<Version> {
     const [version] = await db.insert(versions).values(insertVersion).returning();
     return version;
+  }
+  
+  async deleteVersionsByChapterId(chapterId: number): Promise<boolean> {
+    const result = await db.delete(versions).where(eq(versions.chapterId, chapterId));
+    return result.count > 0;
   }
   
   // Suggestion operations

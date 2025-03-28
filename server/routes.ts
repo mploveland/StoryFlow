@@ -165,6 +165,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   apiRouter.delete("/foundations/:id", async (req: Request, res: Response) => {
     try {
       const id = parseInt(req.params.id);
+      
+      // First, check if this foundation has any stories associated with it
+      const storiesForFoundation = await storage.getStoriesByFoundation(id);
+      
+      // If there are stories, we don't delete the foundation directly
+      // The client will need to confirm deletion in this case
+      if (req.query.force !== 'true' && storiesForFoundation.length > 0) {
+        return res.status(400).json({ 
+          message: "Foundation has stories associated with it", 
+          hasStories: true,
+          storyCount: storiesForFoundation.length
+        });
+      }
+      
+      // Delete the foundation if no stories or force=true
       const success = await storage.deleteFoundation(id);
       
       if (!success) {

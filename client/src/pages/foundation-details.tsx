@@ -8,8 +8,18 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation, Story, Character } from '@shared/schema';
-import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare } from 'lucide-react';
+import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
 import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const FoundationDetails: React.FC = () => {
   const [location, navigate] = useLocation();
@@ -18,13 +28,18 @@ const FoundationDetails: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Get foundationId from URL query params
-  const params = new URLSearchParams(location.split('?')[1]);
+  const params = new URLSearchParams(location.split('?')[1] || '');
   const foundationId = parseInt(params.get('foundationId') || '0');
   
   const [activeTab, setActiveTab] = useState('overview');
   
   // State to track if UI has been initialized
   const [initialized, setInitialized] = useState(false);
+  
+  // State for delete confirmation dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
+  const [storyCount, setStoryCount] = useState(0);
   
   // Query foundation details
   const { 
@@ -125,6 +140,64 @@ const FoundationDetails: React.FC = () => {
       title: 'Coming Soon',
       description: 'Foundation editing will be available soon.',
     });
+  };
+  
+  // Delete foundation mutation
+  const deleteFoundationMutation = useMutation({
+    mutationFn: async (options: { id: number, force?: boolean }) => {
+      const url = `/api/foundations/${options.id}${options.force ? '?force=true' : ''}`;
+      try {
+        const response = await apiRequest('DELETE', url);
+        
+        if (response.status === 204) {
+          return { success: true };
+        }
+        
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        throw error;
+      }
+    },
+    onSuccess: (result) => {
+      if (result.hasStories) {
+        // If the foundation has stories, show confirmation dialog with story count
+        setStoryCount(result.storyCount);
+        setIsForceDeleteDialogOpen(true);
+        return;
+      }
+      
+      toast({
+        title: 'Foundation deleted',
+        description: 'The foundation has been successfully deleted.',
+      });
+      navigate('/dashboard');
+      queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to delete foundation',
+        description: error.message || 'An error occurred while deleting the foundation.',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  const handleDeleteFoundation = () => {
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const confirmDeleteFoundation = (force = false) => {
+    if (!foundation) return;
+    
+    deleteFoundationMutation.mutate({
+      id: foundation.id,
+      force
+    });
+    
+    // Close the dialogs
+    setIsDeleteDialogOpen(false);
+    setIsForceDeleteDialogOpen(false);
   };
   
   // Update foundation mutation to store threadId
@@ -250,13 +323,20 @@ const FoundationDetails: React.FC = () => {
             </Button>
             <h1 className="text-2xl font-bold">{foundation.name}</h1>
           </div>
-          {isFoundationComplete(foundation, characters) && (
-            <div className="flex mt-4 md:mt-0">
+          <div className="flex mt-4 md:mt-0">
+            {isFoundationComplete(foundation, characters) && (
               <Button variant="outline" onClick={handleEditFoundation} className="mr-2">
                 <Edit className="mr-2 h-4 w-4" /> Edit Foundation
               </Button>
-            </div>
-          )}
+            )}
+            <Button 
+              variant="outline" 
+              onClick={handleDeleteFoundation}
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            >
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            </Button>
+          </div>
         </div>
         
         {/* Main content with 3-column layout */}
@@ -468,6 +548,54 @@ const FoundationDetails: React.FC = () => {
           </div>
         </div>
       </main>
+      
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Foundation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this foundation? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => confirmDeleteFoundation()} 
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
+      {/* Force delete dialog for foundations with stories */}
+      <AlertDialog open={isForceDeleteDialogOpen} onOpenChange={setIsForceDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center text-red-500">
+              <AlertTriangle className="h-5 w-5 mr-2" /> Warning: Stories Will Be Deleted
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This foundation contains {storyCount} {storyCount === 1 ? 'story' : 'stories'} that will be permanently deleted along with the foundation.
+              <div className="mt-2 p-3 bg-red-50 text-red-800 rounded-md">
+                <p className="font-semibold">This action is irreversible!</p>
+                <p>All stories, characters, and content created within this foundation will be lost.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => confirmDeleteFoundation(true)} 
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Permanently Delete Everything
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
