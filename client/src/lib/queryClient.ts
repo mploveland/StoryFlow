@@ -41,7 +41,7 @@ async function throwIfResNotOk(res: Response) {
 }
 
 /**
- * Creates a fetch request with timeout support
+ * Creates a fetch request with timeout support and enhanced error handling
  */
 async function fetchWithTimeout(
   url: string, 
@@ -55,22 +55,42 @@ async function fetchWithTimeout(
   // Create timeout promise
   const timeoutPromise = new Promise<never>((_, reject) => {
     setTimeout(() => {
+      console.warn(`Request to ${url} is about to time out after ${timeout}ms`);
       controller.abort();
       reject(new FetchTimeoutError(`Request timed out after ${timeout}ms`));
     }, timeout);
   });
   
+  const startTime = Date.now();
+  console.log(`Starting request to ${url} with ${timeout}ms timeout`);
+  
   try {
     // Race between fetch and timeout
-    return await Promise.race([
+    const response = await Promise.race([
       fetch(url, { ...options, signal }),
       timeoutPromise
     ]);
+    
+    const duration = Date.now() - startTime;
+    console.log(`Request to ${url} completed in ${duration}ms with status ${response.status}`);
+    
+    return response;
   } catch (error) {
+    const duration = Date.now() - startTime;
+    
     // Handle abort error more gracefully
     if (error instanceof DOMException && error.name === 'AbortError') {
+      console.error(`Request to ${url} aborted after ${duration}ms`);
       throw new FetchTimeoutError(`Request to ${url} timed out after ${timeout}ms`);
     }
+    
+    // Network errors (like offline, connection refused)
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      console.error(`Network error for ${url} after ${duration}ms: ${error.message}`);
+      throw new Error(`Network error: ${error.message}. Please check your connection.`);
+    }
+    
+    console.error(`Request to ${url} failed after ${duration}ms:`, error);
     throw error;
   }
 }
@@ -145,10 +165,12 @@ export const queryClient = new QueryClient({
       refetchInterval: false,
       refetchOnWindowFocus: false,
       staleTime: Infinity,
-      retry: 1, // Add a single retry for network issues
+      retry: 2, // Increase to two retries for network issues
+      retryDelay: attemptIndex => Math.min(1000 * (2 ** attemptIndex), 30000), // Exponential backoff with max 30 seconds
     },
     mutations: {
-      retry: 1, // Add a single retry for network issues
+      retry: 2, // Increase to two retries for network issues
+      retryDelay: attemptIndex => Math.min(1000 * (2 ** attemptIndex), 30000), // Exponential backoff with max 30 seconds
     },
   },
 });

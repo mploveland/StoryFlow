@@ -198,7 +198,8 @@ const FoundationDetails: React.FC = () => {
         title: 'Foundation deleted',
         description: 'The foundation has been successfully deleted.',
       });
-      navigate('/dashboard');
+      console.log('Navigating back to dashboard after deletion');
+      window.location.href = '/dashboard';
       queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
     },
     onError: (error: any) => {
@@ -418,7 +419,14 @@ const FoundationDetails: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mr-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              console.log('Navigating back to dashboard from loading state');
+              window.location.href = '/dashboard';
+            }} 
+            className="mr-4"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
           <div className="h-6 bg-neutral-200 rounded w-1/4 animate-pulse"></div>
@@ -439,7 +447,14 @@ const FoundationDetails: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mr-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              console.log('Navigating back to dashboard from error page');
+              window.location.href = '/dashboard';
+            }} 
+            className="mr-4"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
           <h1 className="text-2xl font-bold">Foundation Not Found</h1>
@@ -447,7 +462,14 @@ const FoundationDetails: React.FC = () => {
         
         <div className="text-center p-8 bg-white rounded-lg shadow-sm">
           <p className="text-neutral-600 mb-4">The foundation you're looking for could not be found.</p>
-          <Button onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
+          <Button 
+            onClick={() => {
+              console.log('Returning to dashboard from not found page');
+              window.location.href = '/dashboard';
+            }}
+          >
+            Return to Dashboard
+          </Button>
         </div>
       </div>
     );
@@ -473,7 +495,15 @@ const FoundationDetails: React.FC = () => {
       <main className="container mx-auto p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div className="flex items-center">
-            <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mr-4">
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                console.log('Navigating back to dashboard');
+                // Use direct navigation instead of wouter to avoid query parameter issues
+                window.location.href = '/dashboard';
+              }} 
+              className="mr-4"
+            >
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
             <h1 className="text-2xl font-bold">{foundation.name}</h1>
@@ -517,7 +547,10 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         className="w-full text-primary-600" 
-                        onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
+                        onClick={() => {
+                          console.log('Navigating to genre details');
+                          window.location.href = `/genre-details?foundationId=${foundation.id}`;
+                        }}
                       >
                         View Details
                       </Button>
@@ -541,7 +574,10 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         className="w-full text-primary-600" 
-                        onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
+                        onClick={() => {
+                          console.log('Navigating to world details');
+                          window.location.href = `/world-details?foundationId=${foundation.id}`;
+                        }}
                       >
                         View Details
                       </Button>
@@ -571,7 +607,10 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         className="w-full text-primary-600" 
-                        onClick={() => navigate(`/character-details?foundationId=${foundation.id}`)}
+                        onClick={() => {
+                          console.log('Navigating to character details');
+                          window.location.href = `/character-details?foundationId=${foundation.id}`;
+                        }}
                       >
                         View Characters
                       </Button>
@@ -594,7 +633,10 @@ const FoundationDetails: React.FC = () => {
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
+                      onClick={() => {
+                        console.log('Navigating to environment details');
+                        window.location.href = `/environment-details?foundationId=${foundation.id}`;
+                      }}
                     >
                       View Details
                     </Button>
@@ -683,7 +725,10 @@ const FoundationDetails: React.FC = () => {
                       <Card 
                         key={story.id} 
                         className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"
-                        onClick={() => navigate(`/voice-story-creation?storyId=${story.id}`)}
+                        onClick={() => {
+                          console.log('Navigating to story creation');
+                          window.location.href = `/voice-story-creation?storyId=${story.id}`;
+                        }}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">

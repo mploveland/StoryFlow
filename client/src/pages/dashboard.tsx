@@ -34,17 +34,20 @@ const Dashboard: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // Query foundations
+  // Query foundations with error handling
   const { 
     data: foundations = [], 
     isLoading: isLoadingFoundations, 
-    error: foundationsError 
+    error: foundationsError,
+    refetch: refetchFoundations
   } = useQuery<Foundation[]>({
     queryKey: [`/api/foundations?userId=${user?.id}`],
     enabled: !!user,
+    retry: 2, // Retry failed requests up to 2 times
+    retryDelay: (attempt) => Math.min(attempt > 1 ? 2000 : 1000, 30 * 1000)
   });
 
-  // Query stories for selected foundation
+  // Query stories for selected foundation with error handling
   const { 
     data: stories = [], 
     isLoading: isLoadingStories, 
@@ -53,6 +56,8 @@ const Dashboard: React.FC = () => {
   } = useQuery<Story[]>({
     queryKey: [`/api/stories?foundationId=${selectedFoundation?.id}`],
     enabled: !!selectedFoundation,
+    retry: 2, // Retry failed requests up to 2 times
+    retryDelay: (attempt) => Math.min(attempt > 1 ? 2000 : 1000, 30 * 1000)
   });
 
   // Create foundation mutation
