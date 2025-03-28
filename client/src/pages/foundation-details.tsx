@@ -255,294 +255,218 @@ const FoundationDetails: React.FC = () => {
               <Button variant="outline" onClick={handleEditFoundation} className="mr-2">
                 <Edit className="mr-2 h-4 w-4" /> Edit Foundation
               </Button>
-              <Button 
-                onClick={handleCreateStory} 
-                disabled={createStoryMutation.isPending}
-              >
-                <Plus className="mr-2 h-4 w-4" /> New Story
-              </Button>
             </div>
           )}
         </div>
         
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
+        {/* Main content with 3-column layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left side: Genre/World/Character cards - only show if foundation is complete */}
+          <div className="lg:col-span-3">
             {isFoundationComplete(foundation, characters) && (
-              <>
-                <TabsTrigger value="overview">Overview</TabsTrigger>
-                <TabsTrigger value="stories">Stories</TabsTrigger>
-                <TabsTrigger value="characters">Characters</TabsTrigger>
-              </>
-            )}
-            <TabsTrigger value="chat">
-              <div className="flex items-center">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                Chat
+              <div className="space-y-4">
+                {foundation.genre && (
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center text-lg">
+                        <Palette className="mr-2 h-5 w-5 text-primary-500" /> 
+                        Genre
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <p className="text-sm text-neutral-600">{foundation.genre}</p>
+                    </CardContent>
+                    <CardFooter className="pt-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full text-primary-600" 
+                        onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
+                      >
+                        View Details
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                )}
+                
+                {foundation.description && (
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center text-lg">
+                        <Globe className="mr-2 h-5 w-5 text-primary-500" /> 
+                        World
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <p className="text-sm text-neutral-600 line-clamp-2">{foundation.description}</p>
+                    </CardContent>
+                    <CardFooter className="pt-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full text-primary-600" 
+                        onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
+                      >
+                        View Details
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                )}
+                
+                {characters.length > 0 && (
+                  <Card className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="flex items-center text-lg">
+                        <Users className="mr-2 h-5 w-5 text-primary-500" /> 
+                        Characters
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-2">
+                      <p className="text-sm text-neutral-600">{characters.length} character{characters.length !== 1 ? 's' : ''}</p>
+                      <div className="mt-2">
+                        {characters.slice(0, 3).map((character) => (
+                          <div key={character.id} className="text-sm text-neutral-600 truncate">{character.name}</div>
+                        ))}
+                        {characters.length > 3 && <div className="text-xs text-neutral-400">+ {characters.length - 3} more</div>}
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="w-full text-primary-600" 
+                        onClick={() => navigate(`/character-details?foundationId=${foundation.id}`)}
+                      >
+                        View Characters
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                )}
+                
+                <Card className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-lg">
+                      <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
+                      Environments
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <p className="text-sm text-neutral-600">Define your story settings</p>
+                  </CardContent>
+                  <CardFooter className="pt-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="w-full text-primary-600" 
+                      onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
+                    >
+                      View Details
+                    </Button>
+                  </CardFooter>
+                </Card>
               </div>
-            </TabsTrigger>
-          </TabsList>
+            )}
+          </div>
           
-          <TabsContent value="overview" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Foundation Details</CardTitle>
-                <CardDescription>Basic information about this story foundation</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-medium">Description</h3>
-                    <p className="text-neutral-600">{foundation.description || "No description available."}</p>
-                  </div>
-                  
-                  {foundation.genre && (
-                    <div>
-                      <h3 className="text-lg font-medium">Genre</h3>
-                      <p className="text-neutral-600">{foundation.genre}</p>
-                    </div>
-                  )}
-                  
-                  <div>
-                    <h3 className="text-lg font-medium">Created</h3>
-                    <p className="text-neutral-600">
-                      {foundation.createdAt ? new Date(foundation.createdAt).toLocaleDateString() : "Unknown"}
-                    </p>
-                  </div>
+          {/* Center: Chat window - always show */}
+          <div className="lg:col-span-6">
+            <div className="h-[calc(100vh-220px)] min-h-[400px]">
+              <FoundationChatInterface 
+                title={`Building ${foundation.name}`}
+                description="Discuss and develop your story foundation through natural conversation"
+                foundationId={foundation.id}
+                sendMessage={sendFoundationChatMessage}
+                initialThreadId={foundation.threadId || undefined}
+                initialMessages={!foundation.threadId ? [{
+                  id: 'welcome',
+                  content: `Welcome to StoryFlow! I'm your AI assistant, and together we'll create the "${foundation.name}" story foundation. Let's start by discussing what genre you're interested in exploring.`,
+                  sender: 'ai',
+                  timestamp: new Date(),
+                  suggestions: [
+                    "I want to create a fantasy world",
+                    "Let's explore science fiction",
+                    "I'm thinking of a mystery/thriller",
+                    "I'd like to write historical fiction"
+                  ]
+                }] : undefined}
+              />
+            </div>
+          </div>
+          
+          {/* Right side: Stories - only show if foundation is complete */}
+          <div className="lg:col-span-3">
+            {isFoundationComplete(foundation, characters) && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <h2 className="text-lg font-semibold">Stories</h2>
+                  <Button 
+                    onClick={handleCreateStory} 
+                    disabled={createStoryMutation.isPending} 
+                    size="sm"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    New Story
+                  </Button>
                 </div>
-              </CardContent>
-            </Card>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Palette className="mr-2 h-5 w-5 text-primary-500" /> 
-                    Genre Details
-                  </CardTitle>
-                  <CardDescription>Explore the genre characteristics and styles</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-neutral-600">
-                    View and define the themes, tropes, and narrative structures of your foundation's genre.
-                  </p>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
-                  >
-                    View Genre
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Globe className="mr-2 h-5 w-5 text-primary-500" /> 
-                    World Details
-                  </CardTitle>
-                  <CardDescription>Define the world where your stories take place</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-neutral-600">
-                    Explore the history, geography, cultures, and systems that make up your story world.
-                  </p>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
-                  >
-                    View World
-                  </Button>
-                </CardFooter>
-              </Card>
-              
-              <Card className="hover:shadow-md transition-shadow">
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
-                    Environments
-                  </CardTitle>
-                  <CardDescription>The settings and locations in your world</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-neutral-600">
-                    Define the physical settings, locations, and environments where your stories unfold.
-                  </p>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    variant="outline" 
-                    className="w-full" 
-                    onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
-                  >
-                    View Environments
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="stories" className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Stories</h2>
-              <Button 
-                onClick={handleCreateStory} 
-                disabled={createStoryMutation.isPending || !isFoundationComplete(foundation, characters)} 
-                size="sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Story
-              </Button>
-            </div>
-            
-            {isLoadingStories ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="bg-white shadow-sm h-48 animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-6 bg-neutral-200 rounded w-3/4 mb-4"></div>
-                      <div className="h-4 bg-neutral-200 rounded w-1/2 mb-2"></div>
-                      <div className="h-4 bg-neutral-200 rounded w-1/3 mb-2"></div>
-                      <div className="h-4 bg-neutral-200 rounded w-2/3 mb-2"></div>
+                
+                {isLoadingStories ? (
+                  <div className="space-y-3">
+                    {[1, 2].map((i) => (
+                      <Card key={i} className="animate-pulse">
+                        <CardContent className="p-4">
+                          <div className="h-5 bg-neutral-200 rounded w-3/4 mb-2"></div>
+                          <div className="h-4 bg-neutral-200 rounded w-1/2 mb-2"></div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                ) : stories.length === 0 ? (
+                  <Card className="bg-white shadow-sm border border-neutral-200">
+                    <CardContent className="p-4 text-center">
+                      <BookOpen className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
+                      <p className="text-sm text-neutral-600 mb-3">
+                        No stories created yet
+                      </p>
+                      <Button 
+                        onClick={handleCreateStory}
+                        disabled={createStoryMutation.isPending}
+                        size="sm"
+                        className="w-full"
+                      >
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Create First Story
+                      </Button>
                     </CardContent>
                   </Card>
-                ))}
-              </div>
-            ) : stories.length === 0 ? (
-              <div className="text-center p-12 bg-white rounded-lg shadow-sm border border-neutral-200">
-                <BookOpen className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-neutral-800 mb-2">No Stories Yet</h3>
-                <p className="text-neutral-600 mb-6">
-                  Create your first story in this foundation to start your adventure.
-                </p>
-                <Button 
-                  onClick={handleCreateStory}
-                  disabled={createStoryMutation.isPending || !isFoundationComplete(foundation, characters)}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Create Your First Story
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {stories.map((story) => (
-                  <Card 
-                    key={story.id} 
-                    className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/voice-story-creation?storyId=${story.id}`)}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-neutral-800 mb-2">{story.title}</h3>
-                          {story.status && (
-                            <p className="text-sm text-neutral-500 mb-1">Status: {story.status}</p>
-                          )}
-                          {story.updatedAt && (
-                            <p className="text-sm text-neutral-500">
-                              Last updated: {new Date(story.updatedAt).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                        <BookOpen className="h-5 w-5 text-primary-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                ) : (
+                  <div className="space-y-3">
+                    {stories.map((story) => (
+                      <Card 
+                        key={story.id} 
+                        className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"
+                        onClick={() => navigate(`/voice-story-creation?storyId=${story.id}`)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h3 className="font-semibold text-neutral-800">{story.title}</h3>
+                              {story.updatedAt && (
+                                <p className="text-xs text-neutral-500">
+                                  Updated: {new Date(story.updatedAt).toLocaleDateString()}
+                                </p>
+                              )}
+                            </div>
+                            <BookOpen className="h-5 w-5 text-primary-500" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </TabsContent>
-          
-          <TabsContent value="characters" className="space-y-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Characters</h2>
-              <Button 
-                onClick={() => navigate(`/character-details?foundationId=${foundation.id}&action=create`)} 
-                size="sm"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New Character
-              </Button>
-            </div>
-            
-            {isLoadingCharacters ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {[1, 2, 3].map((i) => (
-                  <Card key={i} className="bg-white shadow-sm h-48 animate-pulse">
-                    <CardContent className="p-6">
-                      <div className="h-6 bg-neutral-200 rounded w-3/4 mb-4"></div>
-                      <div className="h-4 bg-neutral-200 rounded w-1/2 mb-2"></div>
-                      <div className="h-4 bg-neutral-200 rounded w-1/3 mb-2"></div>
-                      <div className="h-4 bg-neutral-200 rounded w-2/3 mb-2"></div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : characters.length === 0 ? (
-              <div className="text-center p-12 bg-white rounded-lg shadow-sm border border-neutral-200">
-                <Users className="h-12 w-12 text-neutral-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-neutral-800 mb-2">No Characters Yet</h3>
-                <p className="text-neutral-600 mb-6">
-                  Add characters to this foundation to populate your story world.
-                </p>
-                <Button onClick={() => navigate(`/character-details?foundationId=${foundation.id}&action=create`)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Character
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {characters.map((character) => (
-                  <Card 
-                    key={character.id} 
-                    className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/character-details?characterId=${character.id}`)}
-                  >
-                    <CardContent className="p-6">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-lg font-semibold text-neutral-800 mb-2">{character.name}</h3>
-                          {character.role && (
-                            <p className="text-sm text-neutral-500 mb-1">{character.role}</p>
-                          )}
-                          {character.updatedAt && (
-                            <p className="text-sm text-neutral-500">
-                              Last updated: {new Date(character.updatedAt).toLocaleDateString()}
-                            </p>
-                          )}
-                        </div>
-                        <Users className="h-5 w-5 text-primary-500" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="chat" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Chat with the Foundation Assistant</CardTitle>
-                <CardDescription>
-                  Discuss and develop your story foundation through natural conversation
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <FoundationChatInterface 
-                  foundation={foundation}
-                  sendMessage={sendFoundationChatMessage}
-                  initialThreadId={foundation.threadId || undefined}
-                />
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          </div>
+        </div>
       </main>
     </div>
   );
