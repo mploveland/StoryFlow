@@ -263,16 +263,16 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           // Set welcome message for foundation with stages explanation
           const welcomeMessage = {
             role: 'assistant' as const,
-            content: `Welcome to StoryFlow! I'll help you build your new foundation, "${foundation.name}". 
+            content: `Welcome to your story creation journey! Together we'll craft a living story world for "${foundation.name}" that evolves with each character and narrative you develop.
 
-We'll go through these stages together:
-1. Genre - what type of story you want to create
-2. World - the setting and environment for your stories
-3. Characters - the people who inhabit your world
-4. Influences - inspirations and references for your creation
-5. Details - additional aspects to make your world unique
+Our creative process includes:
+1. Genre - establishing the tone, themes, and storytelling conventions
+2. World - designing the setting, environment, and rules of your universe
+3. Characters - creating compelling individuals with rich histories and motivations
+4. Influences - incorporating inspirations that shape your unique vision
+5. Details - refining the small elements that make your world authentic
 
-Let's start with the genre. What kind of genre interests you? Feel free to give me just 1-2 words like "fantasy" or "sci-fi".`
+Let's begin with genre - what type of storytelling interests you for this world? A simple word or two like "fantasy" or "sci-fi" is a great starting point.`
           };
           setMessages([welcomeMessage]);
           

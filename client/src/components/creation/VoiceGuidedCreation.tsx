@@ -320,7 +320,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
       // Create a welcome back message
       const welcomeBackMessage: Message = {
         id: Date.now().toString(),
-        content: "Welcome back to your story creation! Let's continue where we left off.",
+        content: "Welcome back to your narrative journey! Let's continue crafting your evolving story world from where we left off.",
         sender: 'ai',
         timestamp: new Date(),
         interviewStage: initialStage || 'genre',
@@ -338,7 +338,7 @@ export const VoiceGuidedCreation: React.FC<VoiceGuidedCreationProps> = ({
     // Regular welcome message for new conversations
     const initialMessage: Message = {
       id: Date.now().toString(),
-      content: "Welcome to StoryFlow! I'll help you create an amazing interactive story through our conversation. We'll follow this process: first exploring genre, then building your world, creating characters, discussing influences, adding details, and finally starting your story. To begin, what kind of stories do you enjoy, or what themes or genres would you like to explore?",
+      content: "Welcome to your storytelling journey! Together we'll create a living, evolving narrative world through conversation. Our creative process will begin with exploring genre elements, then designing your unique world, developing compelling characters, discussing inspirations, and adding fine details before launching into story creation. To begin, what kinds of stories resonate with you, or what themes would you like to explore in your narrative world?",
       sender: 'ai',
       timestamp: new Date(),
       interviewStage: 'genre',

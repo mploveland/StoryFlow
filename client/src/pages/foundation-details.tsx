@@ -637,7 +637,7 @@ const FoundationDetails: React.FC = () => {
                 initialThreadId={foundation.threadId || undefined}
                 initialMessages={!foundation.threadId ? [{
                   id: 'welcome',
-                  content: `Welcome to StoryFlow! I'm your AI storytelling partner, and I'm excited to help you create "${foundation.name}". Let's start by defining a genre that will shape this story world. What type of genre interests you?`,
+                  content: `Welcome to your story creation journey! In this interview, we'll build the foundation for "${foundation.name}" - a living story world that will evolve as you create characters and narratives within it. We'll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?`,
                   sender: 'ai',
                   timestamp: new Date(),
                   suggestions: [
