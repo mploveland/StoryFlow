@@ -204,6 +204,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
+      // Delete foundation messages
+      console.log(`Deleting chat messages for foundation ${id}`);
+      await storage.deleteFoundationMessagesByFoundationId(id);
+      
       // Now delete the foundation
       const success = await storage.deleteFoundation(id);
       console.log(`Foundation deletion result: ${success ? 'success' : 'failed'}`);
@@ -249,6 +253,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json(environmentDetails);
     } catch (error) {
       console.error("Error fetching environment details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Foundation message routes
+  apiRouter.get("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      
+      const foundation = await storage.getFoundation(foundationId);
+      if (!foundation) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      
+      const messages = await storage.getFoundationMessages(foundationId);
+      return res.status(200).json(messages);
+    } catch (error) {
+      console.error("Error getting foundation messages:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.post("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      
+      const foundation = await storage.getFoundation(foundationId);
+      if (!foundation) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      
+      const { role, content } = req.body;
+      
+      if (!role || !content) {
+        return res.status(400).json({ message: "Role and content are required" });
+      }
+      
+      if (role !== 'user' && role !== 'assistant') {
+        return res.status(400).json({ message: "Role must be 'user' or 'assistant'" });
+      }
+      
+      const message = await storage.createFoundationMessage({
+        foundationId,
+        role,
+        content
+      });
+      
+      return res.status(201).json(message);
+    } catch (error) {
+      console.error("Error creating foundation message:", error);
       return res.status(500).json({ message: "Server error" });
     }
   });

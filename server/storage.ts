@@ -11,7 +11,8 @@ import {
   suggestions, type Suggestion, type InsertSuggestion,
   genreDetails, type GenreDetails, type InsertGenreDetails,
   environmentDetails, type EnvironmentDetails, type InsertEnvironmentDetails,
-  narrativeVectors, type NarrativeVector, type InsertNarrativeVector
+  narrativeVectors, type NarrativeVector, type InsertNarrativeVector,
+  foundationMessages, type FoundationMessage, type InsertFoundationMessage
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
@@ -102,6 +103,11 @@ export interface IStorage {
   getNarrativeVectors(storyId: number): Promise<NarrativeVector[]>;
   getNarrativeVectorsByChapter(chapterId: number): Promise<NarrativeVector[]>;
   createNarrativeVector(narrativeVector: InsertNarrativeVector): Promise<NarrativeVector>;
+  
+  // Foundation message operations
+  getFoundationMessages(foundationId: number): Promise<FoundationMessage[]>;
+  createFoundationMessage(message: InsertFoundationMessage): Promise<FoundationMessage>;
+  deleteFoundationMessagesByFoundationId(foundationId: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -465,6 +471,25 @@ export class DatabaseStorage implements IStorage {
   async createNarrativeVector(insertNarrativeVector: InsertNarrativeVector): Promise<NarrativeVector> {
     const [vector] = await db.insert(narrativeVectors).values(insertNarrativeVector).returning();
     return vector;
+  }
+
+  // Foundation message operations
+  async getFoundationMessages(foundationId: number): Promise<FoundationMessage[]> {
+    return db
+      .select()
+      .from(foundationMessages)
+      .where(eq(foundationMessages.foundationId, foundationId))
+      .orderBy(foundationMessages.timestamp);
+  }
+  
+  async createFoundationMessage(insertMessage: InsertFoundationMessage): Promise<FoundationMessage> {
+    const [message] = await db.insert(foundationMessages).values(insertMessage).returning();
+    return message;
+  }
+  
+  async deleteFoundationMessagesByFoundationId(foundationId: number): Promise<boolean> {
+    await db.delete(foundationMessages).where(eq(foundationMessages.foundationId, foundationId));
+    return true;
   }
 
   // Temporary compatibility methods for world/foundation transition

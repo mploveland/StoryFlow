@@ -86,6 +86,55 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   // Get effective message handler (prefer sendMessage if provided)
   const messageHandler = sendMessage || onSendMessage;
   
+  // Load saved messages from the server
+  const loadMessages = async (foundationId: number) => {
+    try {
+      const response = await fetch(`/api/foundations/${foundationId}/messages`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.length > 0) {
+          setMessages(data.map((msg: any) => ({
+            role: msg.role as 'user' | 'assistant',
+            content: msg.content
+          })));
+          
+          // Set suggestions based on the last assistant message
+          const lastAssistantMessage = [...data].reverse().find(msg => msg.role === 'assistant');
+          if (lastAssistantMessage) {
+            // Here we're using default suggestions since saved messages don't have suggestions
+            // In a future enhancement, we could store suggestions with messages
+            setSuggestions([
+              "Tell me more",
+              "Can you explain that differently?",
+              "Let's continue with the next topic",
+              "I'd like to add more details"
+            ]);
+          }
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      console.error("Error loading messages:", error);
+      return false;
+    }
+  };
+  
+  // Save message to the server
+  const saveMessage = async (foundationId: number, role: 'user' | 'assistant', content: string) => {
+    try {
+      await fetch(`/api/foundations/${foundationId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role, content })
+      });
+    } catch (error) {
+      console.error("Error saving message:", error);
+    }
+  };
+  
   useEffect(() => {
     if (initialMessages && initialMessages.length > 0) {
       // Convert format from world-details.tsx to our internal format
@@ -101,21 +150,32 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       if (firstAiMessage?.suggestions) {
         setSuggestions(firstAiMessage.suggestions);
       }
-    } else if (foundation && foundation.name) {
-      // Set welcome message for foundation
-      const welcomeMessage = {
-        role: 'assistant' as const,
-        content: `Welcome to your new foundation, "${foundation.name}"! I'm here to help you build your story world. Would you like to start by telling me about the genre you're interested in?`
-      };
-      setMessages([welcomeMessage]);
-      
-      // Initial suggestions for foundation
-      setSuggestions([
-        "I want to create a fantasy world",
-        "Let's explore science fiction",
-        "I'm thinking of a mystery/thriller",
-        "I'd like to write historical fiction",
-      ]);
+    } else if (foundation && foundation.id) {
+      // Try to load existing messages for this foundation
+      loadMessages(foundation.id).then(hasMessages => {
+        // If no existing messages, show the welcome message
+        if (!hasMessages) {
+          // Set welcome message for foundation
+          const welcomeMessage = {
+            role: 'assistant' as const,
+            content: `Welcome to your new foundation, "${foundation.name}"! I'm here to help you build your story world. Would you like to start by telling me about the genre you're interested in?`
+          };
+          setMessages([welcomeMessage]);
+          
+          // Save welcome message to the database for persistence
+          if (foundation.id) {
+            saveMessage(foundation.id, 'assistant', welcomeMessage.content);
+          }
+          
+          // Initial suggestions for foundation
+          setSuggestions([
+            "I want to create a fantasy world",
+            "Let's explore science fiction",
+            "I'm thinking of a mystery/thriller",
+            "I'd like to write historical fiction",
+          ]);
+        }
+      });
     } else if (title) {
       // Set welcome message for world details
       const welcomeMessage = {
@@ -166,6 +226,11 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     const userMessage = { role: 'user' as const, content: inputValue };
     setMessages(prev => [...prev, userMessage]);
     
+    // Save user message to database if we have a foundation ID
+    if (foundation?.id) {
+      saveMessage(foundation.id, 'user', userMessage.content);
+    }
+    
     // Clear input and start processing
     setInputValue('');
     resetTranscript();
@@ -182,6 +247,11 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       };
       setMessages(prev => [...prev, assistantMessage]);
       
+      // Save assistant message to database if we have a foundation ID
+      if (foundation?.id) {
+        saveMessage(foundation.id, 'assistant', assistantMessage.content);
+      }
+      
       // Save thread ID if provided
       if (response.threadId) {
         setThreadId(response.threadId);
@@ -194,13 +264,16 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     } catch (error) {
       console.error('Error processing message:', error);
       // Add error message
-      setMessages(prev => [
-        ...prev, 
-        { 
-          role: 'assistant', 
-          content: 'Sorry, I had trouble processing your request. Please try again.' 
-        }
-      ]);
+      const errorMessage = { 
+        role: 'assistant' as const, 
+        content: 'Sorry, I had trouble processing your request. Please try again.' 
+      };
+      setMessages(prev => [...prev, errorMessage]);
+      
+      // Also save error message to database
+      if (foundation?.id) {
+        saveMessage(foundation.id, 'assistant', errorMessage.content);
+      }
     } finally {
       setIsProcessing(false);
     }

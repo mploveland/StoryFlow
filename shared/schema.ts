@@ -67,6 +67,21 @@ export const insertStorySchema = createInsertSchema(stories).pick({
 });
 
 // Relations for foundations
+// Conversation messages for foundations
+export const foundationMessages = pgTable("foundation_messages", {
+  id: serial("id").primaryKey(),
+  foundationId: integer("foundation_id").notNull().references(() => foundations.id),
+  role: text("role").notNull(), // 'user' or 'assistant'
+  content: text("content").notNull(),
+  timestamp: timestamp("timestamp").defaultNow(),
+});
+
+export const insertFoundationMessageSchema = createInsertSchema(foundationMessages).pick({
+  foundationId: true,
+  role: true,
+  content: true,
+});
+
 export const foundationsRelations = relations(foundations, ({ one, many }) => ({
   user: one(users, {
     fields: [foundations.userId],
@@ -76,6 +91,7 @@ export const foundationsRelations = relations(foundations, ({ one, many }) => ({
   characters: many(characters),
   environmentDetails: one(environmentDetails),
   genreDetails: one(genreDetails),
+  messages: many(foundationMessages),
 }));
 
 // Relations for stories
@@ -464,12 +480,23 @@ export const narrativeVectorsRelations = relations(narrativeVectors, ({ one }) =
   }),
 }));
 
+// Relations for foundation messages
+export const foundationMessagesRelations = relations(foundationMessages, ({ one }) => ({
+  foundation: one(foundations, {
+    fields: [foundationMessages.foundationId],
+    references: [foundations.id],
+  }),
+}));
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
 export type Foundation = typeof foundations.$inferSelect;
 export type InsertFoundation = z.infer<typeof insertFoundationSchema>;
+
+export type FoundationMessage = typeof foundationMessages.$inferSelect;
+export type InsertFoundationMessage = z.infer<typeof insertFoundationMessageSchema>;
 
 export type Story = typeof stories.$inferSelect;
 export type InsertStory = z.infer<typeof insertStorySchema>;
