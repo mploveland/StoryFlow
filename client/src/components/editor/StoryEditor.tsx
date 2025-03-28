@@ -1,6 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { countWords } from '@/lib/utils';
+import { useEditor } from '@/contexts/EditorContext';
 import useSpeechSynthesis from '@/hooks/useSpeechSynthesis';
 import {
   Bold,
@@ -13,7 +21,11 @@ import {
   Mic,
   Volume2,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Save,
+  Clock,
+  Settings,
+  Info
 } from 'lucide-react';
 
 export interface Chapter {
@@ -48,17 +60,31 @@ const StoryEditor: React.FC<StoryEditorProps> = ({
   const [isEditMode, setIsEditMode] = useState(true);
   const contentRef = useRef<HTMLDivElement>(null);
   const { speak, cancel, speaking } = useSpeechSynthesis();
-  
-  // Count words in content
-  const countWords = (text: string): number => {
-    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-  };
+  const { 
+    lastSavedAt, 
+    isSaving, 
+    autoSaveEnabled, 
+    setAutoSaveEnabled, 
+    autoSaveInterval, 
+    setAutoSaveInterval,
+    pendingChanges,
+    manualSave 
+  } = useEditor();
   
   // Handle formatting buttons
   const handleFormat = (command: string, value?: string) => {
     document.execCommand(command, false, value);
     if (contentRef.current) {
       onContentChange(contentRef.current.innerHTML);
+    }
+  };
+  
+  // Handle manual save
+  const handleManualSave = () => {
+    if (contentRef.current) {
+      const currentContent = contentRef.current.innerHTML;
+      const wordCount = countWords(currentContent);
+      manualSave(chapter.id, currentContent, wordCount);
     }
   };
   
@@ -164,90 +190,197 @@ const StoryEditor: React.FC<StoryEditorProps> = ({
       
       {/* Formatting Toolbar (only visible in edit mode) */}
       {isEditMode && (
-        <div className="bg-white px-4 py-2 border-b border-neutral-200 flex items-center justify-between">
-          <div className="flex items-center space-x-1">
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('bold')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('italic')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('underline')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <Underline className="h-4 w-4" />
-            </Button>
-            <div className="h-4 border-l border-neutral-300 mx-1"></div>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('formatBlock', '<h2>')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <Heading className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('insertUnorderedList')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('insertOrderedList')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <ListOrdered className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => handleFormat('formatBlock', '<blockquote>')} 
-              className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
-            >
-              <Quote className="h-4 w-4" />
-            </Button>
+        <>
+          <div className="bg-white px-4 py-2 border-b border-neutral-200 flex items-center justify-between">
+            <div className="flex items-center space-x-1">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('bold')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('italic')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('underline')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <Underline className="h-4 w-4" />
+              </Button>
+              <div className="h-4 border-l border-neutral-300 mx-1"></div>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('formatBlock', '<h2>')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <Heading className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('insertUnorderedList')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('insertOrderedList')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <ListOrdered className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => handleFormat('formatBlock', '<blockquote>')} 
+                className="p-1.5 text-neutral-700 hover:bg-neutral-100 rounded"
+              >
+                <Quote className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Voice Controls */}
+            <div className="flex items-center space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={onVoiceInputStart}
+                className="px-3 py-1.5 bg-white border border-neutral-300 rounded-full text-sm flex items-center shadow-sm hover:bg-neutral-50"
+              >
+                <Mic className="h-4 w-4 mr-2 text-neutral-600" />
+                <span>Voice Input</span>
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleReadAloud}
+                className={`px-3 py-1.5 bg-white border border-neutral-300 rounded-full text-sm flex items-center shadow-sm hover:bg-neutral-50 ${speaking ? "text-primary-600" : ""}`}
+              >
+                <Volume2 className="h-4 w-4 mr-2 text-neutral-600" />
+                <span>{speaking ? "Stop" : "Read Aloud"}</span>
+              </Button>
+            </div>
           </div>
           
-          {/* Voice Controls */}
-          <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={onVoiceInputStart}
-              className="px-3 py-1.5 bg-white border border-neutral-300 rounded-full text-sm flex items-center shadow-sm hover:bg-neutral-50"
-            >
-              <Mic className="h-4 w-4 mr-2 text-neutral-600" />
-              <span>Voice Input</span>
-            </Button>
+          {/* Auto-save Status and Controls */}
+          <div className="bg-white px-4 py-1 border-b border-neutral-200 flex items-center justify-between text-xs text-neutral-500">
+            <div className="flex items-center space-x-4">
+              {/* Auto-save Status */}
+              <div className="flex items-center space-x-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center cursor-help">
+                        <Clock className="h-3.5 w-3.5 mr-1 text-neutral-400" />
+                        <span>
+                          {isSaving ? (
+                            "Saving..."
+                          ) : lastSavedAt ? (
+                            `Last saved ${format(new Date(lastSavedAt), 'h:mm a')}`
+                          ) : (
+                            "Not saved yet"
+                          )}
+                        </span>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>The document is {autoSaveEnabled ? "automatically" : "not automatically"} saved as you type</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+
+              {/* Pending Changes Indicator */}
+              {pendingChanges && !isSaving && (
+                <div className="text-amber-600 flex items-center">
+                  <Info className="h-3.5 w-3.5 mr-1" />
+                  <span>Unsaved changes</span>
+                </div>
+              )}
+            </div>
             
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleReadAloud}
-              className={`px-3 py-1.5 bg-white border border-neutral-300 rounded-full text-sm flex items-center shadow-sm hover:bg-neutral-50 ${speaking ? "text-primary-600" : ""}`}
-            >
-              <Volume2 className="h-4 w-4 mr-2 text-neutral-600" />
-              <span>{speaking ? "Stop" : "Read Aloud"}</span>
-            </Button>
+            <div className="flex items-center space-x-4">
+              {/* Auto-save Settings */}
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs text-neutral-500">
+                    <Settings className="h-3.5 w-3.5 mr-1.5" />
+                    <span>Auto-save Settings</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80 p-4" side="bottom">
+                  <div className="space-y-4">
+                    <h4 className="font-medium text-sm">Auto-save Configuration</h4>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="auto-save-toggle" className="text-sm font-medium">
+                          Auto-save
+                        </Label>
+                        <p className="text-xs text-neutral-500">Automatically save changes as you type</p>
+                      </div>
+                      <Switch
+                        id="auto-save-toggle"
+                        checked={autoSaveEnabled}
+                        onCheckedChange={setAutoSaveEnabled}
+                      />
+                    </div>
+                    
+                    {autoSaveEnabled && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center">
+                          <Label htmlFor="auto-save-interval" className="text-sm">
+                            Auto-save interval
+                          </Label>
+                          <span className="text-xs text-neutral-500">
+                            {autoSaveInterval / 1000} seconds
+                          </span>
+                        </div>
+                        <Slider
+                          id="auto-save-interval"
+                          value={[autoSaveInterval / 1000]}
+                          min={5}
+                          max={120}
+                          step={5}
+                          onValueChange={([value]) => setAutoSaveInterval(value * 1000)}
+                        />
+                        <p className="text-xs text-neutral-500 mt-1.5">
+                          Choose how frequently changes should be auto-saved
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Manual Save Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleManualSave}
+                disabled={isSaving || !pendingChanges}
+                className="h-7 text-xs bg-white border border-neutral-300 text-neutral-700 hover:bg-neutral-50"
+              >
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                <span>{isSaving ? "Saving..." : "Save Now"}</span>
+              </Button>
+            </div>
           </div>
-        </div>
+        </>
       )}
       
       {/* Chapter Title */}
