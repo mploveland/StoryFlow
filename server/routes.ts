@@ -20,7 +20,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter, createGenreDetails, createWorldDetails, extractSuggestionsFromQuestion } from "./assistants";
+import { createDetailedCharacter, createGenreDetails, createWorldDetails, extractSuggestionsFromQuestion, generateChatSuggestions } from "./assistants";
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
 
@@ -1364,6 +1364,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error generating character scene:", error);
       return res.status(500).json({ 
         message: "Failed to generate character scene",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
+  apiRouter.post("/ai/chat-suggestions", async (req: Request, res: Response) => {
+    try {
+      const { userMessage, assistantReply } = req.body;
+      
+      if (!userMessage || !assistantReply) {
+        return res.status(400).json({ 
+          message: "Both userMessage and assistantReply are required" 
+        });
+      }
+      
+      console.log(`Chat suggestions: Generating for conversation`);
+      
+      const suggestions = await generateChatSuggestions(
+        userMessage,
+        assistantReply
+      );
+      
+      return res.status(200).json({ suggestions });
+    } catch (error: any) {
+      console.error("Error generating chat suggestions:", error);
+      return res.status(500).json({ 
+        message: "Failed to generate chat suggestions",
         error: error.message || "Unknown error"
       });
     }

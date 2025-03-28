@@ -10,6 +10,9 @@ const HYPER_REALISTIC_CHARACTER_CREATOR_ID = "asst_zHYBFg9Om7fnilOfGTnVztF1";
 // The assistant's name is StoryFlow_GenreCreator
 const GENRE_CREATOR_ASSISTANT_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
 // The assistant's name is StoryFlow_WorldBuilder
+const WORLD_BUILDER_ASSISTANT_ID = "asst_1uR8DP6BZB3CdrUDm6Me7vHA";
+// The assistant's name is StoryFlow_ChatResponseSuggestions
+const CHAT_SUGGESTIONS_ASSISTANT_ID = "asst_qRnUXdtrdWBC5Zb5DOU1o5bO";
 
 /**
  * Extract potential response options from an AI question
@@ -306,7 +309,7 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
   
   return finalSuggestions;
 }
-const WORLD_BUILDER_ASSISTANT_ID = "asst_0nfAuLNqDs7g84Q9UHwFyPjB";
+
 
 // Interface for genre creation input
 export interface GenreCreationInput {
@@ -1326,6 +1329,122 @@ export async function createWorldDetails(worldInput: WorldCreationInput): Promis
       threadId: fallbackThreadId
     };
   }
+}
+
+/**
+ * Generate chat suggestions using the StoryFlow_ChatResponseSuggestions assistant.
+ * This function takes the conversation context and returns suggested responses.
+ * 
+ * @param userMessage The user's last message in the conversation
+ * @param assistantReply The assistant's response to the user's message
+ * @returns Array of suggested responses the user could make
+ */
+export async function generateChatSuggestions(
+  userMessage: string,
+  assistantReply: string
+): Promise<string[]> {
+  try {
+    console.log(`Generating chat suggestions for conversation:`);
+    console.log(`User: ${userMessage.substring(0, 50)}...`);
+    console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
+    
+    // Create a new thread for this suggestions request
+    const thread = await openai.beta.threads.create();
+    
+    // Add messages to provide context for the suggestions
+    await openai.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nPlease generate 3-5 suggested responses that the user could reply with. Each suggestion should be concise (1-7 words) and conversational. Format as a JSON array of strings.`,
+    });
+    
+    // Run the suggestions assistant
+    const run = await openai.beta.threads.runs.create(thread.id, {
+      assistant_id: CHAT_SUGGESTIONS_ASSISTANT_ID,
+    });
+    
+    // Wait for completion
+    const completedRun = await waitForRunCompletion(thread.id, run.id);
+    
+    if (completedRun.status !== "completed") {
+      console.error(`Chat suggestions run ended with status: ${completedRun.status}`);
+      return defaultSuggestions(assistantReply);
+    }
+    
+    // Get the suggestions from the assistant's response
+    const messages = await openai.beta.threads.messages.list(thread.id);
+    const assistantMessages = messages.data.filter(msg => msg.role === "assistant");
+    
+    if (assistantMessages.length === 0) {
+      console.error("No response from suggestions assistant");
+      return defaultSuggestions(assistantReply);
+    }
+    
+    // Extract the suggestions from the message content
+    const latestMessage = assistantMessages[0];
+    const textContent = latestMessage.content.find(content => content.type === "text");
+    
+    if (!textContent || textContent.type !== "text") {
+      console.error("Suggestions response does not contain text");
+      return defaultSuggestions(assistantReply);
+    }
+    
+    // Try to parse JSON from the response
+    try {
+      // Find JSON array in the text
+      const jsonMatch = textContent.text.value.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        console.error("Could not extract JSON array from suggestions response");
+        return defaultSuggestions(assistantReply);
+      }
+      
+      const suggestions = JSON.parse(jsonMatch[0]);
+      
+      // Validate that we got an array of strings
+      if (Array.isArray(suggestions) && suggestions.length > 0) {
+        // Filter out any non-string items and limit to 5 suggestions
+        const validSuggestions = suggestions
+          .filter(item => typeof item === "string")
+          .slice(0, 5);
+          
+        if (validSuggestions.length > 0) {
+          return validSuggestions;
+        }
+      }
+      
+      console.error("Invalid suggestions format received:", suggestions);
+      return defaultSuggestions(assistantReply);
+    } catch (error) {
+      console.error("Error parsing suggestions JSON:", error);
+      return defaultSuggestions(assistantReply);
+    }
+  } catch (error) {
+    console.error("Error generating chat suggestions:", error);
+    return defaultSuggestions(assistantReply);
+  }
+}
+
+/**
+ * Generate default chat suggestions based on the assistant's reply
+ * 
+ * @param assistantReply The assistant's message to extract suggestions from
+ * @returns Array of default suggested responses
+ */
+function defaultSuggestions(assistantReply: string): string[] {
+  // First try to extract suggestions based on the assistant's question
+  const extractedSuggestions = extractSuggestionsFromQuestion(assistantReply);
+  
+  if (extractedSuggestions.length >= 3) {
+    return extractedSuggestions;
+  }
+  
+  // Fallback generic suggestions
+  return [
+    "Tell me more",
+    "That sounds interesting",
+    "I'd like something different",
+    "Let's move on to the next part",
+    "Surprise me! You decide what works best."
+  ];
 }
 
 /**
