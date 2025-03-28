@@ -542,10 +542,18 @@ const CharacterDetailsPage: React.FC = () => {
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Personality Traits</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {character?.personality && typeof character.personality === 'string' && 
-                          character.personality.split(',').map((trait: string, index: number) => (
-                            <li key={index}>{trait.trim()}</li>
-                          ))}
+                        {character?.personality && 
+                          (Array.isArray(character.personality) 
+                            ? character.personality.map((trait: string, index: number) => (
+                                <li key={index}>{trait}</li>
+                              ))
+                            : typeof character.personality === 'string'
+                              ? character.personality.split(',').map((trait: string, index: number) => (
+                                  <li key={index}>{trait.trim()}</li>
+                                ))
+                              : null
+                          )
+                        }
                       </ul>
                     </CardContent>
                   </Card>
@@ -554,10 +562,18 @@ const CharacterDetailsPage: React.FC = () => {
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Skills & Abilities</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {character?.skills && typeof character.skills === 'string' && 
-                          character.skills.split(',').map((skill: string, index: number) => (
-                            <li key={index}>{skill.trim()}</li>
-                          ))}
+                        {character?.skills && 
+                          (Array.isArray(character.skills) 
+                            ? character.skills.map((skill: string, index: number) => (
+                                <li key={index}>{skill}</li>
+                              ))
+                            : typeof character.skills === 'string'
+                              ? character.skills.split(',').map((skill: string, index: number) => (
+                                  <li key={index}>{skill.trim()}</li>
+                                ))
+                              : null
+                          )
+                        }
                       </ul>
                     </CardContent>
                   </Card>
@@ -587,15 +603,22 @@ const CharacterDetailsPage: React.FC = () => {
                   </Card>
                 </div>
                 
-                {character?.relationships && (
+                {/* Safely handle relationships property which might not exist in some character types */}
+                {character && 'relationships' in character && character.relationships && (
                   <Card>
                     <CardContent className="p-6">
                       <h3 className="text-xl font-bold mb-4">Relationships</h3>
                       <ul className="list-disc list-inside text-neutral-600">
-                        {typeof character.relationships === 'string' && 
-                          character.relationships.split(',').map((relationship: string, index: number) => (
-                            <li key={index}>{relationship.trim()}</li>
-                          ))}
+                        {Array.isArray(character.relationships) 
+                          ? character.relationships.map((relationship: string, index: number) => (
+                              <li key={index}>{relationship}</li>
+                            ))
+                          : typeof character.relationships === 'string'
+                            ? character.relationships.split(',').map((relationship: string, index: number) => (
+                                <li key={index}>{relationship.trim()}</li>
+                              ))
+                            : null
+                        }
                       </ul>
                     </CardContent>
                   </Card>

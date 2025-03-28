@@ -30,19 +30,33 @@ const FoundationDetails: React.FC = () => {
   // Get foundationId from URL query params
   console.log('URL location:', location);
   
-  const params = new URLSearchParams(location.split('?')[1] || '');
-  const foundationIdParam = params.get('foundationId');
-  
-  console.log('Raw foundation ID param:', foundationIdParam);
-  
-  // Validate foundationId is a proper number
-  if (!foundationIdParam || foundationIdParam.trim() === '' || isNaN(parseInt(foundationIdParam))) {
-    console.error('Invalid foundation ID in URL:', foundationIdParam);
+  // Handle URL parsing safely
+  let foundationId = 0;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const foundationIdParam = params.get('foundationId');
+    
+    console.log('Raw foundation ID param from window.location.search:', foundationIdParam);
+    
+    // Validate foundationId is a proper number
+    if (foundationIdParam && foundationIdParam.trim() !== '' && !isNaN(parseInt(foundationIdParam))) {
+      foundationId = parseInt(foundationIdParam);
+      console.log('Parsed foundation ID:', foundationId);
+    } else {
+      console.error('Invalid foundation ID in URL:', foundationIdParam);
+      // Try parsing from the location directly as a fallback
+      const fallbackParams = new URLSearchParams(location.split('?')[1] || '');
+      const fallbackId = fallbackParams.get('foundationId');
+      console.log('Fallback ID param:', fallbackId);
+      
+      if (fallbackId && !isNaN(parseInt(fallbackId))) {
+        foundationId = parseInt(fallbackId);
+        console.log('Using fallback parsed ID:', foundationId);
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing foundation ID:', error);
   }
-  
-  const foundationId = foundationIdParam && !isNaN(parseInt(foundationIdParam)) 
-    ? parseInt(foundationIdParam) 
-    : 0;
   
   const [activeTab, setActiveTab] = useState('overview');
   

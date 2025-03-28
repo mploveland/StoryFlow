@@ -69,12 +69,18 @@ const Dashboard: React.FC = () => {
         title: 'Foundation created successfully',
         description: 'Your new story foundation has been created.',
       });
+      
       // Refresh foundations list
       queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user?.id}`] });
+      
       // Select the newly created foundation
       setSelectedFoundation(newFoundation);
-      // Navigate to foundation details page
-      navigate(`/foundation-details?foundationId=${newFoundation.id}`);
+      
+      // We need to ensure the foundation ID is properly passed
+      console.log(`Redirecting to new foundation: ${newFoundation.id}`);
+      
+      // Force a hard navigation to ensure the query params are properly passed
+      window.location.href = `/foundation-details?foundationId=${newFoundation.id}`;
     },
     onError: (error: any) => {
       toast({
@@ -359,16 +365,9 @@ const Dashboard: React.FC = () => {
                           
                           console.log('Navigating to URL:', url.toString());
                           
-                          // Use navigate with the properly formed URL
-                          navigate(`/foundation-details?foundationId=${foundation.id}`);
-                          
-                          // After a very brief delay, check if navigation failed and try direct location change
-                          setTimeout(() => {
-                            if (window.location.pathname !== '/foundation-details') {
-                              console.log('Navigation with wouter failed, trying window.location');
-                              window.location.href = url.toString();
-                            }
-                          }, 100);
+                          // Skip wouter and use direct navigation to avoid query parameter issues
+                          console.log('Using window.location for navigation');
+                          window.location.href = url.toString();
                         } else {
                           console.error('Invalid foundation ID:', foundation);
                           toast({
@@ -433,21 +432,27 @@ const Dashboard: React.FC = () => {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate(`/genre-details?foundationId=${selectedFoundation.id}`)}
+                        onClick={() => {
+                          window.location.href = `/genre-details?foundationId=${selectedFoundation.id}`;
+                        }}
                       >
                         View Genre Details
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate(`/world-details?foundationId=${selectedFoundation.id}`)}
+                        onClick={() => {
+                          window.location.href = `/world-details?foundationId=${selectedFoundation.id}`;
+                        }}
                       >
                         View World Details
                       </Button>
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => navigate(`/character-details?foundationId=${selectedFoundation.id}`)}
+                        onClick={() => {
+                          window.location.href = `/character-details?foundationId=${selectedFoundation.id}`;
+                        }}
                       >
                         <Users className="h-4 w-4 mr-1" /> Characters
                       </Button>
