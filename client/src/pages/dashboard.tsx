@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import NewStoryModal from '@/components/dashboard/NewStoryModal';
-import { BookOpen, Plus, Search, Sparkles, Globe, Users } from 'lucide-react';
+import { BookOpen, Plus, Search, Sparkles, Globe, Users, Trash2, AlertTriangle } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Story, Foundation } from '@shared/schema';
 
 const Dashboard: React.FC = () => {
@@ -19,6 +20,12 @@ const Dashboard: React.FC = () => {
   const [isNewStoryModalOpen, setIsNewStoryModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFoundation, setSelectedFoundation] = useState<Foundation | null>(null);
+  
+  // State for delete confirmation dialog
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
+  const [foundationToDelete, setFoundationToDelete] = useState<Foundation | null>(null);
+  const [storyCount, setStoryCount] = useState(0);
 
   useEffect(() => {
     // Redirect to home if not logged in
@@ -156,6 +163,65 @@ const Dashboard: React.FC = () => {
   const handleOpenStory = (storyId: number) => {
     navigate(`/voice-story-creation?storyId=${storyId}`);
   };
+  
+  // Delete foundation mutation
+  const deleteFoundationMutation = useMutation({
+    mutationFn: async (foundationId: number) => {
+      const response = await apiRequest('DELETE', `/api/foundations/${foundationId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete foundation');
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Foundation deleted',
+        description: 'The foundation and all its stories have been deleted.',
+      });
+      // Refresh foundations list
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user?.id}`] });
+      // Clear selected foundation if it was the one that was deleted
+      if (selectedFoundation?.id === foundationToDelete?.id) {
+        setSelectedFoundation(null);
+      }
+      // Reset state
+      setFoundationToDelete(null);
+      setIsDeleteDialogOpen(false);
+      setIsForceDeleteDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to delete foundation',
+        description: error.message || 'An error occurred while deleting the foundation.',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  // Function to handle foundation deletion
+  const handleDeleteFoundation = (foundation: Foundation) => {
+    setFoundationToDelete(foundation);
+    
+    // Check if the foundation has stories
+    const foundationStories = stories.filter(story => story.foundationId === foundation.id);
+    setStoryCount(foundationStories.length);
+    
+    if (foundationStories.length > 0) {
+      // If there are stories, show the warning dialog
+      setIsDeleteDialogOpen(true);
+    } else {
+      // If no stories, show the regular confirmation dialog
+      setIsForceDeleteDialogOpen(true);
+    }
+  };
+  
+  // Function to confirm deletion
+  const confirmDelete = () => {
+    if (foundationToDelete) {
+      deleteFoundationMutation.mutate(foundationToDelete.id);
+    }
+  };
 
   // Filter stories based on search query
   const filteredStories = searchQuery
@@ -271,7 +337,7 @@ const Dashboard: React.FC = () => {
                 {filteredFoundations.map((foundation) => (
                   <Card 
                     key={foundation.id} 
-                    className={`bg-white shadow-sm hover:shadow transition-shadow cursor-pointer ${selectedFoundation?.id === foundation.id ? 'border-2 border-primary-500' : ''}`}
+                    className={`bg-white shadow-sm hover:shadow transition-shadow ${selectedFoundation?.id === foundation.id ? 'border-2 border-primary-500' : ''}`}
                     onClick={() => {
                       try {
                         // First set the selected foundation in state
@@ -330,6 +396,19 @@ const Dashboard: React.FC = () => {
                           )}
                         </div>
                         <Globe className="h-5 w-5 text-primary-500" />
+                      </div>
+                      
+                      <div className="mt-4 flex justify-end space-x-2">
+                        <Button 
+                          variant="destructive"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            handleDeleteFoundation(foundation);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" /> Delete
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
@@ -463,6 +542,56 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </main>
+      {/* Delete Confirmation Dialog with Story Warning */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-yellow-500 mr-2" />
+              Confirm Foundation Deletion
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <p className="mb-4">
+                This foundation contains <strong>{storyCount} {storyCount === 1 ? 'story' : 'stories'}</strong>. 
+                Deleting this foundation will permanently delete all stories, characters, and other content within it.
+              </p>
+              <p className="font-medium">This action cannot be undone. Are you sure you want to delete "{foundationToDelete?.name}"?</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteFoundationMutation.isPending}
+            >
+              {deleteFoundationMutation.isPending ? 'Deleting...' : 'Delete Foundation'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Confirmation Dialog without Story Warning */}
+      <AlertDialog open={isForceDeleteDialogOpen} onOpenChange={setIsForceDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{foundationToDelete?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={confirmDelete}
+              className="bg-red-600 hover:bg-red-700"
+              disabled={deleteFoundationMutation.isPending}
+            >
+              {deleteFoundationMutation.isPending ? 'Deleting...' : 'Delete Foundation'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
