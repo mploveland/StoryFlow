@@ -8,7 +8,8 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation } from '@shared/schema';
-import { ArrowLeft, Globe, RefreshCw, Map, History, Building, Coins, Wand2 } from 'lucide-react';
+import { ArrowLeft, Globe, RefreshCw, Map, History, Building, Coins, Wand2, MessageSquare } from 'lucide-react';
+import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
 
 // Define WorldDetails type locally
 interface WorldDetails {
@@ -17,6 +18,7 @@ interface WorldDetails {
   era: string;
   geography: string[];
   locations: string[];
+  threadId?: string;
   culture: {
     socialStructure: string;
     beliefs: string;
@@ -48,7 +50,6 @@ interface WorldDetails {
     limitations: string;
     practitioners: string;
   };
-  threadId?: string;
 };
 
 const WorldDetailsPage: React.FC = () => {
@@ -117,6 +118,41 @@ const WorldDetailsPage: React.FC = () => {
       setIsGenerating(false);
     },
   });
+  
+  // Handle sending chat messages to the AI
+  const sendWorldChatMessage = async (message: string, threadId?: string) => {
+    try {
+      const response = await apiRequest('POST', '/api/ai/world-details', {
+        genreContext: foundation?.genre || '',
+        setting: message, // Use the user's message as input
+        threadId: threadId,
+        previousMessages: threadId ? undefined : [], // Only pass empty array when creating new thread
+        foundationId: foundationId
+      });
+      
+      const data = await response.json();
+      
+      // Create suggested responses based on the context
+      let suggestions: string[] = [];
+      if (data.name) {
+        suggestions = [
+          "Tell me more about the geography",
+          "How does the economy work?",
+          "What conflicts exist in this world?",
+          "Describe the cultural aspects"
+        ];
+      }
+      
+      return {
+        content: data.description || data.message || "I've updated the world details based on your input.",
+        threadId: data.threadId,
+        suggestions
+      };
+    } catch (error) {
+      console.error('Error sending message to world AI:', error);
+      throw error;
+    }
+  };
   
   const handleGenerateWorld = () => {
     generateWorldMutation.mutate();
@@ -263,6 +299,9 @@ const WorldDetailsPage: React.FC = () => {
                     <Wand2 className="mr-2 h-4 w-4" /> Magic System
                   </TabsTrigger>
                 )}
+                <TabsTrigger value="chat" className="flex items-center">
+                  <MessageSquare className="mr-2 h-4 w-4" /> Chat with AI
+                </TabsTrigger>
               </TabsList>
               
               <TabsContent value="overview">
@@ -508,6 +547,32 @@ const WorldDetailsPage: React.FC = () => {
                   </Card>
                 </TabsContent>
               )}
+              
+              <TabsContent value="chat">
+                <div className="w-full h-[600px]">
+                  <FoundationChatInterface
+                    title={`Chat about ${worldDetails.name}`}
+                    description="Discuss and develop your world with AI assistance. Ask questions or request changes to any aspect of your world."
+                    foundationId={Number(foundationId)}
+                    threadId={worldDetails.threadId}
+                    onSendMessage={sendWorldChatMessage}
+                    initialMessages={[
+                      {
+                        id: 'welcome',
+                        content: `Welcome to the world of ${worldDetails.name}! This is an interactive chat where you can ask me questions about this world or suggest changes to its details. What would you like to explore?`,
+                        sender: 'ai',
+                        timestamp: new Date(),
+                        suggestions: [
+                          "Tell me more about the geography",
+                          "How does the economy work?",
+                          "What conflicts exist in this world?",
+                          "Describe the cultural aspects"
+                        ]
+                      }
+                    ]}
+                  />
+                </div>
+              </TabsContent>
             </Tabs>
           </>
         )}
