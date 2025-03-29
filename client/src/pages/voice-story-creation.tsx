@@ -23,6 +23,18 @@ const VoiceStoryCreationPage: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
   const storyId = params.get('storyId');
   
+  // Redirect to dashboard if storyId is invalid
+  useEffect(() => {
+    if (!storyId) {
+      console.log('No story ID provided, redirecting to dashboard');
+      toast({
+        title: 'Missing parameters',
+        description: 'No story ID was provided. Redirecting to dashboard.',
+      });
+      navigate('/dashboard');
+    }
+  }, [storyId, navigate, toast]);
+  
   // Define the story data interface
   interface StoryData {
     id: number;

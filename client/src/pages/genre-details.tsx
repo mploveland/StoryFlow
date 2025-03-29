@@ -40,6 +40,18 @@ const GenreDetailsPage: React.FC = () => {
   const params = new URLSearchParams(location.split('?')[1]);
   const foundationId = parseInt(params.get('foundationId') || '0');
   
+  // Redirect to dashboard if foundationId is invalid
+  useEffect(() => {
+    if (!foundationId || foundationId <= 0) {
+      console.log('Invalid foundation ID, redirecting to dashboard');
+      toast({
+        title: 'Invalid parameters',
+        description: 'The foundation ID is invalid. Redirecting to dashboard.',
+      });
+      navigate('/dashboard');
+    }
+  }, [foundationId, navigate, toast]);
+  
   // State to track if genre is being generated
   const [isGenerating, setIsGenerating] = useState(false);
   

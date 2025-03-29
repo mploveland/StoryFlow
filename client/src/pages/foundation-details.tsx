@@ -37,6 +37,18 @@ const FoundationDetails: React.FC = () => {
   
   const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
   
+  // Redirect to dashboard if foundationId is invalid
+  useEffect(() => {
+    if (!foundationId || foundationId <= 0) {
+      console.log('Invalid foundation ID, redirecting to dashboard');
+      toast({
+        title: 'Invalid parameters',
+        description: 'The foundation ID is invalid. Redirecting to dashboard.',
+      });
+      navigate('/dashboard');
+    }
+  }, [foundationId, navigate, toast]);
+  
   // State to track if UI has been initialized
   const [initialized, setInitialized] = useState(false);
   
