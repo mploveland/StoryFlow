@@ -357,7 +357,43 @@ export const suggestionsRelations = relations(suggestions, ({ one }) => ({
 export const genreDetails = pgTable("genre_details", {
   id: serial("id").primaryKey(),
   foundationId: integer("foundation_id").notNull().references(() => foundations.id),
-  name: text("name").notNull(),
+  // Basic genre information
+  mainGenre: text("main_genre").notNull(),
+  genreRationale: text("genre_rationale"),
+  audienceExpectations: text("audience_expectations"),
+  // Subgenre information
+  subgenres: text("subgenres"),
+  subgenreRationale: text("subgenre_rationale"),
+  subgenreInteraction: text("subgenre_interaction"),
+  subgenreTropes: text("subgenre_tropes"),
+  // Mood and tone
+  tone: text("tone"),
+  mood: text("mood"),
+  emotionalImpact: text("emotional_impact"),
+  // Setting elements
+  timePeriod: text("time_period"),
+  technologyLevel: text("technology_level"),
+  physicalEnvironment: text("physical_environment"),
+  geography: text("geography"),
+  // Social elements
+  societalStructures: text("societal_structures"),
+  culturalNorms: text("cultural_norms"),
+  // Tropes and speculative elements
+  keyTropes: text("key_tropes"),
+  tropeStrategy: text("trope_strategy"),
+  speculativeElements: text("speculative_elements"),
+  speculativeRules: text("speculative_rules"),
+  // Atmosphere and style
+  atmosphere: text("atmosphere"),
+  sensoryDetails: text("sensory_details"),
+  atmosphericStyle: text("atmospheric_style"),
+  thematicEnvironmentTieins: text("thematic_environment_tieins"),
+  // Inspirations
+  inspirations: text("inspirations"),
+  inspirationDetails: text("inspiration_details"),
+  divergenceFromInspirations: text("divergence_from_inspirations"),
+  // Original data structure fields (kept for compatibility)
+  name: text("name"),
   description: text("description"),
   themes: text("themes").array(),
   tropes: text("tropes").array(),
@@ -371,11 +407,49 @@ export const genreDetails = pgTable("genre_details", {
   threadId: text("thread_id"),
   // Embeddings will be implemented later with pgvector
   embeddingJson: jsonb("embedding_json"),
+  // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
 });
 
 export const insertGenreDetailsSchema = createInsertSchema(genreDetails).pick({
   foundationId: true,
+  // Basic genre information
+  mainGenre: true,
+  genreRationale: true,
+  audienceExpectations: true,
+  // Subgenre information
+  subgenres: true,
+  subgenreRationale: true,
+  subgenreInteraction: true,
+  subgenreTropes: true,
+  // Mood and tone
+  tone: true,
+  mood: true,
+  emotionalImpact: true,
+  // Setting elements
+  timePeriod: true,
+  technologyLevel: true,
+  physicalEnvironment: true,
+  geography: true,
+  // Social elements
+  societalStructures: true,
+  culturalNorms: true,
+  // Tropes and speculative elements
+  keyTropes: true,
+  tropeStrategy: true,
+  speculativeElements: true,
+  speculativeRules: true,
+  // Atmosphere and style
+  atmosphere: true,
+  sensoryDetails: true,
+  atmosphericStyle: true,
+  thematicEnvironmentTieins: true,
+  // Inspirations
+  inspirations: true,
+  inspirationDetails: true,
+  divergenceFromInspirations: true,
+  // Original fields kept for compatibility
   name: true,
   description: true,
   themes: true,

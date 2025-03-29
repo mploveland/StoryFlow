@@ -429,22 +429,68 @@ export interface GenreCreationInput {
 
 // Interface for a complete genre profile
 export interface GenreDetails {
-  name: string;
-  description: string;
-  themes: string[];
-  tropes: string[];
-  commonSettings: string[];
-  typicalCharacters: string[];
-  plotStructures: string[];
-  styleGuide: {
-    tone: string;
-    pacing: string;
-    perspective: string;
-    dialogueStyle: string;
+  // Core identifying information
+  name?: string;
+  mainGenre: string;
+  description?: string;
+  
+  // Expanded genre information
+  genreRationale?: string;
+  audienceExpectations?: string;
+  
+  // Subgenre details
+  subgenres?: string;
+  subgenreRationale?: string;
+  subgenreInteraction?: string;
+  subgenreTropes?: string;
+  
+  // Mood and tone
+  tone?: string;
+  mood?: string;
+  emotionalImpact?: string;
+  
+  // Setting elements
+  timePeriod?: string;
+  technologyLevel?: string;
+  physicalEnvironment?: string;
+  geography?: string;
+  
+  // Social elements
+  societalStructures?: string;
+  culturalNorms?: string;
+  
+  // Tropes and speculative elements
+  keyTropes?: string;
+  tropeStrategy?: string;
+  speculativeElements?: string;
+  speculativeRules?: string;
+  
+  // Atmosphere and style
+  atmosphere?: string;
+  sensoryDetails?: string;
+  atmosphericStyle?: string;
+  thematicEnvironmentTieins?: string;
+  
+  // Inspirations
+  inspirations?: string;
+  inspirationDetails?: string;
+  divergenceFromInspirations?: string;
+  
+  // Legacy fields (maintained for compatibility)
+  themes?: string[];
+  tropes?: string[];
+  commonSettings?: string[];
+  typicalCharacters?: string[];
+  plotStructures?: string[];
+  styleGuide?: {
+    tone?: string;
+    pacing?: string;
+    perspective?: string;
+    dialogueStyle?: string;
   };
-  recommendedReading: string[];
-  popularExamples: string[];
-  worldbuildingElements: string[];
+  recommendedReading?: string[];
+  popularExamples?: string[];
+  worldbuildingElements?: string[];
 }
 
 // Interface for character creation input
@@ -959,10 +1005,80 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
         worldbuildingElements = ["Cultural Elements", "Geography", "Historical Context"];
     }
     
+    // Extract additional data from the expanded schema by using safer string extraction
+    function extractFromMatch(text: string, regex: RegExp, contextLength = 100): string {
+      const match = text.match(regex);
+      if (!match || typeof match.index !== 'number') return '';
+      
+      const start = match.index;
+      const end = Math.min(start + contextLength, text.length);
+      const extracted = text.substring(start, end);
+      
+      // Get the first sentence or the whole extract if no period found
+      const firstSentence = extracted.split('.')[0];
+      return firstSentence;
+    }
+    
+    // Extract mood/tone details
+    const mood = extractFromMatch(
+      responseText, 
+      /mood|tone|emotional impact|feel|atmosphere/i
+    );
+    
+    // Extract time period details
+    const timePeriod = extractFromMatch(
+      responseText, 
+      /era|period|time|century|decade/i
+    );
+    
+    // Extract speculative elements
+    const speculativeElements = extractFromMatch(
+      responseText, 
+      /magic|technology|supernatural|powers|abilities|fantasy elements|sci-fi|futuristic/i,
+      150
+    );
+    
+    // Extract inspirations
+    const inspirationsText = extractFromMatch(
+      responseText,
+      /inspired by|like|similar to|comparable to|reference|influenced by/i,
+      150
+    );
+    
     // Return the detailed genre with thread ID for continued conversation
     return {
+      // Core identifying information 
+      mainGenre: genreName,
       name: genreName,
       description: responseText, // Return the full response text
+      
+      // Genre information
+      genreRationale: `This ${genreName} setting is designed to support immersive storytelling with rich character development and engaging plot structures.`,
+      audienceExpectations: `Readers of ${genreName} typically expect ${finalThemes.join(', ')} as central themes.`,
+      
+      // Subgenre information (if available)
+      subgenres: finalThemes.join(', '),
+      
+      // Mood and tone
+      tone: mood,
+      mood: mood,
+      emotionalImpact: `${genreName} typically evokes feelings of ${finalThemes.map(t => t.toLowerCase()).join(', ')}.`,
+      
+      // Setting elements
+      timePeriod: timePeriod,
+      physicalEnvironment: commonSettings.join(', '),
+      
+      // Tropes and speculative elements
+      keyTropes: tropes.join(', '),
+      speculativeElements: speculativeElements,
+      
+      // Atmosphere and style
+      atmosphere: mood,
+      
+      // Inspirations
+      inspirations: inspirationsText,
+      
+      // Legacy fields (maintained for compatibility)
       themes: finalThemes,
       tropes: tropes,
       commonSettings: commonSettings,
@@ -1057,8 +1173,35 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     
     // Return a fallback genre if something goes wrong, slightly customized based on input
     return {
+      // Core identifying information
+      mainGenre: genreName, // Required field
       name: genreName,
       description: `A ${genreName.toLowerCase()} genre customized based on your preferences. Let's continue to refine it through our conversation.`,
+      
+      // Genre information
+      genreRationale: `This ${genreName} setting provides a foundation for character-driven storytelling.`,
+      audienceExpectations: `Readers of ${genreName} typically expect ${genreThemes.join(', ')} as central themes.`,
+      
+      // Subgenre information
+      subgenres: genreThemes.join(', '),
+      
+      // Mood and tone
+      tone: "Balanced",
+      mood: "Engaging",
+      emotionalImpact: `Stories in this genre typically evoke feelings of wonder and excitement.`,
+      
+      // Setting elements
+      timePeriod: "Variable",
+      physicalEnvironment: "Diverse settings",
+      
+      // Tropes and speculative elements
+      keyTropes: "Hero's Journey, Coming of Age",
+      speculativeElements: "Varies based on specific genre implementation",
+      
+      // Atmosphere and style
+      atmosphere: "Immersive",
+      
+      // Legacy fields (maintained for compatibility)
       themes: genreThemes,
       tropes: ["Hero's Journey", "Coming of Age"],
       commonSettings: ["Contemporary World", "Fantasy Realm"],
