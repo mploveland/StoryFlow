@@ -1693,10 +1693,23 @@ export async function generateChatSuggestions(
     const thread = await openai.beta.threads.create();
     console.log(`Created thread: ${thread.id} for chat suggestions`);
     
+    // Check for special triggers
+    let promptContent = '';
+    
+    // Special case for "What type of genre would you like to explore for your story world?"
+    // Need to return single-word genre options
+    if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
+      console.log("Detected genre selection trigger - requesting single-word genre options");
+      promptContent = `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nThe assistant has asked about genre selection. Please generate 10 single-word genre suggestions.\n\nEach genre should be just one word (e.g., "Fantasy", "Western", "Horror", etc.).\n\nFormat as a JSON array of strings.`;
+    } else {
+      // Default prompt for other cases
+      promptContent = `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nPlease generate 3-5 suggested responses that the user could reply with to continue this conversation.\n\nEach suggestion should be concise (1-7 words), conversational, and relevant to the story creation process.\n\nFor genre-related conversations, include diverse genre suggestions.\nFor tone questions, suggest varied tone options.\nFor transitions, include options to move to the next stage.\n\nFormat as a JSON array of strings.`;
+    }
+    
     // Add messages to provide context for the suggestions
     await openai.beta.threads.messages.create(thread.id, {
       role: "user",
-      content: `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nPlease generate 3-5 suggested responses that the user could reply with to continue this conversation.\n\nEach suggestion should be concise (1-7 words), conversational, and relevant to the story creation process.\n\nFor genre-related conversations, include diverse genre suggestions.\nFor tone questions, suggest varied tone options.\nFor transitions, include options to move to the next stage.\n\nFormat as a JSON array of strings.`,
+      content: promptContent,
     });
     
     // Run the suggestions assistant
@@ -1748,10 +1761,14 @@ export async function generateChatSuggestions(
       
       // Validate that we got an array of strings
       if (Array.isArray(suggestions) && suggestions.length > 0) {
-        // Filter out any non-string items and limit to 5 suggestions
+        // Check if this is for genre selection (we want 10 items) or regular suggestions (limit to 5)
+        const isGenreSelection = assistantReply.includes("What type of genre would you like to explore for your story world?");
+        const maxSuggestions = isGenreSelection ? 10 : 5;
+        
+        // Filter out any non-string items and limit to appropriate number of suggestions
         const validSuggestions = suggestions
           .filter(item => typeof item === "string")
-          .slice(0, 5);
+          .slice(0, maxSuggestions);
           
         if (validSuggestions.length > 0) {
           console.log(`Returning ${validSuggestions.length} valid suggestions: ${JSON.stringify(validSuggestions)}`);
