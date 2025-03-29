@@ -1681,14 +1681,12 @@ export async function generateChatSuggestions(
     // Ensure we have valid inputs
     if (!userMessage || userMessage.trim() === '' || !assistantReply || assistantReply.trim() === '') {
       console.log("Missing userMessage or assistantReply for chat suggestions");
-      return defaultSuggestions("");
+      return []; // Return empty array - no fallback suggestions
     }
     
     console.log(`Generating chat suggestions for conversation:`);
     console.log(`User: ${userMessage.substring(0, 50)}...`);
     console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
-    
-    // No special case hardcoding for genre selection - all suggestions come directly from the StoryFlow_ChatResponseSuggestions assistant
     
     // Create a new thread for this suggestions request
     const thread = await openai.beta.threads.create();
@@ -1709,7 +1707,7 @@ export async function generateChatSuggestions(
     
     if (completedRun.status !== "completed") {
       console.error(`Chat suggestions run ended with status: ${completedRun.status}`);
-      return defaultSuggestions(assistantReply);
+      return []; // Return empty array - no fallback suggestions
     }
     
     // Get the suggestions from the assistant's response
@@ -1718,7 +1716,7 @@ export async function generateChatSuggestions(
     
     if (assistantMessages.length === 0) {
       console.error("No response from suggestions assistant");
-      return defaultSuggestions(assistantReply);
+      return []; // Return empty array - no fallback suggestions
     }
     
     // Extract the suggestions from the message content
@@ -1727,7 +1725,7 @@ export async function generateChatSuggestions(
     
     if (!textContent || textContent.type !== "text") {
       console.error("Suggestions response does not contain text");
-      return defaultSuggestions(assistantReply);
+      return []; // Return empty array - no fallback suggestions
     }
     
     // Try to parse JSON from the response
@@ -1736,7 +1734,7 @@ export async function generateChatSuggestions(
       const jsonMatch = textContent.text.value.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
         console.error("Could not extract JSON array from suggestions response");
-        return defaultSuggestions(assistantReply);
+        return []; // Return empty array - no fallback suggestions
       }
       
       const suggestions = JSON.parse(jsonMatch[0]);
@@ -1754,14 +1752,14 @@ export async function generateChatSuggestions(
       }
       
       console.error("Invalid suggestions format received:", suggestions);
-      return defaultSuggestions(assistantReply);
+      return []; // Return empty array - no fallback suggestions
     } catch (error) {
       console.error("Error parsing suggestions JSON:", error);
-      return defaultSuggestions(assistantReply);
+      return []; // Return empty array - no fallback suggestions
     }
   } catch (error) {
     console.error("Error generating chat suggestions:", error);
-    return defaultSuggestions(assistantReply);
+    return []; // Return empty array - no fallback suggestions
   }
 }
 
@@ -1906,19 +1904,7 @@ export async function getAppropriateAssistant(
   };
 }
 
-/**
- * Generate default chat suggestions based on the assistant's reply
- * 
- * @param assistantReply The assistant's message to extract suggestions from
- * @returns Array of default suggested responses
- */
-function defaultSuggestions(assistantReply: string): string[] {
-  // Only return a single "surprise me" option to encourage using the AI suggestions
-  // No hardcoded suggestions for any message type - all must come from the AI assistant
-  return [
-    "Surprise me! You decide what works best."
-  ];
-}
+// We no longer use defaultSuggestions - all suggestions must come from the AI assistant
 
 /**
  * Wait for an assistant run to complete by polling
