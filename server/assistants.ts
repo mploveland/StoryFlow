@@ -1696,17 +1696,16 @@ export async function generateChatSuggestions(
     const thread = await openai.beta.threads.create();
     console.log(`Created thread: ${thread.id} for chat suggestions`);
     
-    // Check for special triggers
-    let promptContent = '';
+    // Use a simpler prompt that allows the assistant to perform as intended
+    // This will let your custom assistant handle the different cases according to its training
     
-    // Special case for "What type of genre would you like to explore for your story world?"
-    // Need to return single-word genre options
+    console.log("Passing conversation to the chat suggestions assistant");
+    // Simply pass the user message and assistant response without additional instructions
+    const promptContent = `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}`;
+    
+    // Log debugging info for the welcome message trigger
     if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
-      console.log("Detected genre selection trigger - requesting single-word genre options");
-      promptContent = `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nThe assistant has asked about genre selection. Please generate 10 single-word genre suggestions.\n\nEach genre should be just one word (e.g., "Fantasy", "Western", "Horror", etc.).\n\nFormat as a JSON array of strings.`;
-    } else {
-      // Default prompt for other cases
-      promptContent = `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nPlease generate 3-5 suggested responses that the user could reply with to continue this conversation.\n\nEach suggestion should be concise (1-7 words), conversational, and relevant to the story creation process.\n\nFor genre-related conversations, include diverse genre suggestions.\nFor tone questions, suggest varied tone options.\nFor transitions, include options to move to the next stage.\n\nFormat as a JSON array of strings.`;
+      console.log("Detected genre selection trigger - should return single-word genre options");
     }
     
     // Add messages to provide context for the suggestions
