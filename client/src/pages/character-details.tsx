@@ -358,7 +358,7 @@ const CharacterDetailsPage: React.FC = () => {
       navigate(`/character-details?foundationId=${foundationId}&characterId=${justCreatedCharacter.id}`);
     } else {
       // Fallback
-      navigate(`/foundation-details?foundationId=${foundationId}`);
+      window.location.href = `/foundation-details?foundationId=${foundationId}`;
     }
   };
   
@@ -367,7 +367,11 @@ const CharacterDetailsPage: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} className="mr-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => window.location.href = `/foundation-details?foundationId=${foundationId}`} 
+            className="mr-4"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
           <div className="h-6 bg-neutral-200 rounded w-1/4 animate-pulse"></div>
@@ -406,7 +410,11 @@ const CharacterDetailsPage: React.FC = () => {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} className="mr-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => window.location.href = `/foundation-details?foundationId=${foundationId}`} 
+            className="mr-4"
+          >
             <ArrowLeft className="mr-2 h-4 w-4" /> Back
           </Button>
           <h1 className="text-2xl font-bold">Character Not Found</h1>
@@ -414,7 +422,9 @@ const CharacterDetailsPage: React.FC = () => {
         
         <div className="text-center p-8 bg-white rounded-lg shadow-sm">
           <p className="text-neutral-600 mb-4">The character you're looking for could not be found.</p>
-          <Button onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)}>Return to Foundation</Button>
+          <Button onClick={() => window.location.href = `/foundation-details?foundationId=${foundationId}`}>
+            Return to Foundation
+          </Button>
         </div>
       </div>
     );
@@ -443,7 +453,7 @@ const CharacterDetailsPage: React.FC = () => {
             <div className="flex items-center">
               <Button 
                 variant="ghost" 
-                onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} 
+                onClick={() => window.location.href = `/foundation-details?foundationId=${foundationId}`} 
                 className="mr-4"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
@@ -458,7 +468,10 @@ const CharacterDetailsPage: React.FC = () => {
             </div>
             
             {!isCreating && (
-              <Button variant="outline" onClick={() => navigate(`/character-details?foundationId=${foundationId}&action=create`)}>
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = `/character-details?foundationId=${foundationId}&action=create`}
+              >
                 <Plus className="mr-2 h-4 w-4" />
                 New Character
               </Button>
@@ -530,7 +543,7 @@ const CharacterDetailsPage: React.FC = () => {
                             key={char.id} 
                             variant="outline" 
                             className="w-full justify-start"
-                            onClick={() => navigate(`/character-details?foundationId=${foundationId}&characterId=${char.id}`)}
+                            onClick={() => window.location.href = `/character-details?foundationId=${foundationId}&characterId=${char.id}`}
                           >
                             <User className="mr-2 h-4 w-4" />
                             {char.name}
@@ -583,7 +596,7 @@ const CharacterDetailsPage: React.FC = () => {
                       <Button 
                         variant="ghost" 
                         size="sm"
-                        onClick={() => navigate(`/character-details?foundationId=${foundationId}&characterId=${characterId}&action=edit`)}
+                        onClick={() => window.location.href = `/character-details?foundationId=${foundationId}&characterId=${characterId}&action=edit`}
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
@@ -679,7 +692,7 @@ const CharacterDetailsPage: React.FC = () => {
                               key={char.id} 
                               variant="outline" 
                               className="w-full justify-start"
-                              onClick={() => navigate(`/character-details?foundationId=${foundationId}&characterId=${char.id}`)}
+                              onClick={() => window.location.href = `/character-details?foundationId=${foundationId}&characterId=${char.id}`}
                             >
                               <User className="mr-2 h-4 w-4" />
                               {char.name}

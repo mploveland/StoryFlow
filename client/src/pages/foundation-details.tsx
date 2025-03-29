@@ -430,7 +430,7 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         className="w-full text-primary-600" 
-                        onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
+                        onClick={() => window.location.href = `/world-details?foundationId=${foundation.id}`}
                       >
                         View Details
                       </Button>
@@ -460,7 +460,7 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm" 
                         className="w-full text-primary-600"
-                        onClick={() => navigate(`/character-details?foundationId=${foundation.id}`)}
+                        onClick={() => window.location.href = `/character-details?foundationId=${foundation.id}`}
                       >
                         View All Characters
                       </Button>
@@ -484,7 +484,7 @@ const FoundationDetails: React.FC = () => {
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
+                      onClick={() => window.location.href = `/environment-details?foundationId=${foundation.id}`}
                     >
                       View Details
                     </Button>
