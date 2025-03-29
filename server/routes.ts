@@ -409,7 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`Dynamic assistant request for foundation ${foundationId}: "${message.substring(0, 50)}..."`);
       
       // Determine appropriate assistant based on message content and current state
-      const { assistantId, contextType } = await getAppropriateAssistant(
+      const { assistantId, contextType, isAutoTransition } = await getAppropriateAssistant(
         message,
         currentAssistantType || null,
         foundationId
@@ -428,10 +428,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`Created new thread: ${conversationThreadId}`);
       }
       
+      // If we're auto-transitioning between stages, modify the message
+      let currentMessage = message;
+      
+      // Handle stage transitions with context passing
+      if (isAutoTransition) {
+        console.log(`Auto-transitioning from ${currentAssistantType} to ${contextType}`);
+        
+        if (currentAssistantType === 'genre' && contextType === 'environment') {
+          // Get the genre details to pass as context to environment stage
+          try {
+            const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            if (genreDetails) {
+              // Create a transition message with genre context
+              currentMessage = `I'd like to create the first environment for my story. Here's the genre context for reference: 
+                Genre: ${genreDetails.mainGenre}
+                Description: ${genreDetails.description || ''}
+                Themes: ${Array.isArray(genreDetails.themes) ? genreDetails.themes.join(', ') : ''}
+                Mood/Tone: ${genreDetails.mood || ''}
+                Atmosphere: ${genreDetails.atmosphere || ''}
+                
+                My initial thoughts for an environment: ${message}`;
+                
+              console.log("Added genre context to environment transition message");
+            }
+          } catch (contextError) {
+            console.error("Error retrieving genre context for transition:", contextError);
+          }
+        } else if (currentAssistantType === 'environment' && contextType === 'world') {
+          // Get both genre and environment details to pass as context to world stage
+          try {
+            const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            const environmentDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+            
+            if (genreDetails && environmentDetails) {
+              // Create a transition message with combined context
+              currentMessage = `I'd like to create the overall world that contains my environments. Here's the context:
+                Genre: ${genreDetails.mainGenre}
+                Environment: ${environmentDetails.environment_name || 'Custom Environment'}
+                
+                Let's develop the broader world that contains this environment. ${message}`;
+                
+              console.log("Added genre and environment context to world transition message");
+            }
+          } catch (contextError) {
+            console.error("Error retrieving context for world transition:", contextError);
+          }
+        }
+      }
+      
       // Add the user message to the thread
       await openai.beta.threads.messages.create(conversationThreadId, {
         role: "user",
-        content: message
+        content: currentMessage
       });
       
       // Run the assistant on the thread
@@ -499,7 +548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         contextType,
         assistantId,
         threadId: conversationThreadId,
-        suggestions: chatSuggestions
+        suggestions: chatSuggestions,
+        isAutoTransition: isAutoTransition || false
       });
     } catch (error: unknown) {
       console.error("Error in dynamic assistant processing:", error);
@@ -1514,12 +1564,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Environment details API endpoint - comes after genre and before world details
+  apiRouter.post("/ai/environment-details", async (req: Request, res: Response) => {
+    try {
+      console.log("Environment details request received:", req.body);
+      const { 
+        genreContext,    // Pass the genre context from the previous stage
+        worldContext,    // Optional - if world details were created first
+        name,            // Name of the specific location
+        locationType,    // Type of location (city, forest, castle, etc.)
+        purpose,         // Purpose of this location in the story
+        atmosphere,      // The mood or atmosphere of the location
+        inhabitants,     // Who lives there or frequents the location  
+        dangers,         // Potential dangers or threats
+        secrets,         // Hidden aspects or secrets of the location
+        additionalInfo,  // Any additional details
+        threadId,        // For continuing conversation
+        previousMessages // For conversation history
+      } = req.body;
+      
+      // Log the request details
+      console.log("Creating environment with input:", {
+        genreContext: genreContext ? genreContext.substring(0, 50) + "..." : undefined,
+        worldContext: worldContext ? worldContext.substring(0, 50) + "..." : undefined,
+        name,
+        locationType,
+        purpose,
+        atmosphere,
+        inhabitants,
+        dangers,
+        secrets,
+        additionalInfo,
+        threadId: threadId ? `${threadId.substring(0, 10)}...` : undefined // Log partial thread ID for privacy
+      });
+      
+      // Call the Environment Generator assistant with all parameters
+      const environmentDetails = await createEnvironmentDetails({
+        worldContext: genreContext, // Initially using genre context as world context
+        name,
+        locationType,
+        purpose,
+        atmosphere,
+        inhabitants,
+        dangers,
+        secrets,
+        additionalInfo,
+        threadId,
+        previousMessages
+      });
+      
+      console.log("Environment created successfully:", environmentDetails.name);
+      
+      try {
+        // Save detailed environment data to the database
+        const foundationId = parseInt(req.body.foundationId);
+        
+        if (foundationId && !isNaN(foundationId)) {
+          console.log(`Saving environment details for foundation ID: ${foundationId}`);
+          
+          // Check if environment details already exist for this foundation
+          const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+          
+          // Prepare the data to save - map from assistant response to database schema
+          const environmentData = {
+            environment_name: environmentDetails.name || 'Custom Environment',
+            narrative_significance: environmentDetails.worldContext || '',
+            geography: JSON.stringify(environmentDetails.physicalAttributes) || '',
+            architecture: JSON.stringify(environmentDetails.structuralFeatures) || '',
+            climate_weather: environmentDetails.physicalAttributes?.climate || '',
+            sensory_atmosphere: JSON.stringify(environmentDetails.sensoryDetails) || '',
+            cultural_influence: JSON.stringify(environmentDetails.culture) || '',
+            societal_norms: environmentDetails.culture?.attitudes || '',
+            historical_relevance: JSON.stringify(environmentDetails.history) || '',
+            economic_significance: '',
+            speculative_features: '',
+            associated_characters_factions: JSON.stringify(environmentDetails.inhabitants) || '',
+            inspirations_references: '',
+            // Link to related genre/world details (if applicable)
+            // These will be set later when world details are created
+            threadId: environmentDetails.threadId
+          };
+          
+          if (existingDetails) {
+            // Update existing environment details
+            console.log(`Updating existing environment details ID: ${existingDetails.id}`);
+            await storage.updateEnvironmentDetails(existingDetails.id, {
+              ...environmentData,
+              foundationId
+            });
+          } else {
+            // Create new environment details
+            console.log(`Creating new environment details for foundation ID: ${foundationId}`);
+            await storage.createEnvironmentDetails({
+              ...environmentData,
+              foundationId
+            });
+          }
+        } else {
+          console.log(`Cannot save environment details: Invalid foundation ID: ${req.body.foundationId}`);
+        }
+      } catch (saveError) {
+        console.error('Error saving environment details to database:', saveError);
+        // Continue despite the error - don't block the response
+      }
+      
+      return res.status(200).json(environmentDetails);
+    } catch (error: any) {
+      console.error("Error creating environment details:", error);
+      
+      // Check if this is a conversation in progress
+      if (error.message && error.message.startsWith("CONVERSATION_IN_PROGRESS:")) {
+        // Extract the response from the error message
+        const response = error.message.replace("CONVERSATION_IN_PROGRESS: ", "");
+        return res.status(202).json({
+          status: "conversation_in_progress",
+          message: response,
+          threadId: req.body.threadId
+        });
+      }
+      
+      return res.status(500).json({
+        message: "Failed to create environment details",
+        error: error.message
+      });
+    }
+  });
+
   // World details API endpoint
   apiRouter.post("/ai/world-details", async (req: Request, res: Response) => {
     try {
       console.log("World details request received:", req.body);
       const { 
-        genreContext,    // Pass the genre context from the previous stage
+        genreContext,      // Pass the genre context from the previous stage
+        environmentContext, // Pass environment context from environments stage
         setting, 
         timeframe, 
         environmentType, 
@@ -1527,13 +1704,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         technology, 
         conflicts, 
         additionalInfo,
-        threadId,        // For continuing conversation
-        previousMessages // For conversation history
+        threadId,          // For continuing conversation
+        previousMessages   // For conversation history
       } = req.body;
       
       // Log the request details
       console.log("Creating world with input:", {
         genreContext: genreContext ? genreContext.substring(0, 50) + "..." : undefined,
+        environmentContext: environmentContext ? environmentContext.substring(0, 50) + "..." : undefined,
         setting,
         timeframe,
         environmentType,

@@ -2060,21 +2060,64 @@ export async function getAppropriateAssistant(
 ): Promise<{
   assistantId: string;
   contextType: 'genre' | 'world' | 'character' | 'environment';
+  isAutoTransition?: boolean;
 }> {
   // Detect the conversation context from the message
   const detectedContext = detectConversationContext(message);
   console.log(`Context detection for message: "${message.substring(0, 50)}..." detected: ${detectedContext}`);
+  
+  // Special handling for completed genre stage - look for transition signals
+  const isGenreComplete = currentAssistantType === 'genre' && 
+    (message.toLowerCase().includes("done") || 
+     message.toLowerCase().includes("finished") || 
+     message.toLowerCase().includes("complete") ||
+     message.toLowerCase().includes("sounds good") ||
+     message.toLowerCase().includes("thank you") ||
+     message.toLowerCase().includes("great") ||
+     message.toLowerCase().includes("perfect") ||
+     message.toLowerCase().includes("continue") ||
+     message.toLowerCase().includes("proceed") ||
+     message.toLowerCase().includes("next step") ||
+     message.toLowerCase().includes("next stage"));
+     
+  // Check for transition cues in the message content
+  const hasGenreToEnvironmentTransition = isGenreComplete || 
+    message.toLowerCase().includes("let's create an environment") ||
+    message.toLowerCase().includes("create environment") ||
+    message.toLowerCase().includes("build environment") ||
+    message.toLowerCase().includes("design environment") ||
+    message.toLowerCase().includes("start with environment") ||
+    (currentAssistantType === 'genre' && message.toLowerCase().includes("next"));
   
   // If we have a foundation ID, check the foundation's stage to provide context
   let foundationStage: 'genre' | 'world' | 'character' | 'environment' | null = null;
   
   if (foundationId) {
     try {
-      // This logic would check the database to determine the foundation's current stage
-      // For now, we'll use a simple approach based on the presence of genre and world details
+      // In a future implementation, we could check the database to determine 
+      // the foundation's current stage by looking for genre/environment/world details
       
-      // More sophisticated implementation would go here in a full version
-      // For now, we'll prioritize the detected context over the current assistant
+      // For now, we'll use the currentAssistantType and transition triggers
+      if (currentAssistantType === 'genre' && hasGenreToEnvironmentTransition) {
+        console.log("Detected completion of genre stage, automatically transitioning to environment");
+        return {
+          assistantId: ENVIRONMENT_GENERATOR_ASSISTANT_ID,
+          contextType: 'environment',
+          isAutoTransition: true
+        };
+      } else if (currentAssistantType === 'environment' && 
+                (message.toLowerCase().includes("no more environments") ||
+                 message.toLowerCase().includes("move to world") ||
+                 message.toLowerCase().includes("go to world") ||
+                 message.toLowerCase().includes("world building") ||
+                 message.toLowerCase().includes("world creation"))) {
+        console.log("Detected completion of environments stage, transitioning to world building");
+        return {
+          assistantId: WORLD_BUILDER_ASSISTANT_ID,
+          contextType: 'world',
+          isAutoTransition: true
+        };
+      }
     } catch (error) {
       console.error("Error determining foundation stage:", error);
     }
