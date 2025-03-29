@@ -280,7 +280,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              userMessage: '', // Initial message is empty for this case
+              userMessage: 'Hello', // Initial message needs to be non-empty for API validation
               assistantReply: welcomeMessage.content
             }),
           })
@@ -313,7 +313,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userMessage: '',
+          userMessage: 'Hello', // Initial message needs to be non-empty for API validation
           assistantReply: welcomeMessage.content
         }),
       })
