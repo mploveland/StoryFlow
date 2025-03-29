@@ -1696,11 +1696,17 @@ export async function generateChatSuggestions(
     const thread = await openai.beta.threads.create();
     console.log(`Created thread: ${thread.id} for chat suggestions`);
     
-    // Format the input exactly as requested by the user
+    // Format the input as a JSON object as required by the assistant
     console.log("Passing conversation to the chat suggestions assistant");
     
-    // Format exactly as: User: {userMessage}\nChat Assistant: {assistantReply}
-    const promptContent = `User: ${userMessage}\nChat Assistant: ${assistantReply}`;
+    // Create JSON object with the user message and assistant reply
+    const messageObject = {
+      "user": userMessage,
+      "chat assistant": assistantReply
+    };
+    
+    // Convert to JSON string
+    const promptContent = JSON.stringify(messageObject, null, 2);
     
     // Log debugging info for the welcome message trigger
     if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
@@ -1750,37 +1756,65 @@ export async function generateChatSuggestions(
       // Print the raw response for debugging
       console.log(`Raw suggestion response: ${textContent.text.value.substring(0, 200)}...`);
       
-      // Find JSON array in the text
-      const jsonMatch = textContent.text.value.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        console.error("Could not extract JSON array from suggestions response");
-        return []; // Return empty array - no fallback suggestions
-      }
-      
-      const suggestions = JSON.parse(jsonMatch[0]);
-      console.log(`Parsed suggestions: ${JSON.stringify(suggestions)}`);
-      
-      // Validate that we got an array of strings
-      if (Array.isArray(suggestions) && suggestions.length > 0) {
-        // Check if this is for genre selection (we want 10 items) or regular suggestions (limit to 5)
-        const isGenreSelection = assistantReply.includes("What type of genre would you like to explore for your story world?");
-        const maxSuggestions = isGenreSelection ? 10 : 5;
+      // Extract the full JSON object from the response
+      // First find objects with format: { ... }
+      let jsonObj;
+      try {
+        // Try to parse the entire response as JSON first
+        jsonObj = JSON.parse(textContent.text.value);
+        console.log("Successfully parsed complete JSON response");
+      } catch (err) {
+        // If that fails, try to extract JSON from within the text
+        const jsonObjMatch = textContent.text.value.match(/\{[\s\S]*\}/);
+        if (!jsonObjMatch) {
+          console.error("Could not extract JSON object from suggestions response");
+          return []; // Return empty array - no fallback suggestions
+        }
         
-        // Filter out any non-string items and limit to appropriate number of suggestions
-        const validSuggestions = suggestions
-          .filter(item => typeof item === "string")
-          .slice(0, maxSuggestions);
-          
-        if (validSuggestions.length > 0) {
-          console.log(`Returning ${validSuggestions.length} valid suggestions: ${JSON.stringify(validSuggestions)}`);
-          return validSuggestions;
+        try {
+          jsonObj = JSON.parse(jsonObjMatch[0]);
+          console.log("Successfully extracted and parsed JSON from response");
+        } catch (parseErr) {
+          console.error("Error parsing extracted JSON object:", parseErr);
+          return []; // Return empty array - no fallback suggestions
         }
       }
       
-      console.error("Invalid suggestions format received:", suggestions);
+      console.log(`Parsed response object: ${JSON.stringify(jsonObj).substring(0, 200)}...`);
+      
+      // Process the options based on the new format where options are in the 'options' property
+      let suggestions: string[] = [];
+      
+      if (jsonObj && Array.isArray(jsonObj.options) && jsonObj.options.length > 0) {
+        // Get the options array from the response
+        suggestions = jsonObj.options
+          .filter(item => typeof item === "string");
+          
+        // Add the additional option if present and it's a string
+        if (jsonObj.additional_option && typeof jsonObj.additional_option === "string") {
+          suggestions.push(jsonObj.additional_option);
+        }
+      } else if (Array.isArray(jsonObj)) {
+        // Fall back to the old format where the response might be a direct array
+        suggestions = jsonObj.filter(item => typeof item === "string");
+      }
+      
+      // Check if this is for genre selection (we want 10 items) or regular suggestions (limit to 5)
+      const isGenreSelection = assistantReply.includes("What type of genre would you like to explore for your story world?");
+      const maxSuggestions = isGenreSelection ? 10 : 6; // Allow 6 for normal suggestions to include the additional option
+      
+      // Limit to appropriate number of suggestions
+      const validSuggestions = suggestions.slice(0, maxSuggestions);
+        
+      if (validSuggestions.length > 0) {
+        console.log(`Returning ${validSuggestions.length} valid suggestions: ${JSON.stringify(validSuggestions)}`);
+        return validSuggestions;
+      }
+      
+      console.error("No valid suggestions found in response");
       return []; // Return empty array - no fallback suggestions
     } catch (error) {
-      console.error("Error parsing suggestions JSON:", error);
+      console.error("Error processing suggestions response:", error);
       return []; // Return empty array - no fallback suggestions
     }
   } catch (error) {
