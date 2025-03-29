@@ -1696,12 +1696,11 @@ export async function generateChatSuggestions(
     const thread = await openai.beta.threads.create();
     console.log(`Created thread: ${thread.id} for chat suggestions`);
     
-    // Use a simpler prompt that allows the assistant to perform as intended
-    // This will let your custom assistant handle the different cases according to its training
-    
+    // Format the input exactly as requested by the user
     console.log("Passing conversation to the chat suggestions assistant");
-    // Simply pass the user message and assistant response without additional instructions
-    const promptContent = `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}`;
+    
+    // Format exactly as: User: {userMessage}\nChat Assistant: {assistantReply}
+    const promptContent = `User: ${userMessage}\nChat Assistant: ${assistantReply}`;
     
     // Log debugging info for the welcome message trigger
     if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
