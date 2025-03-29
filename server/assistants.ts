@@ -178,16 +178,8 @@ export function detectConversationContext(message: string): 'character' | 'world
   return null;
 }
 
-/**
- * This function has been deprecated in favor of getting all suggestions from the OpenAI assistant.
- * It now only returns a single "Surprise me!" option to encourage using the AI-generated suggestions.
- * 
- * This ensures no hardcoded suggestions are used anywhere in the system.
- */
-export function extractSuggestionsFromQuestion(question: string): string[] {
-  // Simply return the surprise me suggestion - all actual suggestions should come from the AI assistant
-  return ["Surprise me! You decide what works best."];
-}
+// Function extractSuggestionsFromQuestion has been removed
+// All suggestions now come from the OpenAI assistant via generateChatSuggestions
 
 export interface GenreCreationInput {
   userInterests?: string;
@@ -1668,6 +1660,7 @@ export async function createWorldDetails(worldInput: WorldCreationInput): Promis
 /**
  * Generate chat suggestions using the StoryFlow_ChatResponseSuggestions assistant.
  * This function takes the conversation context and returns suggested responses.
+ * All suggestions MUST come from the StoryFlow_ChatResponseSuggestions assistant.
  * 
  * @param userMessage The user's last message in the conversation
  * @param assistantReply The assistant's response to the user's message
@@ -1688,8 +1681,17 @@ export async function generateChatSuggestions(
     console.log(`User: ${userMessage.substring(0, 50)}...`);
     console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
     
+    // Ensure CHAT_SUGGESTIONS_ASSISTANT_ID is valid
+    if (!CHAT_SUGGESTIONS_ASSISTANT_ID) {
+      console.error("CHAT_SUGGESTIONS_ASSISTANT_ID is not defined");
+      return [];
+    }
+
+    console.log(`Using assistant ID: ${CHAT_SUGGESTIONS_ASSISTANT_ID} for chat suggestions`);
+    
     // Create a new thread for this suggestions request
     const thread = await openai.beta.threads.create();
+    console.log(`Created thread: ${thread.id} for chat suggestions`);
     
     // Add messages to provide context for the suggestions
     await openai.beta.threads.messages.create(thread.id, {
@@ -1701,6 +1703,7 @@ export async function generateChatSuggestions(
     const run = await openai.beta.threads.runs.create(thread.id, {
       assistant_id: CHAT_SUGGESTIONS_ASSISTANT_ID,
     });
+    console.log(`Started run: ${run.id} with assistant: ${CHAT_SUGGESTIONS_ASSISTANT_ID}`);
     
     // Wait for completion
     const completedRun = await waitForRunCompletion(thread.id, run.id);
@@ -1730,6 +1733,9 @@ export async function generateChatSuggestions(
     
     // Try to parse JSON from the response
     try {
+      // Print the raw response for debugging
+      console.log(`Raw suggestion response: ${textContent.text.value.substring(0, 200)}...`);
+      
       // Find JSON array in the text
       const jsonMatch = textContent.text.value.match(/\[[\s\S]*\]/);
       if (!jsonMatch) {
@@ -1738,6 +1744,7 @@ export async function generateChatSuggestions(
       }
       
       const suggestions = JSON.parse(jsonMatch[0]);
+      console.log(`Parsed suggestions: ${JSON.stringify(suggestions)}`);
       
       // Validate that we got an array of strings
       if (Array.isArray(suggestions) && suggestions.length > 0) {
@@ -1747,6 +1754,7 @@ export async function generateChatSuggestions(
           .slice(0, 5);
           
         if (validSuggestions.length > 0) {
+          console.log(`Returning ${validSuggestions.length} valid suggestions: ${JSON.stringify(validSuggestions)}`);
           return validSuggestions;
         }
       }

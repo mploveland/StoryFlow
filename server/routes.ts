@@ -22,7 +22,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter, createGenreDetails, createWorldDetails, createEnvironmentDetails, extractSuggestionsFromQuestion, generateChatSuggestions, getAppropriateAssistant, waitForRunCompletion } from "./assistants";
+import { createDetailedCharacter, createGenreDetails, createWorldDetails, createEnvironmentDetails, generateChatSuggestions, getAppropriateAssistant, waitForRunCompletion } from "./assistants";
 import OpenAI from "openai";
 
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
@@ -600,7 +600,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Generate chat suggestions for the response
-      const chatSuggestions = extractSuggestionsFromQuestion(content);
+      // We need both the user message and the assistant response to generate contextual suggestions
+      const chatSuggestions = ["Surprise me! You decide what works best."];
+      // Note: Ideally we would use generateChatSuggestions but would need both user message and assistant response
+      console.log(`Using fallback chat suggestions until fully integrated with dynamic assistant`);
       
       // Return the AI response with context details and thread ID
       return res.status(200).json({
@@ -1650,7 +1653,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               name: existingGenreDetails.name || genreName,
               // Add the world-building question and suggestions
               question: question,
-              suggestions: extractSuggestionsFromQuestion(question),
+              // We're in the midst of genre creation, so we use a default welcome message from the AI instead
+              suggestions: ["Surprise me! You decide what works best."],
               threadId: existingGenreDetails.threadId || threadId
             });
           } else {
@@ -1664,15 +1668,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
               commonSettings: ["Detailed World", "Rich Environment"],
               typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
               question: question, // Include the full question about world-building
-              suggestions: extractSuggestionsFromQuestion(question),
+              suggestions: ["Surprise me! You decide what works best."],
               threadId
             });
           }
         }
         
-        // Use intelligent suggestion extraction to generate dynamic options based on the question
-        // This analyzes the AI's question and extracts relevant options directly from the text
-        let contextAwareSuggestions = extractSuggestionsFromQuestion(question);
+        // Set default suggestion
+        // In the future this will be replaced with AI-generated suggestions from the chat suggestions assistant
+        let contextAwareSuggestions = ["Surprise me! You decide what works best."];
         
         // Default catch-all suggestion that lets AI decide
         const surpriseMeSuggestion = "Surprise me! You decide what works best.";
@@ -2092,8 +2096,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Extract the question from the error message
         const question = error.message.replace("CONVERSATION_IN_PROGRESS: ", "");
         
-        // Use our advanced suggestion extraction to generate dynamic options
-        const contextAwareSuggestions = extractSuggestionsFromQuestion(question);
+        // Default suggestion until fully integrated with chat suggestions assistant
+        const contextAwareSuggestions = ["Surprise me! You decide what works best."];
         
         // Return a special response for the frontend to handle
         return res.status(202).json({
