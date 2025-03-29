@@ -186,25 +186,12 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
   const suggestions: string[] = [];
   const surpriseMeSuggestion = "Surprise me! You decide what works best.";
   
-  // Check for common phrases that indicate initial genre selection
+  // We no longer return hardcoded genre suggestions - all suggestions come from the assistant
+  // Just log the detection so we know what's happening
   if (question.toLowerCase().includes("what genre") || 
       question.toLowerCase().includes("which genre") ||
       question.toLowerCase().includes("type of story")) {
-    // This is likely the first question asking about genre, return extended genre list with single words
-    console.log("Detected initial genre question, returning extended genre list");
-    return [
-      "Fantasy",
-      "Mystery",
-      "Romance",
-      "Sci-Fi",
-      "Western",
-      "Horror",
-      "Thriller",
-      "Adventure",
-      "Historical",
-      "Drama",
-      surpriseMeSuggestion
-    ];
+    console.log("Detected initial genre question, but not using hardcoded list");
   }
   
   // Check for common phrases about book or author preference (the second typical question)
@@ -213,83 +200,9 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
        question.toLowerCase().includes("favorite") || question.toLowerCase().includes("enjoy") ||
        question.toLowerCase().includes("reference") || question.toLowerCase().includes("example"))) {
     
-    console.log("Detected book or author preference question");
-    
-    // Try to detect which genre was previously selected to provide relevant author suggestions
-    const lowerQuestion = question.toLowerCase();
-    
-    // Fantasy genre authors and books (check for both "fantasy" keyword and popular fantasy references)
-    if (lowerQuestion.includes("fantasy") || 
-        lowerQuestion.includes("harry potter") || lowerQuestion.includes("rowling") ||
-        lowerQuestion.includes("lord of the rings") || lowerQuestion.includes("tolkien") ||
-        lowerQuestion.includes("game of thrones") || lowerQuestion.includes("rothfuss")) {
-      console.log("Detected fantasy genre author question");
-      return [
-        "Tolkien and The Lord of the Rings",
-        "George R.R. Martin and Game of Thrones",
-        "Brandon Sanderson and Mistborn",
-        "Patrick Rothfuss and The Name of the Wind",
-        surpriseMeSuggestion
-      ];
-    }
-    
-    // Sci-Fi genre authors and books
-    if (lowerQuestion.includes("sci-fi") || lowerQuestion.includes("science fiction")) {
-      console.log("Detected sci-fi genre author question");
-      return [
-        "Frank Herbert and Dune",
-        "Douglas Adams and Hitchhiker's Guide",
-        "Isaac Asimov and Foundation",
-        "Andy Weir and The Martian",
-        surpriseMeSuggestion
-      ];
-    }
-    
-    // Mystery genre authors and books
-    if (lowerQuestion.includes("mystery") || lowerQuestion.includes("detective")) {
-      console.log("Detected mystery genre author question");
-      return [
-        "Agatha Christie and Hercule Poirot novels",
-        "Arthur Conan Doyle and Sherlock Holmes",
-        "Gillian Flynn and Gone Girl",
-        "Stieg Larsson and The Girl with the Dragon Tattoo",
-        surpriseMeSuggestion
-      ];
-    }
-    
-    // Romance genre authors and books
-    if (lowerQuestion.includes("romance")) {
-      console.log("Detected romance genre author question");
-      return [
-        "Jane Austen and Pride and Prejudice",
-        "Nicholas Sparks and The Notebook",
-        "Emily Brontë and Wuthering Heights",
-        "Danielle Steel's contemporary romance novels",
-        surpriseMeSuggestion
-      ];
-    }
-    
-    // Horror genre authors and books
-    if (lowerQuestion.includes("horror")) {
-      console.log("Detected horror genre author question");
-      return [
-        "Stephen King and The Shining",
-        "H.P. Lovecraft and Cthulhu mythology",
-        "Shirley Jackson and The Haunting of Hill House",
-        "Clive Barker and The Hellbound Heart",
-        surpriseMeSuggestion
-      ];
-    }
-    
-    // Default author suggestions if we can't detect the genre
-    console.log("No specific genre detected for author question, using general suggestions");
-    return [
-      "Stephen King's horror novels",
-      "J.K. Rowling and Harry Potter",
-      "Ernest Hemingway's classic literature",
-      "Agatha Christie's mystery novels",
-      surpriseMeSuggestion
-    ];
+    console.log("Detected book or author preference question, but not using hardcoded lists");
+    // No longer returning hardcoded author suggestions
+    // Let the chat suggestions assistant handle this dynamically
   }
   
   // Check if the question contains explicit options in the text
@@ -364,17 +277,8 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
     }
   }
   
-  // If we have specific tone words, extract them
-  const toneWords = [
-    "darker", "grittier", "poetic", "introspective", "mysterious", 
-    "adventurous", "wonder", "melancholy", "reflection", "atmospheric"
-  ];
-  
-  for (const tone of toneWords) {
-    if (question.toLowerCase().includes(tone)) {
-      suggestions.push(tone);
-    }
-  }
+  // We've removed the hardcoded tone words
+  // Let the AI generate appropriate suggestions instead
   
   // Check for a specific pattern where the assistant asks about preferences with "more toward X, Y, or Z?"
   // This pattern handles questions like "would you prefer X, Y, or Z?"
@@ -432,22 +336,12 @@ export function extractSuggestionsFromQuestion(question: string): string[] {
       }
     }
     
-    // Handle specific case for whimsical vs darker match
-    if (question.toLowerCase().includes("whimsical") && question.toLowerCase().includes("darker")) {
-      if (!cleanedSuggestions.some(s => s.includes("whimsical"))) {
-        cleanedSuggestions.push("a whimsical, adventurous tone");
-      }
-      if (!cleanedSuggestions.some(s => s.includes("darker"))) {
-        cleanedSuggestions.push("a darker, more mature atmosphere");
-      }
-    }
+    // Removed hardcoded special case for whimsical vs darker match
+    // Let the AI suggestions handle these types of suggestions
     
     // If we found structured options, add the surprise me option and return
     if (cleanedSuggestions.length > 0) {
-      // Add a blend option if we have multiple choices
-      if (cleanedSuggestions.length >= 2) {
-        cleanedSuggestions.push("a blend of both styles");
-      }
+      // No longer adding hardcoded "blend of both styles" option
       
       cleanedSuggestions.push(surpriseMeSuggestion);
       return cleanedSuggestions;
@@ -1969,20 +1863,7 @@ export async function generateChatSuggestions(
     console.log(`User: ${userMessage.substring(0, 50)}...`);
     console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
     
-    // Special case for the genre selection trigger phrase
-    // This matches the trigger phrase in the StoryFlow_ChatResponseSuggestions assistant prompt
-    if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
-      console.log("Detected genre selection trigger phrase - returning genre suggestions");
-      return [
-        "Fantasy",
-        "Science Fiction",
-        "Mystery",
-        "Romance",
-        "Historical Fiction",
-        "Horror",
-        "Adventure"
-      ];
-    }
+    // No special case hardcoding for genre selection - all suggestions come from the assistant
     
     // Create a new thread for this suggestions request
     const thread = await openai.beta.threads.create();
@@ -2214,12 +2095,9 @@ function defaultSuggestions(assistantReply: string): string[] {
     return extractedSuggestions;
   }
   
-  // Fallback generic suggestions
+  // Minimal fallback with only a surprise option
+  // The goal is to encourage using the AI suggestions instead of hardcoded ones
   return [
-    "Tell me more",
-    "That sounds interesting",
-    "I'd like something different",
-    "Let's move on to the next part",
     "Surprise me! You decide what works best."
   ];
 }
