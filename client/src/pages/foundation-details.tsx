@@ -34,20 +34,26 @@ const FoundationDetails: React.FC = () => {
   console.log('Foundation details - location:', location);
   console.log('Foundation details - query string:', queryString);
   console.log('Foundation details - foundationId param:', foundationIdParam);
+  console.log('Foundation details - foundationId param type:', typeof foundationIdParam);
   
   const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
+  console.log('Foundation details - parsed foundationId:', foundationId);
+  console.log('Foundation details - parsed foundationId type:', typeof foundationId);
   
-  // Redirect to dashboard if foundationId is invalid
+  // DEBUG - Only redirect if explicitly undefined or NaN
   useEffect(() => {
-    if (!foundationId || foundationId <= 0) {
-      console.log('Invalid foundation ID, redirecting to dashboard');
+    // Check if foundationId is invalid (NaN or explicitly 0)
+    if (isNaN(foundationId) || (foundationIdParam !== null && foundationId === 0)) {
+      console.log('Invalid foundation ID detected, redirecting to dashboard');
       toast({
         title: 'Invalid parameters',
         description: 'The foundation ID is invalid. Redirecting to dashboard.',
       });
       navigate('/dashboard');
+    } else {
+      console.log('Foundation ID is valid, not redirecting:', foundationId);
     }
-  }, [foundationId, navigate, toast]);
+  }, [foundationId, foundationIdParam, navigate, toast]);
   
   // State to track if UI has been initialized
   const [initialized, setInitialized] = useState(false);

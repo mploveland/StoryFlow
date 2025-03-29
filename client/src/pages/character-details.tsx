@@ -124,18 +124,24 @@ const CharacterDetailsPage: React.FC = () => {
   const characterId = parseInt(params.get('characterId') || '0');
   const isCreating = params.get('action') === 'create';
   
-  // Redirect to dashboard if invalid parameters
+  console.log('Character details - params:', { foundationId, characterId, isCreating });
+  
+  // Redirect to dashboard only if explicitly invalid
   useEffect(() => {
-    // If not creating and foundationId is invalid, redirect to dashboard
-    if (!isCreating && (!foundationId || foundationId <= 0)) {
-      console.log('Invalid foundation ID, redirecting to dashboard');
+    // Only redirect if:
+    // 1. Not in creation mode
+    // 2. Foundation ID is NaN or explicitly passed as 0
+    if (!isCreating && (isNaN(foundationId) || (params.get('foundationId') !== null && foundationId === 0))) {
+      console.log('Explicitly invalid foundation ID detected, redirecting to dashboard');
       toast({
         title: 'Invalid parameters',
         description: 'The foundation ID is invalid. Redirecting to dashboard.',
       });
       navigate('/dashboard');
+    } else {
+      console.log('Character details - foundation ID valid or creating mode:', foundationId);
     }
-  }, [foundationId, isCreating, navigate, toast]);
+  }, [foundationId, params, isCreating, navigate, toast]);
   
   // State to track if character is being generated
   const [isGenerating, setIsGenerating] = useState(false);

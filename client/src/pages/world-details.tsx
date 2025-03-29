@@ -64,20 +64,26 @@ export default function WorldDetailsPage() {
   console.log('World details - location:', location);
   console.log('World details - query string:', queryString);
   console.log('World details - foundationId param:', foundationIdParam);
+  console.log('World details - foundationId param type:', typeof foundationIdParam);
   
   const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
+  console.log('World details - parsed foundationId:', foundationId);
+  console.log('World details - parsed foundationId type:', typeof foundationId);
   
-  // Redirect to dashboard if foundationId is invalid
+  // Redirect to dashboard only if explicitly invalid parameters
   useEffect(() => {
-    if (!foundationId || foundationId <= 0) {
-      console.log('Invalid foundation ID, redirecting to dashboard');
+    // Only redirect if explicitly invalid (NaN or explicitly passed as 0)
+    if (isNaN(foundationId) || (foundationIdParam !== null && foundationId === 0)) {
+      console.log('Invalid foundation ID detected, redirecting to dashboard');
       toast({
         title: 'Invalid parameters',
         description: 'The foundation ID is invalid. Redirecting to dashboard.',
       });
       setLocation('/dashboard');
+    } else {
+      console.log('World details - foundation ID is valid:', foundationId);
     }
-  }, [foundationId, setLocation, toast]);
+  }, [foundationId, foundationIdParam, setLocation, toast]);
 
   // Query to fetch world details
   const { data: worldDetails, isLoading } = useQuery<WorldDetails>({

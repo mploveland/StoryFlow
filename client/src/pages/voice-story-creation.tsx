@@ -23,15 +23,20 @@ const VoiceStoryCreationPage: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
   const storyId = params.get('storyId');
   
-  // Redirect to dashboard if storyId is invalid
+  console.log('Voice story creation - storyId:', storyId, 'type:', typeof storyId);
+  
+  // Redirect to dashboard only if explicitly missing storyId
   useEffect(() => {
-    if (!storyId) {
-      console.log('No story ID provided, redirecting to dashboard');
+    // Only redirect if storyId is explicitly null
+    if (storyId === null) {
+      console.log('No story ID provided (null), redirecting to dashboard');
       toast({
         title: 'Missing parameters',
         description: 'No story ID was provided. Redirecting to dashboard.',
       });
       navigate('/dashboard');
+    } else {
+      console.log('Voice story creation - using storyId:', storyId);
     }
   }, [storyId, navigate, toast]);
   
