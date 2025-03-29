@@ -561,7 +561,7 @@ const FoundationDetails: React.FC = () => {
           </div>
           
           {/* Center: Chat window - always show */}
-          <div className={`${isFoundationComplete(foundation, characters) ? 'lg:col-span-6' : 'lg:col-span-12'}`}>
+          <div className="lg:col-span-6">
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
               <FoundationChatInterface 
                 title={`Building ${foundation.name}`}
