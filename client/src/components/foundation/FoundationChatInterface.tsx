@@ -74,18 +74,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   useEffect(() => {
     console.log(`FoundationChatInterface - threadId initialized/changed: ${threadId || 'undefined'}`);
   }, [threadId]);
-  
-  // DEBUG: Force set test suggestions for troubleshooting
-  useEffect(() => {
-    console.log('DEBUG: Setting test suggestions');
-    setSuggestions([
-      "Tell me about the geography of this world.",
-      "What kind of creatures live here?",
-      "What's the technology level?",
-      "Tell me about the history.",
-      "What conflicts exist in this world?"
-    ]);
-  }, []);
+  // DEBUG code removed - no longer needed
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -499,14 +488,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     }
   };
   
-  // FOR DEBUGGING - Show full state
-  console.log('FoundationChatInterface render state:', {
-    suggestionsCount: suggestions.length,
-    showSuggestions,
-    hasMessages: messages.length > 0,
-    isProcessing,
-    threadId
-  });
+  // Debug logs removed
 
   return (
     <div className="flex flex-col h-[70vh]">
@@ -598,8 +580,8 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         </div>
       )}
       
-      {/* TEMPORARILY REMOVING showSuggestions CHECK FOR DEBUGGING */}
-      {suggestions.length > 0 && (
+      {/* Normal suggestions display with showSuggestions check restored */}
+      {showSuggestions && suggestions.length > 0 && (
         <div className="mt-2 mb-4">
           <h4 className="text-sm font-medium mb-2 text-neutral-600">Suggestions:</h4>
           <div className="flex flex-wrap gap-2">
@@ -617,11 +599,6 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           </div>
         </div>
       )}
-      
-      {/* DEBUG ELEMENT - ALWAYS SHOW SUGGESTIONS STATE */}
-      <div className="text-xs text-neutral-400 mb-2">
-        Debug: {suggestions.length} suggestions | showSuggestions: {showSuggestions ? 'true' : 'false'}
-      </div>
       
       <form onSubmit={handleSubmit} className="flex items-end gap-2">
         <div className="flex-1 relative">
