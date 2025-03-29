@@ -599,11 +599,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Generate chat suggestions for the response
-      // We need both the user message and the assistant response to generate contextual suggestions
-      const chatSuggestions = ["Surprise me! You decide what works best."];
-      // Note: Ideally we would use generateChatSuggestions but would need both user message and assistant response
-      console.log(`Using fallback chat suggestions until fully integrated with dynamic assistant`);
+      // Generate chat suggestions for the response using the dedicated assistant
+      console.log(`Generating AI chat suggestions for the dynamic assistant response`);
+      let chatSuggestions: string[] = [];
+      try {
+        // We have both the user message and assistant response, use the proper suggestions generator
+        chatSuggestions = await generateChatSuggestions(message, content);
+        console.log(`Generated ${chatSuggestions.length} chat suggestions from the assistant`);
+      } catch (suggestionError) {
+        console.error("Error generating chat suggestions:", suggestionError);
+        // Fallback to empty suggestions array if there's an error
+        chatSuggestions = [];
+      }
       
       // Return the AI response with context details and thread ID
       return res.status(200).json({
