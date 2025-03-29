@@ -1107,12 +1107,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
             
             // First, check if genre details already exist for this foundation
-            const existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            const existingDetails = await storage.getGenreDetailsByFoundation(foundationId);
             
-            if (existingGenreDetails) {
+            if (existingDetails) {
               // Update existing genre details
-              console.log(`Updating existing genre details ID: ${existingGenreDetails.id} during conversation`);
-              await storage.updateGenreDetails(existingGenreDetails.id, {
+              console.log(`Updating existing genre details ID: ${existingDetails.id} during conversation`);
+              await storage.updateGenreDetails(existingDetails.id, {
                 ...partialGenreData,
                 foundationId: foundationId
               });
@@ -1227,46 +1227,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Create a complete genre details object
-          const genreData = {
-            mainGenre: genreName, // Required field
-            name: genreName,
-            description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
-            themes: ["Identity", "Growth", "Challenge"],
-            tropes: ["Hero's Journey", "Coming of Age"],
-            commonSettings: ["Detailed World", "Rich Environment"],
-            typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
-            plotStructures: ["Three-Act Structure", "Hero's Journey"],
-            styleGuide: {
-              tone: "Balanced",
-              pacing: "Medium",
-              perspective: "Third person",
-              dialogueStyle: "Natural"
-            },
-            recommendedReading: [],
-            popularExamples: [],
-            worldbuildingElements: [],
-            threadId: threadId
-          };
-          
+          // Declare the variable here at a broader scope to make it available outside the try block
+          let existingGenreDetails;
+              
           try {
             // Look up the foundation ID from the request
             const foundationId = parseInt(req.body.foundationId);
             
             if (foundationId && !isNaN(foundationId)) {
-              console.log(`Saving complete genre details for foundation ID: ${foundationId}`);
+              console.log(`Transitioning to world-building stage for foundation ID: ${foundationId}`);
               
               // First, check if genre details already exist for this foundation
-              const existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+              existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
               
               if (existingGenreDetails) {
-                // Update existing genre details
-                console.log(`Updating existing genre details ID: ${existingGenreDetails.id}`);
+                // If we have existing details, preserve them instead of overwriting with defaults
+                console.log(`Found existing genre details ID: ${existingGenreDetails.id}, preserving data`);
+                
+                // Only update the necessary fields to mark the genre stage as complete
+                // while PRESERVING all existing fields
+                const updates = {
+                  // If mainGenre isn't already set, use the detected one
+                  mainGenre: existingGenreDetails.mainGenre || genreName,
+                  
+                  // Keep the original name if present
+                  name: existingGenreDetails.name || genreName,
+                  
+                  // Keep the existing thread ID
+                  threadId: existingGenreDetails.threadId || threadId,
+                  
+                  // Ensure we have some minimal data if fields are completely empty
+                  description: existingGenreDetails.description || 
+                    `Your ${(existingGenreDetails.mainGenre || genreName).toLowerCase()} genre has been defined based on your preferences.`,
+                  
+                  // Mark genre as complete by adding a "completed" field
+                  genreComplete: true
+                };
+                
+                console.log(`Updating existing genre details with partial fields to preserve data`);
                 await storage.updateGenreDetails(existingGenreDetails.id, {
-                  ...genreData,
+                  ...updates,
                   foundationId: foundationId
                 });
               } else {
+                // No existing genre details, create with defaults
+                console.log(`No existing genre details found, creating new entry with defaults`);
+                
+                // Create a complete genre details object with defaults
+                const genreData = {
+                  mainGenre: genreName, // Required field
+                  name: genreName,
+                  description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
+                  themes: ["Identity", "Growth", "Challenge"],
+                  tropes: ["Hero's Journey", "Coming of Age"],
+                  commonSettings: ["Detailed World", "Rich Environment"],
+                  typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
+                  plotStructures: ["Three-Act Structure", "Hero's Journey"],
+                  styleGuide: {
+                    tone: "Balanced",
+                    pacing: "Medium",
+                    perspective: "Third person",
+                    dialogueStyle: "Natural"
+                  },
+                  threadId: threadId,
+                  genreComplete: true
+                };
+                
                 // Create new genre details
                 console.log(`Creating new genre details for foundation ID: ${foundationId}`);
                 await storage.createGenreDetails({
@@ -1283,18 +1309,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           
           // Return a response that completes the genre stage and includes the world-building question
-          return res.json({
-            mainGenre: genreName, // Required field
-            name: genreName,
-            description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
-            themes: ["Identity", "Growth", "Challenge"],
-            tropes: ["Hero's Journey", "Coming of Age"],
-            commonSettings: ["Detailed World", "Rich Environment"],
-            typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
-            question: question, // Include the full question about world-building
-            suggestions: extractSuggestionsFromQuestion(question),
-            threadId
-          });
+          // If we have existing genre details, use them in the response
+          if (existingGenreDetails) {
+            // Return the existing details plus the world-building question
+            return res.json({
+              ...existingGenreDetails,
+              // Make sure required fields are present
+              mainGenre: existingGenreDetails.mainGenre || genreName,
+              name: existingGenreDetails.name || genreName,
+              // Add the world-building question and suggestions
+              question: question,
+              suggestions: extractSuggestionsFromQuestion(question),
+              threadId: existingGenreDetails.threadId || threadId
+            });
+          } else {
+            // No existing details, use default values
+            return res.json({
+              mainGenre: genreName, // Required field
+              name: genreName,
+              description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
+              themes: ["Identity", "Growth", "Challenge"],
+              tropes: ["Hero's Journey", "Coming of Age"],
+              commonSettings: ["Detailed World", "Rich Environment"],
+              typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
+              question: question, // Include the full question about world-building
+              suggestions: extractSuggestionsFromQuestion(question),
+              threadId
+            });
+          }
         }
         
         // Use intelligent suggestion extraction to generate dynamic options based on the question
@@ -1429,12 +1471,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             };
             
             // First, check if genre details already exist for this foundation
-            const existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            const existingDetails = await storage.getGenreDetailsByFoundation(foundationId);
             
-            if (existingGenreDetails) {
+            if (existingDetails) {
               // Update existing genre details
-              console.log(`Updating existing genre details ID: ${existingGenreDetails.id} during CONVERSATION_IN_PROGRESS`);
-              await storage.updateGenreDetails(existingGenreDetails.id, {
+              console.log(`Updating existing genre details ID: ${existingDetails.id} during CONVERSATION_IN_PROGRESS`);
+              await storage.updateGenreDetails(existingDetails.id, {
                 ...partialGenreData,
                 foundationId: foundationId
               });
