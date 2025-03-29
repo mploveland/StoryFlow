@@ -142,25 +142,25 @@ const CharacterDetailsPage: React.FC = () => {
     enabled: !!foundationId,
   });
   
-  // Query character if not creating
+  // Query combined character and character details if not creating
   const {
-    data: character,
-    isLoading: isLoadingCharacter,
-    refetch: refetchCharacter
-  } = useQuery<Character>({
-    queryKey: [`/api/characters/${characterId}`],
+    data: combinedCharacterData,
+    isLoading: isLoadingCombinedData,
+    refetch: refetchCombinedData
+  } = useQuery<{ character: Character; characterDetails: CharacterDetails }>({
+    queryKey: [`/api/character-combined/${characterId}`],
     enabled: !!characterId && !isCreating,
   });
   
-  // Query character details if not creating
-  const {
-    data: characterDetails,
-    isLoading: isLoadingCharacterDetails,
-    refetch: refetchCharacterDetails
-  } = useQuery<CharacterDetails>({
-    queryKey: [`/api/character-details/${characterId}`],
-    enabled: !!characterId && !isCreating,
-  });
+  // Extract character and character details from the combined query
+  const character = combinedCharacterData?.character;
+  const characterDetails = combinedCharacterData?.characterDetails;
+  const isLoadingCharacter = isLoadingCombinedData;
+  const isLoadingCharacterDetails = isLoadingCombinedData;
+  
+  // Define refetch functions for backwards compatibility
+  const refetchCharacter = refetchCombinedData;
+  const refetchCharacterDetails = refetchCombinedData;
   
   // Query all characters for the foundation
   const {
