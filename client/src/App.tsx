@@ -23,9 +23,13 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       {/* Foundation-centric pages */}
       <Route path="/foundation-details" component={FoundationDetails} />
+      <Route path="/foundation/:id" component={FoundationDetails} />
       <Route path="/world-details" component={WorldDetails} />
+      <Route path="/world-details/:id" component={WorldDetails} />
       <Route path="/genre-details" component={GenreDetails} />
+      <Route path="/genre-details/:id" component={GenreDetails} />
       <Route path="/character-details" component={CharacterDetails} />
+      <Route path="/character-details/:id" component={CharacterDetails} />
       {/* Story creation and editing */}
       <Route path="/create-story" component={VoiceStoryCreation} />
       <Route path="/voice-story" component={VoiceStoryCreation} />
