@@ -618,26 +618,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // First, try to extract a specific genre mention from the user message
           // This approach prioritizes what the user explicitly says
-          const userMessageGenrePatterns = [
-            /I want a ([\w\s-]+) (story|novel|book|setting|world|foundation)/i,
-            /My genre is ([\w\s-]+)/i,
-            /I choose ([\w\s-]+)/i,
-            /Let's go with ([\w\s-]+)/i,
-            /I'd like ([\w\s-]+)/i,
-            /I'm interested in ([\w\s-]+)/i
+          
+          // Direct selection or mention check - check if the user directly mentioned a genre name
+          // This handles when user selects from suggestion buttons or types a specific genre
+          const genreKeywords = [
+            "Science Fiction", "Fantasy", "Mystery", "Romance", "Historical Fiction",
+            "Horror", "Thriller", "Adventure", "Dystopian", "Cyberpunk", 
+            "Western", "Comedy", "Drama", "Action", "Supernatural", "Crime",
+            "Sci-Fi", "Urban Fantasy", "Space Opera", "Magical Realism", "Steampunk"
           ];
           
+          // Initialize the flag for detected genre from user
           let foundUserGenre = false;
-          for (const pattern of userMessageGenrePatterns) {
-            const userGenreMatch = message.match(pattern);
-            if (userGenreMatch && userGenreMatch[1]) {
-              // Check if this is a recognized genre or a sentence fragment
-              const potentialGenre = userGenreMatch[1].trim();
-              if (potentialGenre.length < 30 && !potentialGenre.includes('that I should')) {
-                mainGenre = potentialGenre;
-                console.log(`[GENRE DEBUG] Extracted user-specified genre from message: "${mainGenre}"`);
-                foundUserGenre = true;
-                break;
+          
+          // First, check if the user's message directly contains any of our known genres
+          for (const genre of genreKeywords) {
+            if (message.toLowerCase().includes(genre.toLowerCase())) {
+              mainGenre = genre;  // Use the properly capitalized version
+              console.log(`[GENRE DEBUG] Found direct genre mention: "${mainGenre}"`);
+              foundUserGenre = true;
+              break;
+            }
+          }
+          
+          // If no direct match, try extracting with patterns
+          if (!foundUserGenre) {
+            const userMessageGenrePatterns = [
+              /I want a ([\w\s-]+) (story|novel|book|setting|world|foundation)/i,
+              /My genre is ([\w\s-]+)/i,
+              /I choose ([\w\s-]+)/i,
+              /Let's go with ([\w\s-]+)/i,
+              /I'd like ([\w\s-]+)/i,
+              /I'm interested in ([\w\s-]+)/i
+            ];
+            
+            for (const pattern of userMessageGenrePatterns) {
+              const userGenreMatch = message.match(pattern);
+              if (userGenreMatch && userGenreMatch[1]) {
+                // Check if this is a recognized genre or a sentence fragment
+                const potentialGenre = userGenreMatch[1].trim();
+                if (potentialGenre.length < 30 && !potentialGenre.includes('that I should')) {
+                  mainGenre = potentialGenre;
+                  console.log(`[GENRE DEBUG] Extracted user-specified genre from message: "${mainGenre}"`);
+                  foundUserGenre = true;
+                  break;
+                }
               }
             }
           }

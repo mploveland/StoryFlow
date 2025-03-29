@@ -510,13 +510,58 @@ export class DatabaseStorage implements IStorage {
     })}`);
     
     try {
-      // Ensure themes is an array if provided
-      if (insertGenreDetails.themes && !Array.isArray(insertGenreDetails.themes)) {
-        console.log(`[GENRE DB] Converting themes to array`);
-        insertGenreDetails.themes = [];
+      // Ensure all array fields are properly initialized
+      const genreData = { ...insertGenreDetails };
+      
+      // Handle themes array
+      if (!genreData.themes || !Array.isArray(genreData.themes)) {
+        console.log(`[GENRE DB] Initializing empty themes array`);
+        genreData.themes = [];
       }
       
-      const [details] = await db.insert(genreDetails).values(insertGenreDetails).returning();
+      // Handle other array fields
+      if (!genreData.tropes || !Array.isArray(genreData.tropes)) {
+        console.log(`[GENRE DB] Initializing empty tropes array`);
+        genreData.tropes = [];
+      }
+      
+      if (!genreData.commonSettings || !Array.isArray(genreData.commonSettings)) {
+        console.log(`[GENRE DB] Initializing empty commonSettings array`);
+        genreData.commonSettings = [];
+      }
+      
+      if (!genreData.typicalCharacters || !Array.isArray(genreData.typicalCharacters)) {
+        console.log(`[GENRE DB] Initializing empty typicalCharacters array`);
+        genreData.typicalCharacters = [];
+      }
+      
+      if (!genreData.plotStructures || !Array.isArray(genreData.plotStructures)) {
+        console.log(`[GENRE DB] Initializing empty plotStructures array`);
+        genreData.plotStructures = [];
+      }
+      
+      if (!genreData.recommendedReading || !Array.isArray(genreData.recommendedReading)) {
+        console.log(`[GENRE DB] Initializing empty recommendedReading array`);
+        genreData.recommendedReading = [];
+      }
+      
+      if (!genreData.popularExamples || !Array.isArray(genreData.popularExamples)) {
+        console.log(`[GENRE DB] Initializing empty popularExamples array`);
+        genreData.popularExamples = [];
+      }
+      
+      if (!genreData.worldbuildingElements || !Array.isArray(genreData.worldbuildingElements)) {
+        console.log(`[GENRE DB] Initializing empty worldbuildingElements array`);
+        genreData.worldbuildingElements = [];
+      }
+      
+      // Ensure we have a valid mainGenre string
+      if (!genreData.mainGenre || typeof genreData.mainGenre !== 'string' || genreData.mainGenre.trim() === '') {
+        console.log(`[GENRE DB] Setting default mainGenre`);
+        genreData.mainGenre = 'Custom Genre';
+      }
+      
+      const [details] = await db.insert(genreDetails).values(genreData).returning();
       console.log(`[GENRE DB] Successfully created genre details with ID ${details.id}`);
       return details;
     } catch (error) {
@@ -534,15 +579,65 @@ export class DatabaseStorage implements IStorage {
     })}`);
     
     try {
-      // Ensure themes is an array if provided
-      if (genreDetailsUpdate.themes && !Array.isArray(genreDetailsUpdate.themes)) {
+      // Create a safe copy of the update data
+      const safeUpdate = { ...genreDetailsUpdate };
+      
+      // Ensure all array fields that are being updated are properly initialized
+      // Handle themes array
+      if (safeUpdate.themes !== undefined && !Array.isArray(safeUpdate.themes)) {
         console.log(`[GENRE DB] Converting themes to array for update`);
-        genreDetailsUpdate.themes = [];
+        safeUpdate.themes = [];
       }
+      
+      // Handle other array fields if they're provided in the update
+      if (safeUpdate.tropes !== undefined && !Array.isArray(safeUpdate.tropes)) {
+        console.log(`[GENRE DB] Converting tropes to array for update`);
+        safeUpdate.tropes = [];
+      }
+      
+      if (safeUpdate.commonSettings !== undefined && !Array.isArray(safeUpdate.commonSettings)) {
+        console.log(`[GENRE DB] Converting commonSettings to array for update`);
+        safeUpdate.commonSettings = [];
+      }
+      
+      if (safeUpdate.typicalCharacters !== undefined && !Array.isArray(safeUpdate.typicalCharacters)) {
+        console.log(`[GENRE DB] Converting typicalCharacters to array for update`);
+        safeUpdate.typicalCharacters = [];
+      }
+      
+      if (safeUpdate.plotStructures !== undefined && !Array.isArray(safeUpdate.plotStructures)) {
+        console.log(`[GENRE DB] Converting plotStructures to array for update`);
+        safeUpdate.plotStructures = [];
+      }
+      
+      if (safeUpdate.recommendedReading !== undefined && !Array.isArray(safeUpdate.recommendedReading)) {
+        console.log(`[GENRE DB] Converting recommendedReading to array for update`);
+        safeUpdate.recommendedReading = [];
+      }
+      
+      if (safeUpdate.popularExamples !== undefined && !Array.isArray(safeUpdate.popularExamples)) {
+        console.log(`[GENRE DB] Converting popularExamples to array for update`);
+        safeUpdate.popularExamples = [];
+      }
+      
+      if (safeUpdate.worldbuildingElements !== undefined && !Array.isArray(safeUpdate.worldbuildingElements)) {
+        console.log(`[GENRE DB] Converting worldbuildingElements to array for update`);
+        safeUpdate.worldbuildingElements = [];
+      }
+      
+      // Ensure mainGenre is valid if it's being updated
+      if (safeUpdate.mainGenre !== undefined) {
+        if (!safeUpdate.mainGenre || typeof safeUpdate.mainGenre !== 'string' || safeUpdate.mainGenre.trim() === '') {
+          console.log(`[GENRE DB] Setting default mainGenre for update`);
+          safeUpdate.mainGenre = 'Custom Genre';
+        }
+      }
+      
+      // Set the current date (no direct property assignment since updatedAt might not be in type)
       
       const [details] = await db
         .update(genreDetails)
-        .set(genreDetailsUpdate)
+        .set(safeUpdate)
         .where(eq(genreDetails.id, id))
         .returning();
       
