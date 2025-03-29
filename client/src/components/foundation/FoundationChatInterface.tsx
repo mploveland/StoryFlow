@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
@@ -99,6 +99,45 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   // Get effective message handler (prefer sendMessage if provided)
   const messageHandler = sendMessage || onSendMessage;
   
+  // Unified function to fetch suggestions from the AI assistant
+  const fetchSuggestions = useCallback(async (userMessage: string, assistantReply: string) => {
+    console.log(`Fetching suggestions for conversation: User: "${userMessage.substring(0, 30)}..." -> AI: "${assistantReply.substring(0, 30)}..."`);
+    
+    try {
+      const response = await fetch('/api/ai/chat-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userMessage: userMessage,
+          assistantReply: assistantReply
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Error response from suggestions API: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+        console.log('Using AI-generated suggestions:', data.suggestions);
+        setSuggestions(data.suggestions);
+        setShowSuggestions(true);
+        return data.suggestions;
+      } else {
+        console.warn('No valid suggestions returned from AI assistant');
+        // Don't hide existing suggestions
+        return [];
+      }
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      // Don't hide existing suggestions
+      return [];
+    }
+  }, []);
+  
   // Load saved messages from the server
   const loadMessages = async (foundationId: number) => {
     try {
@@ -134,32 +173,13 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         const lastUserMessage = messagesReversed.find(msg => msg.role === 'user');
         
         if (lastAssistantMessage) {
-          // Generate suggestions from the AI using the chat-suggestions API
-          fetch('/api/ai/chat-suggestions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userMessage: lastUserMessage?.content || 'Hello',
-              assistantReply: lastAssistantMessage.content
-            }),
-          })
-          .then(response => response.json())
-          .then(data => {
-            console.log('Chat suggestions API response for loaded messages:', data);
-            if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
-              console.log('Using AI-generated suggestions for loaded messages:', data.suggestions);
-              setSuggestions(data.suggestions);
-              setShowSuggestions(true);
-            } else {
-              console.warn('No valid suggestions returned from API for loaded messages');
-              // Don't hide suggestions if none returned - they may appear later
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching suggestions for loaded messages:', error);
-            // Don't hide suggestions on error - they may appear later
+          // Use our unified function to fetch suggestions
+          console.log('Fetching suggestions for loaded messages...');
+          fetchSuggestions(
+            lastUserMessage?.content || 'Hello',
+            lastAssistantMessage.content
+          ).catch(error => {
+            console.error('Failed to fetch suggestions for loaded messages:', error);
           });
         }
         return true;
@@ -289,34 +309,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             saveMessage(foundation.id, 'assistant', welcomeMessage.content);
           }
           
-          // Get initial foundation suggestions from the chat-suggestions API
-          // Initial fetch is async and will populate when ready
-          fetch('/api/ai/chat-suggestions', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              userMessage: 'Hello', // Initial message needs to be non-empty for API validation
-              assistantReply: welcomeMessage.content
-            }),
-          })
-            .then(response => response.json())
-            .then(data => {
-              console.log('Initial suggestions API response:', data);
-              if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
-                console.log('Using AI-generated initial chat suggestions:', data.suggestions);
-                setSuggestions(data.suggestions);
-                setShowSuggestions(true);
-              } else {
-                console.warn('No valid suggestions returned from API for initial load');
-                // Do not add fallback suggestions - rely solely on the StoryFlow_ChatResponseSuggestions assistant
-              }
-            })
-            .catch(error => {
-              console.error('Error fetching initial suggestions:', error);
-              // No hardcoded fallback suggestions - we only want to use suggestions from the AI assistant
-            });
+          // Get initial foundation suggestions using the unified function
+          console.log('Fetching suggestions for welcome message...');
+          fetchSuggestions(
+            'Hello', // Initial message needs to be non-empty for API validation
+            welcomeMessage.content
+          ).catch(error => {
+            console.error('Failed to fetch suggestions for welcome message:', error);
+          });
         }
       });
     } else if (title && initialMessages && initialMessages.length > 0) {
@@ -332,36 +332,20 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       // If initialMessages exist but we still want suggestions, use the last message
       const lastMessage = initialMessages[initialMessages.length - 1];
       if (lastMessage.sender === 'ai') {
-        fetch('/api/ai/chat-suggestions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userMessage: initialMessages.length > 1 ? 
-              initialMessages[initialMessages.length - 2].content : 'Hello',
-            assistantReply: lastMessage.content
-          }),
-        })
-        .then(response => response.json())
-        .then(data => {
-          console.log('Chat suggestions API response for initialMessages:', data);
-          if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
-            console.log('Using AI-generated suggestions for initialMessages:', data.suggestions);
-            setSuggestions(data.suggestions);
-            setShowSuggestions(true);
-          } else {
-            console.warn('No valid suggestions returned from API for initialMessages');
-            // Don't hide suggestions if none returned - they may appear later
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching suggestions for initialMessages:', error);
-          // Don't hide suggestions on error - they may appear later
+        // Use our unified function to fetch suggestions
+        console.log('Fetching suggestions for initialMessages...');
+        
+        fetchSuggestions(
+          initialMessages.length > 1 
+            ? initialMessages[initialMessages.length - 2].content 
+            : 'Hello',
+          lastMessage.content
+        ).catch(error => {
+          console.error('Failed to fetch suggestions for initialMessages:', error);
         });
       }
     }
-  }, [foundation, initialMessages, title]);
+  }, [foundation, initialMessages, title, fetchSuggestions]);
   
   // Update input value with transcript when speech recognition is active
   useEffect(() => {
@@ -448,36 +432,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         setThreadId(response.threadId);
       }
       
-      // Get intelligent suggestions using our new API endpoint
-      try {
-        // Use the new chat suggestions endpoint which uses OpenAI Assistant
-        const suggestionsResponse = await fetch('/api/ai/chat-suggestions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userMessage: userMessage.content,
-            assistantReply: response.content
-          }),
-        });
-        
-        if (suggestionsResponse.ok) {
-          const data = await suggestionsResponse.json();
-          if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
-            console.log('Using AI-generated chat suggestions:', data.suggestions);
-            setSuggestions(data.suggestions);
-            setShowSuggestions(true);
-          } 
-          // No hardcoded fallback - we'll rely completely on the AI suggestions
-        } else {
-          console.error('Error response from suggestions API');
-          // No fallback - we'll try again next time
-        }
-      } catch (suggestionError) {
-        console.error('Error fetching intelligent suggestions:', suggestionError);
-        // No fallback - we want all suggestions to come from the AI
-      }
+      // Get intelligent suggestions using our unified function
+      console.log('Fetching suggestions after sending message...');
+      fetchSuggestions(
+        userMessage.content,
+        response.content
+      ).catch(error => {
+        console.error('Failed to fetch suggestions after sending message:', error);
+      });
     } catch (error) {
       console.error('Error processing message:', error);
       // Add error message
