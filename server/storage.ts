@@ -465,20 +465,30 @@ export class DatabaseStorage implements IStorage {
     return details;
   }
   
-  // Environment details operations (kept for backward compatibility - redirects to world details)
+  // Environment details operations (now using separate environment_details table)
   async getEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails | undefined> {
-    // Same table due to environmentDetails = worldDetails in schema
-    return this.getWorldDetailsByFoundation(foundationId);
+    const [details] = await db
+      .select()
+      .from(environmentDetails)
+      .where(eq(environmentDetails.foundationId, foundationId));
+    return details;
   }
   
   async createEnvironmentDetails(insertEnvironmentDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails> {
-    // Same table due to environmentDetails = worldDetails in schema
-    return this.createWorldDetails(insertEnvironmentDetails as unknown as InsertWorldDetails);
+    const [details] = await db
+      .insert(environmentDetails)
+      .values(insertEnvironmentDetails)
+      .returning();
+    return details;
   }
   
   async updateEnvironmentDetails(id: number, environmentDetailsUpdate: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined> {
-    // Same table due to environmentDetails = worldDetails in schema
-    return this.updateWorldDetails(id, environmentDetailsUpdate as unknown as Partial<InsertWorldDetails>);
+    const [details] = await db
+      .update(environmentDetails)
+      .set({ ...environmentDetailsUpdate, updatedAt: new Date() })
+      .where(eq(environmentDetails.id, id))
+      .returning();
+    return details;
   }
   
   // Narrative vector operations
@@ -538,9 +548,9 @@ export class DatabaseStorage implements IStorage {
     return this.deleteFoundation(id);
   }
   
-  // World details legacy operations - redirect to environment details
-  async getWorldDetailsByWorld(worldId: number): Promise<EnvironmentDetails | undefined> {
-    return this.getEnvironmentDetailsByFoundation(worldId);
+  // World details legacy operations - redirect to world details
+  async getWorldDetailsByWorld(worldId: number): Promise<WorldDetails | undefined> {
+    return this.getWorldDetailsByFoundation(worldId);
   }
   
   // Character operations with world ID - redirect to foundation ID

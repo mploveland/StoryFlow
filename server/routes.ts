@@ -20,7 +20,7 @@ import {
   analyzeTextSentiment,
   generateInteractiveStoryResponse
 } from "./ai";
-import { createDetailedCharacter, createGenreDetails, createWorldDetails, extractSuggestionsFromQuestion, generateChatSuggestions, getAppropriateAssistant, waitForRunCompletion } from "./assistants";
+import { createDetailedCharacter, createGenreDetails, createWorldDetails, createEnvironmentDetails, extractSuggestionsFromQuestion, generateChatSuggestions, getAppropriateAssistant, waitForRunCompletion } from "./assistants";
 import OpenAI from "openai";
 
 import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";

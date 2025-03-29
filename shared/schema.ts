@@ -547,9 +547,64 @@ export const worldDetailsRelations = relations(worldDetails, ({ one }) => ({
   }),
 }));
 
-// Environment details (kept for backward compatibility, redirects to world_details)
-export const environmentDetails = worldDetails;
-export const insertEnvironmentDetailsSchema = insertWorldDetailsSchema;
+// Environment details - separate from world_details
+export const environmentDetails = pgTable("environment_details", {
+  id: serial("id").primaryKey(),
+  foundationId: integer("foundation_id").notNull().references(() => foundations.id),
+  environment_name: text("environment_name").notNull(),
+  narrative_significance: text("narrative_significance"),
+  geography: text("geography"),
+  architecture: text("architecture"),
+  climate_weather: text("climate_weather"),
+  sensory_atmosphere: text("sensory_atmosphere"),
+  cultural_influence: text("cultural_influence"),
+  societal_norms: text("societal_norms"),
+  historical_relevance: text("historical_relevance"),
+  economic_significance: text("economic_significance"),
+  speculative_features: text("speculative_features"),
+  associated_characters_factions: text("associated_characters_factions"),
+  inspirations_references: text("inspirations_references"),
+  // References to other tables in our schema (modified from the original request)
+  worldDetailsId: integer("world_details_id").references(() => worldDetails.id, { onDelete: 'set null' }),
+  genreDetailsId: integer("genre_details_id").references(() => genreDetails.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertEnvironmentDetailsSchema = createInsertSchema(environmentDetails).pick({
+  foundationId: true,
+  environment_name: true,
+  narrative_significance: true,
+  geography: true,
+  architecture: true,
+  climate_weather: true,
+  sensory_atmosphere: true,
+  cultural_influence: true,
+  societal_norms: true,
+  historical_relevance: true,
+  economic_significance: true,
+  speculative_features: true,
+  associated_characters_factions: true,
+  inspirations_references: true,
+  worldDetailsId: true,
+  genreDetailsId: true,
+});
+
+// Relations for environment details
+export const environmentDetailsRelations = relations(environmentDetails, ({ one }) => ({
+  foundation: one(foundations, {
+    fields: [environmentDetails.foundationId],
+    references: [foundations.id],
+  }),
+  worldDetails: one(worldDetails, {
+    fields: [environmentDetails.worldDetailsId],
+    references: [worldDetails.id],
+  }),
+  genreDetails: one(genreDetails, {
+    fields: [environmentDetails.genreDetailsId],
+    references: [genreDetails.id],
+  }),
+}));
 
 // Narrative vector store for semantic search
 export const narrativeVectors = pgTable("narrative_vectors", {
@@ -631,9 +686,9 @@ export type InsertGenreDetails = z.infer<typeof insertGenreDetailsSchema>;
 export type WorldDetails = typeof worldDetails.$inferSelect;
 export type InsertWorldDetails = z.infer<typeof insertWorldDetailsSchema>;
 
-// For backward compatibility
-export type EnvironmentDetails = WorldDetails;
-export type InsertEnvironmentDetails = InsertWorldDetails;
+// Environment details types
+export type EnvironmentDetails = typeof environmentDetails.$inferSelect;
+export type InsertEnvironmentDetails = z.infer<typeof insertEnvironmentDetailsSchema>;
 
 export type NarrativeVector = typeof narrativeVectors.$inferSelect;
 export type InsertNarrativeVector = z.infer<typeof insertNarrativeVectorSchema>;

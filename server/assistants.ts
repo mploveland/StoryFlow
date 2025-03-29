@@ -13,6 +13,8 @@ const GENRE_CREATOR_ASSISTANT_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
 const WORLD_BUILDER_ASSISTANT_ID = "asst_1uR8DP6BZB3CdrUDm6Me7vHA";
 // The assistant's name is StoryFlow_ChatResponseSuggestions
 const CHAT_SUGGESTIONS_ASSISTANT_ID = "asst_qRnUXdtrdWBC5Zb5DOU1o5bO";
+// The assistant's name is StoryFlow_EnvironmentGenerator
+const ENVIRONMENT_GENERATOR_ASSISTANT_ID = "asst_EezatLBvY8BhCC20fztog1RF";
 
 /**
  * Helper function to extract pattern matches from text with safety checks
@@ -26,13 +28,25 @@ function extractStringPattern(text: string, regex: RegExp, contextLength = 100):
   const match = text.match(regex);
   if (!match || typeof match.index !== 'number') return '';
   
-  const start = match.index;
-  const end = Math.min(start + contextLength, text.length);
-  const extracted = text.substring(start, end);
+  // If we have a capture group, use that, otherwise use the whole match
+  const capturedText = match[1] ? match[1].trim() : match[0].trim();
+  return capturedText;
+}
+
+/**
+ * Helper function to extract a list of phrases from a text using a regex pattern
+ * 
+ * @param text The text to search in
+ * @param regex The regex pattern to match
+ * @returns An array of extracted phrases
+ */
+function extractPhraseList(text: string, regex: RegExp): string[] {
+  const match = text.match(regex);
+  if (!match || !match[1]) return [];
   
-  // Get the first sentence or the whole extract if no period found
-  const firstSentence = extracted.split('.')[0];
-  return firstSentence;
+  return match[1].split(/[,;.]/)
+    .map(item => item.trim())
+    .filter(item => item.length > 0);
 }
 
 /**
@@ -40,9 +54,9 @@ function extractStringPattern(text: string, regex: RegExp, contextLength = 100):
  * This is used to dynamically switch between assistants based on the content
  * 
  * @param message The user's message to analyze
- * @returns The detected context type ('character', 'world', 'genre', or null)
+ * @returns The detected context type ('character', 'world', 'genre', 'environment', or null)
  */
-export function detectConversationContext(message: string): 'character' | 'world' | 'genre' | null {
+export function detectConversationContext(message: string): 'character' | 'world' | 'genre' | 'environment' | null {
   const cleanedMessage = message.toLowerCase();
   
   // Character-related keywords
@@ -57,13 +71,23 @@ export function detectConversationContext(message: string): 'character' | 'world
   
   // World-related keywords
   const worldKeywords = [
-    'world', 'environment', 'setting', 'geography', 'location', 'landscape',
-    'city', 'town', 'village', 'kingdom', 'empire', 'country', 'nation',
+    'world', 'geography', 'landscape',
+    'kingdom', 'empire', 'country', 'nation',
     'continent', 'ocean', 'sea', 'mountain', 'river', 'forest', 'desert',
     'climate', 'weather', 'region', 'territory', 'area', 'map', 'realm',
     'politics', 'government', 'ruler', 'law', 'society', 'culture',
     'religion', 'economy', 'trade', 'technology', 'history', 'civilization',
     'race', 'species', 'language', 'magic', 'system', 'planet'
+  ];
+  
+  // Environment-related keywords - specific locations within a world
+  const environmentKeywords = [
+    'environment', 'setting', 'location', 'place', 'scene', 'venue',
+    'city', 'town', 'village', 'castle', 'palace', 'fortress', 'temple',
+    'tavern', 'inn', 'house', 'mansion', 'cave', 'dungeon', 'forest',
+    'building', 'street', 'alley', 'square', 'market', 'shop', 'store',
+    'harbor', 'port', 'dock', 'beach', 'coast', 'bay', 'river', 'lake',
+    'interior', 'room', 'hall', 'chamber', 'corridor', 'library', 'laboratory'
   ];
   
   // Genre-related keywords
@@ -79,6 +103,7 @@ export function detectConversationContext(message: string): 'character' | 'world
   // Count occurrences of keywords in each category
   let characterScore = 0;
   let worldScore = 0;
+  let environmentScore = 0;
   let genreScore = 0;
   
   // Check character keywords
@@ -92,6 +117,13 @@ export function detectConversationContext(message: string): 'character' | 'world
   for (const keyword of worldKeywords) {
     if (cleanedMessage.includes(keyword)) {
       worldScore += 1;
+    }
+  }
+  
+  // Check environment keywords
+  for (const keyword of environmentKeywords) {
+    if (cleanedMessage.includes(keyword)) {
+      environmentScore += 1;
     }
   }
   
@@ -112,9 +144,16 @@ export function detectConversationContext(message: string): 'character' | 'world
   
   if (cleanedMessage.includes('world building') || 
       cleanedMessage.includes('build a world') ||
-      cleanedMessage.includes('world design') ||
-      cleanedMessage.includes('story setting')) {
+      cleanedMessage.includes('world design')) {
     worldScore += 3;
+  }
+  
+  if (cleanedMessage.includes('story setting') || 
+      cleanedMessage.includes('specific location') ||
+      cleanedMessage.includes('environment design') ||
+      cleanedMessage.includes('location details') ||
+      cleanedMessage.includes('where the story takes place')) {
+    environmentScore += 3;
   }
   
   if (cleanedMessage.includes('genre conventions') || 
@@ -125,12 +164,13 @@ export function detectConversationContext(message: string): 'character' | 'world
   }
   
   // Determine the highest score
-  const highestScore = Math.max(characterScore, worldScore, genreScore);
+  const highestScore = Math.max(characterScore, worldScore, environmentScore, genreScore);
   
   // Return the context type with the highest score, if it's significant enough
   if (highestScore > 1) {
     if (characterScore === highestScore) return 'character';
     if (worldScore === highestScore) return 'world';
+    if (environmentScore === highestScore) return 'environment';
     if (genreScore === highestScore) return 'genre';
   }
   
@@ -557,6 +597,22 @@ export interface WorldCreationInput {
   previousMessages?: { role: 'user' | 'assistant', content: string }[];
 }
 
+// Interface for environment creation input
+export interface EnvironmentCreationInput {
+  worldContext?: string;     // The world context this environment exists within
+  name?: string;             // Name of the specific location
+  locationType?: string;     // Type of location (city, forest, castle, etc.)
+  purpose?: string;          // Purpose of this location in the story
+  atmosphere?: string;       // The mood or atmosphere of the location  
+  inhabitants?: string;      // Who lives there or frequents the location
+  dangers?: string;          // Potential dangers or threats in this environment
+  secrets?: string;          // Hidden aspects or secrets of the location
+  additionalInfo?: string;   // Any additional environment details
+  // For continuing an existing conversation
+  threadId?: string;
+  previousMessages?: { role: 'user' | 'assistant', content: string }[];
+}
+
 // Interface for a complete world profile
 export interface WorldDetails {
   name: string;              // Name of the world/setting
@@ -594,6 +650,57 @@ export interface WorldDetails {
     rules: string;
     limitations: string;
     practitioners: string;
+  };
+}
+
+// Interface for a complete environment profile
+export interface EnvironmentDetails {
+  name: string;                   // Name of the specific location
+  description: string;            // General description
+  locationType: string;           // Type of location (city, dungeon, forest, etc.)
+  worldContext: string;           // How this location fits into the broader world
+  physicalAttributes: {
+    size: string;                 // Size/scale of the location
+    terrain: string;              // Terrain and physical features
+    climate: string;              // Local climate conditions
+    flora: string[];              // Notable plant life
+    fauna: string[];              // Notable animal life
+  };
+  structuralFeatures: string[];   // Notable structural features
+  sensoryDetails: {
+    sights: string[];             // Visual details
+    sounds: string[];             // Auditory elements
+    smells: string[];             // Olfactory elements
+    textures: string[];           // Tactile elements
+  };
+  inhabitants: {
+    residents: string[];          // Who lives here
+    visitors: string[];           // Who visits here
+    controllingFaction: string;   // Who controls this place
+  };
+  culture: {
+    traditions: string[];         // Local traditions
+    laws: string[];               // Local rules and laws
+    attitudes: string;            // General attitudes of place
+  };
+  history: {
+    origin: string;               // How the place came to be
+    significantEvents: string[];  // Important historical events
+    secrets: string[];            // Hidden or forgotten aspects
+  };
+  currentState: {
+    condition: string;            // Current physical condition
+    atmosphere: string;           // Current mood/atmosphere
+    conflicts: string[];          // Current tensions or conflicts
+  };
+  storyRelevance: {
+    purpose: string;              // Purpose in the narrative
+    challenges: string[];         // Obstacles or challenges presented
+    rewards: string[];            // Potential rewards or discoveries
+  };
+  connections: {
+    linkedLocations: string[];    // Connections to other locations
+    accessPoints: string[];       // Ways to enter/exit
   };
 }
 
@@ -1229,6 +1336,266 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
 }
 
 /**
+ * Creates a thread with the Environment Generator assistant and gets detailed environment information
+ * @param environmentInput Basic information about the desired environment
+ * @returns A detailed environment profile with thread ID for continued conversation
+ */
+export async function createEnvironmentDetails(environmentInput: EnvironmentCreationInput): Promise<EnvironmentDetails & { threadId: string }> {
+  try {
+    let thread;
+    let isNewThread = false;
+    
+    // Check if we're continuing an existing conversation
+    if (environmentInput.threadId) {
+      console.log(`Continuing environment creation conversation in existing thread: ${environmentInput.threadId}`);
+      try {
+        // Verify the thread exists by retrieving its messages
+        const existingMessages = await openai.beta.threads.messages.list(environmentInput.threadId);
+        thread = { id: environmentInput.threadId };
+        console.log(`Found existing environment thread with ${existingMessages.data.length} messages`);
+      } catch (error) {
+        console.error(`Error accessing environment thread ${environmentInput.threadId}:`, error);
+        // If there's an error accessing the thread, create a new one
+        thread = await openai.beta.threads.create();
+        isNewThread = true;
+        console.log(`Created new environment thread: ${thread.id}`);
+      }
+    } else {
+      // Create a new thread
+      thread = await openai.beta.threads.create();
+      isNewThread = true;
+      console.log(`Created new environment thread: ${thread.id}`);
+    }
+    
+    // Prepare the prompt from the input
+    let promptContent;
+    
+    if (isNewThread) {
+      promptContent = "Create a detailed story environment with the following information:\n\n";
+      
+      if (environmentInput.worldContext) {
+        promptContent += `World Context: ${environmentInput.worldContext}\n`;
+      }
+      
+      if (environmentInput.name) {
+        promptContent += `Location Name: ${environmentInput.name}\n`;
+      }
+      
+      if (environmentInput.locationType) {
+        promptContent += `Location Type: ${environmentInput.locationType}\n`;
+      }
+      
+      if (environmentInput.purpose) {
+        promptContent += `Purpose in Story: ${environmentInput.purpose}\n`;
+      }
+      
+      if (environmentInput.atmosphere) {
+        promptContent += `Desired Atmosphere: ${environmentInput.atmosphere}\n`;
+      }
+      
+      if (environmentInput.inhabitants) {
+        promptContent += `Inhabitants: ${environmentInput.inhabitants}\n`;
+      }
+      
+      if (environmentInput.dangers) {
+        promptContent += `Dangers/Threats: ${environmentInput.dangers}\n`;
+      }
+      
+      if (environmentInput.secrets) {
+        promptContent += `Hidden Aspects/Secrets: ${environmentInput.secrets}\n`;
+      }
+      
+      if (environmentInput.additionalInfo) {
+        promptContent += `Additional Information: ${environmentInput.additionalInfo}\n`;
+      }
+      
+      promptContent += "\nPlease create a richly detailed environment description. Format the response with clear section headings and include sensory details that bring this location to life. Also suggest how this environment might evolve or change throughout a story.";
+    } else {
+      // For continuing conversations, just pass along the message
+      promptContent = environmentInput.additionalInfo || "Tell me more about this environment.";
+    }
+    
+    // Add the message to the thread
+    await openai.beta.threads.messages.create(thread.id, {
+      role: "user",
+      content: promptContent,
+    });
+    
+    // Run the assistant on the thread
+    const run = await openai.beta.threads.runs.create(thread.id, {
+      assistant_id: ENVIRONMENT_GENERATOR_ASSISTANT_ID,
+    });
+    
+    // Wait for the run to complete
+    let completedRun = await waitForRunCompletion(thread.id, run.id);
+    
+    if (completedRun.status !== "completed") {
+      throw new Error(`Environment generation run ended with status: ${completedRun.status}`);
+    }
+    
+    // Retrieve the assistant's messages
+    const messages = await openai.beta.threads.messages.list(thread.id);
+    
+    // Get the latest assistant message
+    const assistantMessages = messages.data.filter(msg => msg.role === "assistant");
+    
+    if (assistantMessages.length === 0) {
+      throw new Error("No response from Environment Generator assistant");
+    }
+    
+    // Extract the environment data
+    const latestMessage = assistantMessages[0];
+    const textContent = latestMessage.content.find(content => content.type === "text");
+    
+    if (!textContent || textContent.type !== "text") {
+      throw new Error("Response does not contain text");
+    }
+    
+    const responseText = textContent.text.value;
+    console.log("Received environment description, length:", responseText.length);
+    
+    // Try to extract structured information from the response
+    // Since the response is likely in prose format, we'll use regexes to extract information
+    
+    // Extract the name (if not provided, look for it in the response)
+    const nameLine = environmentInput.name || extractStringPattern(responseText, /(?:^|\n)(?:Name|Location|Place|Setting):\s*([^\n]+)/i);
+    const name = nameLine || "Unnamed Location";
+    
+    // Extract the description
+    const descriptionMatch = responseText.match(/(?:^|\n)(?:Description|Overview|Summary):\s*([^\n]+(?:\n[^\n]+)*)/i);
+    const description = descriptionMatch ? descriptionMatch[1].trim() : responseText.split('\n').slice(0, 3).join(' ').trim();
+    
+    // Extract the location type
+    const locationTypeMatch = responseText.match(/(?:^|\n)(?:Type|Location Type|Environment Type):\s*([^\n]+)/i);
+    const locationType = locationTypeMatch ? locationTypeMatch[1].trim() : environmentInput.locationType || "Mixed Environment";
+    
+    // Extract structural features
+    const structuralFeaturesMatch = responseText.match(/(?:^|\n)(?:Features|Structures|Landmarks|Notable Features):\s*([^\n]+(?:\n[^\n]+)*)/i);
+    const structuralFeaturesText = structuralFeaturesMatch ? structuralFeaturesMatch[1].trim() : "";
+    const structuralFeatures = structuralFeaturesText.split(/[,;.]/).filter(item => item.trim().length > 0).map(item => item.trim());
+    
+    // Extract the world context
+    const worldContextMatch = responseText.match(/(?:^|\n)(?:World Context|In the World|Relation to World):\s*([^\n]+(?:\n[^\n]+)*)/i);
+    const worldContext = worldContextMatch ? worldContextMatch[1].trim() : environmentInput.worldContext || "Part of the broader setting";
+    
+    // Process the detailed environment
+    const environment: EnvironmentDetails = {
+      name,
+      description,
+      locationType,
+      worldContext,
+      physicalAttributes: {
+        size: extractStringPattern(responseText, /(?:size|scale|dimensions):\s*([^\n.,;]+)/i) || "Medium",
+        terrain: extractStringPattern(responseText, /(?:terrain|ground|landscape|surface):\s*([^\n.,;]+)/i) || "Varied",
+        climate: extractStringPattern(responseText, /(?:climate|weather|temperature):\s*([^\n.,;]+)/i) || "Temperate",
+        flora: extractPhraseList(responseText, /(?:flora|plants|vegetation):\s*([^\n]+)/i),
+        fauna: extractPhraseList(responseText, /(?:fauna|animals|wildlife|creatures):\s*([^\n]+)/i),
+      },
+      structuralFeatures,
+      sensoryDetails: {
+        sights: extractPhraseList(responseText, /(?:sights|visuals|can see|visible):\s*([^\n]+)/i),
+        sounds: extractPhraseList(responseText, /(?:sounds|audio|can hear|audible):\s*([^\n]+)/i),
+        smells: extractPhraseList(responseText, /(?:smells|scents|odors|can smell):\s*([^\n]+)/i),
+        textures: extractPhraseList(responseText, /(?:textures|tactile|feel|touch):\s*([^\n]+)/i),
+      },
+      inhabitants: {
+        residents: extractPhraseList(responseText, /(?:residents|inhabitants|populace|people|who lives):\s*([^\n]+)/i),
+        visitors: extractPhraseList(responseText, /(?:visitors|travelers|guests|tourists):\s*([^\n]+)/i),
+        controllingFaction: extractStringPattern(responseText, /(?:control|ruled by|governed by|leader|faction):\s*([^\n.,;]+)/i) || "Unknown",
+      },
+      culture: {
+        traditions: extractPhraseList(responseText, /(?:traditions|customs|rituals|practices):\s*([^\n]+)/i),
+        laws: extractPhraseList(responseText, /(?:laws|rules|regulations|code):\s*([^\n]+)/i),
+        attitudes: extractStringPattern(responseText, /(?:attitudes|mindset|outlook|disposition):\s*([^\n.,;]+)/i) || "Neutral",
+      },
+      history: {
+        origin: extractStringPattern(responseText, /(?:origin|history|background|founded):\s*([^\n.,;]+)/i) || "Unknown origins",
+        significantEvents: extractPhraseList(responseText, /(?:events|happened|significant|notable|history):\s*([^\n]+)/i),
+        secrets: extractPhraseList(responseText, /(?:secrets|hidden|unknown|mystery|mysteries):\s*([^\n]+)/i),
+      },
+      currentState: {
+        condition: extractStringPattern(responseText, /(?:condition|state|status|current):\s*([^\n.,;]+)/i) || "Stable",
+        atmosphere: environmentInput.atmosphere || extractStringPattern(responseText, /(?:atmosphere|mood|feeling|ambiance):\s*([^\n.,;]+)/i) || "Neutral",
+        conflicts: extractPhraseList(responseText, /(?:conflicts|tensions|problems|issues|dangers):\s*([^\n]+)/i),
+      },
+      storyRelevance: {
+        purpose: environmentInput.purpose || extractStringPattern(responseText, /(?:purpose|role|function|significance):\s*([^\n.,;]+)/i) || "Setting for story events",
+        challenges: extractPhraseList(responseText, /(?:challenges|obstacles|difficulties|problems):\s*([^\n]+)/i),
+        rewards: extractPhraseList(responseText, /(?:rewards|treasures|benefits|gains|advantages):\s*([^\n]+)/i),
+      },
+      connections: {
+        linkedLocations: extractPhraseList(responseText, /(?:connected to|linked to|leads to|nearby|adjoining):\s*([^\n]+)/i),
+        accessPoints: extractPhraseList(responseText, /(?:access|entrances|exits|ways in|ways out):\s*([^\n]+)/i),
+      },
+    };
+    
+    // Return the environment details with thread ID for continued conversation
+    return {
+      ...environment,
+      threadId: thread.id
+    };
+  } catch (error) {
+    console.error("Error creating detailed environment:", error);
+    
+    // Create a fallback basic environment if something goes wrong
+    const fallbackThreadId = typeof environmentInput.threadId === 'string' 
+      ? environmentInput.threadId 
+      : 'fallback-thread-id';
+      
+    return {
+      name: environmentInput.name || "Unnamed Location",
+      description: "A mysterious location waiting to be explored.",
+      locationType: environmentInput.locationType || "Generic Environment",
+      worldContext: environmentInput.worldContext || "Part of the story world",
+      physicalAttributes: {
+        size: "Medium",
+        terrain: "Mixed",
+        climate: "Temperate",
+        flora: ["Local vegetation"],
+        fauna: ["Local wildlife"],
+      },
+      structuralFeatures: ["Notable landmarks"],
+      sensoryDetails: {
+        sights: ["Visual elements"],
+        sounds: ["Ambient sounds"],
+        smells: ["Environmental scents"],
+        textures: ["Tactile surfaces"],
+      },
+      inhabitants: {
+        residents: ["Local inhabitants"],
+        visitors: ["Occasional visitors"],
+        controllingFaction: "Local authority",
+      },
+      culture: {
+        traditions: ["Local customs"],
+        laws: ["Established rules"],
+        attitudes: "Determined by story context",
+      },
+      history: {
+        origin: "Established long ago",
+        significantEvents: ["Historical moments"],
+        secrets: ["Hidden history"],
+      },
+      currentState: {
+        condition: "Stable",
+        atmosphere: environmentInput.atmosphere || "Neutral",
+        conflicts: ["Potential tensions"],
+      },
+      storyRelevance: {
+        purpose: environmentInput.purpose || "Setting for story events",
+        challenges: ["Obstacles to overcome"],
+        rewards: ["Discoveries to be made"],
+      },
+      connections: {
+        linkedLocations: ["Connected areas"],
+        accessPoints: ["Ways in and out"],
+      },
+      threadId: fallbackThreadId
+    };
+  }
+}
+
+/**
  * Creates a thread with the World Builder assistant and gets detailed world information
  * @param worldInput Basic information about the desired world
  * @returns A detailed world profile with thread ID for continued conversation
@@ -1688,18 +2055,18 @@ export async function generateChatSuggestions(
  */
 export async function getAppropriateAssistant(
   message: string, 
-  currentAssistantType: 'genre' | 'world' | 'character' | null = null,
+  currentAssistantType: 'genre' | 'world' | 'character' | 'environment' | null = null,
   foundationId?: number
 ): Promise<{
   assistantId: string;
-  contextType: 'genre' | 'world' | 'character';
+  contextType: 'genre' | 'world' | 'character' | 'environment';
 }> {
   // Detect the conversation context from the message
   const detectedContext = detectConversationContext(message);
   console.log(`Context detection for message: "${message.substring(0, 50)}..." detected: ${detectedContext}`);
   
   // If we have a foundation ID, check the foundation's stage to provide context
-  let foundationStage: 'genre' | 'world' | 'character' | null = null;
+  let foundationStage: 'genre' | 'world' | 'character' | 'environment' | null = null;
   
   if (foundationId) {
     try {
@@ -1727,6 +2094,11 @@ export async function getAppropriateAssistant(
         assistantId: WORLD_BUILDER_ASSISTANT_ID, 
         contextType: 'world' 
       };
+    } else if (detectedContext === 'environment') {
+      return { 
+        assistantId: ENVIRONMENT_GENERATOR_ASSISTANT_ID, 
+        contextType: 'environment' 
+      };
     } else if (detectedContext === 'genre') {
       return { 
         assistantId: GENRE_CREATOR_ASSISTANT_ID, 
@@ -1748,6 +2120,11 @@ export async function getAppropriateAssistant(
       return { 
         assistantId: WORLD_BUILDER_ASSISTANT_ID, 
         contextType: 'world' 
+      };
+    } else if (currentAssistantType === 'environment') {
+      return { 
+        assistantId: ENVIRONMENT_GENERATOR_ASSISTANT_ID, 
+        contextType: 'environment' 
       };
     } else {
       return { 
