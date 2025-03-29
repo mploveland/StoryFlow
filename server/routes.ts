@@ -1561,18 +1561,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("World created successfully:", worldDetails.name);
       
       try {
-        // Save detailed environment data to the database
+        // Save detailed world data to the database
         const foundationId = parseInt(req.body.foundationId);
         
         if (foundationId && !isNaN(foundationId)) {
-          console.log(`Saving environment details for foundation ID: ${foundationId}`);
+          console.log(`Saving world details for foundation ID: ${foundationId}`);
           
-          // Check if environment details already exist for this foundation
-          const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+          // Check if world details already exist for this foundation
+          const existingDetails = await storage.getWorldDetailsByFoundation(foundationId);
           
           // Prepare the data to save - normalize empty arrays
-          const envData = {
-            name: worldDetails.name || 'Custom Environment',
+          const worldData = {
+            // Required field for the new world_details table
+            world_name: worldDetails.name || 'Custom World',
+            // New fields for the world_details table
+            narrative_context: '',
+            global_geography_topography: '',
+            regions_territories: '',
+            boundaries_borders: '',
+            climate_environmental_zones: '',
+            environment_placements_distances: '',
+            resources_economic_geography: '',
+            historical_cultural_geography: '',
+            speculative_supernatural_geography: '',
+            map_generation_details: '',
+            inspirations_references: '',
+            // Legacy fields maintained for compatibility
             description: worldDetails.description || '',
             era: worldDetails.era || '',
             geography: worldDetails.geography || [],
@@ -1588,25 +1602,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           
           if (existingDetails) {
-            // Update existing environment details
-            console.log(`Updating existing environment details ID: ${existingDetails.id}`);
-            await storage.updateEnvironmentDetails(existingDetails.id, {
-              ...envData,
+            // Update existing world details
+            console.log(`Updating existing world details ID: ${existingDetails.id}`);
+            await storage.updateWorldDetails(existingDetails.id, {
+              ...worldData,
               foundationId
             });
           } else {
-            // Create new environment details
-            console.log(`Creating new environment details for foundation ID: ${foundationId}`);
-            await storage.createEnvironmentDetails({
-              ...envData,
+            // Create new world details
+            console.log(`Creating new world details for foundation ID: ${foundationId}`);
+            await storage.createWorldDetails({
+              ...worldData,
               foundationId
             });
           }
         } else {
-          console.log(`Cannot save environment details: Invalid foundation ID: ${req.body.foundationId}`);
+          console.log(`Cannot save world details: Invalid foundation ID: ${req.body.foundationId}`);
         }
       } catch (saveError) {
-        console.error('Error saving environment details to database:', saveError);
+        console.error('Error saving world details to database:', saveError);
         // Continue despite the error - don't block the response
       }
       

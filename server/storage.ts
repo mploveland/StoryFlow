@@ -10,6 +10,7 @@ import {
   versions, type Version, type InsertVersion,
   suggestions, type Suggestion, type InsertSuggestion,
   genreDetails, type GenreDetails, type InsertGenreDetails,
+  worldDetails, type WorldDetails, type InsertWorldDetails,
   environmentDetails, type EnvironmentDetails, type InsertEnvironmentDetails,
   narrativeVectors, type NarrativeVector, type InsertNarrativeVector,
   foundationMessages, type FoundationMessage, type InsertFoundationMessage
@@ -94,7 +95,12 @@ export interface IStorage {
   createGenreDetails(genreDetails: InsertGenreDetails): Promise<GenreDetails>;
   updateGenreDetails(id: number, genreDetails: Partial<InsertGenreDetails>): Promise<GenreDetails | undefined>;
   
-  // Environment details operations
+  // World details operations (replaces Environment details)
+  getWorldDetailsByFoundation(foundationId: number): Promise<WorldDetails | undefined>;
+  createWorldDetails(worldDetails: InsertWorldDetails): Promise<WorldDetails>;
+  updateWorldDetails(id: number, worldDetails: Partial<InsertWorldDetails>): Promise<WorldDetails | undefined>;
+  
+  // Environment details operations (kept for backward compatibility)
   getEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails | undefined>;
   createEnvironmentDetails(environmentDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails>;
   updateEnvironmentDetails(id: number, environmentDetails: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined>;
@@ -439,24 +445,40 @@ export class DatabaseStorage implements IStorage {
     return details;
   }
   
-  // Environment details operations (formerly world details)
-  async getEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails | undefined> {
-    const [details] = await db.select().from(environmentDetails).where(eq(environmentDetails.foundationId, foundationId));
+  // World details operations (primary world building data)
+  async getWorldDetailsByFoundation(foundationId: number): Promise<WorldDetails | undefined> {
+    const [details] = await db.select().from(worldDetails).where(eq(worldDetails.foundationId, foundationId));
     return details;
+  }
+  
+  async createWorldDetails(insertWorldDetails: InsertWorldDetails): Promise<WorldDetails> {
+    const [details] = await db.insert(worldDetails).values(insertWorldDetails).returning();
+    return details;
+  }
+  
+  async updateWorldDetails(id: number, worldDetailsUpdate: Partial<InsertWorldDetails>): Promise<WorldDetails | undefined> {
+    const [details] = await db
+      .update(worldDetails)
+      .set({ ...worldDetailsUpdate, updatedAt: new Date() })
+      .where(eq(worldDetails.id, id))
+      .returning();
+    return details;
+  }
+  
+  // Environment details operations (kept for backward compatibility - redirects to world details)
+  async getEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails | undefined> {
+    // Same table due to environmentDetails = worldDetails in schema
+    return this.getWorldDetailsByFoundation(foundationId);
   }
   
   async createEnvironmentDetails(insertEnvironmentDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails> {
-    const [details] = await db.insert(environmentDetails).values(insertEnvironmentDetails).returning();
-    return details;
+    // Same table due to environmentDetails = worldDetails in schema
+    return this.createWorldDetails(insertEnvironmentDetails as unknown as InsertWorldDetails);
   }
   
   async updateEnvironmentDetails(id: number, environmentDetailsUpdate: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined> {
-    const [details] = await db
-      .update(environmentDetails)
-      .set({ ...environmentDetailsUpdate, updatedAt: new Date() })
-      .where(eq(environmentDetails.id, id))
-      .returning();
-    return details;
+    // Same table due to environmentDetails = worldDetails in schema
+    return this.updateWorldDetails(id, environmentDetailsUpdate as unknown as Partial<InsertWorldDetails>);
   }
   
   // Narrative vector operations
@@ -516,17 +538,9 @@ export class DatabaseStorage implements IStorage {
     return this.deleteFoundation(id);
   }
   
-  // World details operations - redirect to environment details
+  // World details legacy operations - redirect to environment details
   async getWorldDetailsByWorld(worldId: number): Promise<EnvironmentDetails | undefined> {
     return this.getEnvironmentDetailsByFoundation(worldId);
-  }
-  
-  async createWorldDetails(worldDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails> {
-    return this.createEnvironmentDetails(worldDetails);
-  }
-  
-  async updateWorldDetails(id: number, worldDetails: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined> {
-    return this.updateEnvironmentDetails(id, worldDetails);
   }
   
   // Character operations with world ID - redirect to foundation ID

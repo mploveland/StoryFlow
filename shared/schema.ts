@@ -89,7 +89,8 @@ export const foundationsRelations = relations(foundations, ({ one, many }) => ({
   }),
   stories: many(stories),
   characters: many(characters),
-  environmentDetails: one(environmentDetails),
+  worldDetails: one(worldDetails),
+  environmentDetails: one(environmentDetails), // For backward compatibility
   genreDetails: one(genreDetails),
   messages: many(foundationMessages),
 }));
@@ -473,13 +474,25 @@ export const genreDetailsRelations = relations(genreDetails, ({ one }) => ({
   }),
 }));
 
-// Environment details schema (formerly World details)
-export const environmentDetails = pgTable("environment_details", {
+// World details schema
+export const worldDetails = pgTable("world_details", {
   id: serial("id").primaryKey(),
   foundationId: integer("foundation_id").notNull().references(() => foundations.id),
-  name: text("name").notNull(),
-  description: text("description"),
+  world_name: text("world_name").notNull(),
+  narrative_context: text("narrative_context"),
+  global_geography_topography: text("global_geography_topography"),
+  regions_territories: text("regions_territories"),
+  boundaries_borders: text("boundaries_borders"),
+  climate_environmental_zones: text("climate_environmental_zones"),
+  environment_placements_distances: text("environment_placements_distances"),
+  resources_economic_geography: text("resources_economic_geography"),
+  historical_cultural_geography: text("historical_cultural_geography"),
+  speculative_supernatural_geography: text("speculative_supernatural_geography"),
+  map_generation_details: text("map_generation_details"),
+  inspirations_references: text("inspirations_references"),
+  // Legacy fields from environment_details for compatibility
   era: text("era"),
+  description: text("description"),
   geography: text("geography").array(),
   locations: text("locations").array(),
   culture: jsonb("culture"),
@@ -496,11 +509,23 @@ export const environmentDetails = pgTable("environment_details", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertEnvironmentDetailsSchema = createInsertSchema(environmentDetails).pick({
+export const insertWorldDetailsSchema = createInsertSchema(worldDetails).pick({
   foundationId: true,
-  name: true,
-  description: true,
+  world_name: true,
+  narrative_context: true,
+  global_geography_topography: true,
+  regions_territories: true,
+  boundaries_borders: true,
+  climate_environmental_zones: true,
+  environment_placements_distances: true,
+  resources_economic_geography: true,
+  historical_cultural_geography: true,
+  speculative_supernatural_geography: true,
+  map_generation_details: true,
+  inspirations_references: true,
+  // Legacy fields
   era: true,
+  description: true,
   geography: true,
   locations: true,
   culture: true,
@@ -514,13 +539,17 @@ export const insertEnvironmentDetailsSchema = createInsertSchema(environmentDeta
   embeddingJson: true,
 });
 
-// Relations for environment details
-export const environmentDetailsRelations = relations(environmentDetails, ({ one }) => ({
+// Relations for world details
+export const worldDetailsRelations = relations(worldDetails, ({ one }) => ({
   foundation: one(foundations, {
-    fields: [environmentDetails.foundationId],
+    fields: [worldDetails.foundationId],
     references: [foundations.id],
   }),
 }));
+
+// Environment details (kept for backward compatibility, redirects to world_details)
+export const environmentDetails = worldDetails;
+export const insertEnvironmentDetailsSchema = insertWorldDetailsSchema;
 
 // Narrative vector store for semantic search
 export const narrativeVectors = pgTable("narrative_vectors", {
@@ -599,8 +628,12 @@ export type InsertSuggestion = z.infer<typeof insertSuggestionSchema>;
 export type GenreDetails = typeof genreDetails.$inferSelect;
 export type InsertGenreDetails = z.infer<typeof insertGenreDetailsSchema>;
 
-export type EnvironmentDetails = typeof environmentDetails.$inferSelect;
-export type InsertEnvironmentDetails = z.infer<typeof insertEnvironmentDetailsSchema>;
+export type WorldDetails = typeof worldDetails.$inferSelect;
+export type InsertWorldDetails = z.infer<typeof insertWorldDetailsSchema>;
+
+// For backward compatibility
+export type EnvironmentDetails = WorldDetails;
+export type InsertEnvironmentDetails = InsertWorldDetails;
 
 export type NarrativeVector = typeof narrativeVectors.$inferSelect;
 export type InsertNarrativeVector = z.infer<typeof insertNarrativeVectorSchema>;
