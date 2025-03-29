@@ -239,7 +239,16 @@ const FoundationDetails: React.FC = () => {
         });
       }
       
-      queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
+      // Invalidate all foundation-related queries with the correct query key format
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations`] });
+      
+      // Invalidate the specific user-based foundation query to ensure dashboard updates correctly
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user.id}`] });
+      }
+      
+      // Also invalidate this specific foundation's details
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${variables.id}`] });
     },
     onError: (error) => {
       toast({

@@ -192,12 +192,25 @@ const Dashboard: React.FC = () => {
         title: 'Foundation deleted',
         description: 'The foundation and all its stories have been deleted.',
       });
-      // Refresh foundations list
-      queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user?.id}`] });
+      
+      // Refresh foundations list with multiple query key formats to ensure all caches are invalidated
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations`] });
+      
+      // Ensure we have a user ID before trying to invalidate user-specific queries
+      if (user?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user.id}`] });
+      }
+      
+      // Also invalidate this specific foundation's details if we know which one was deleted
+      if (foundationToDelete?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationToDelete.id}`] });
+      }
+      
       // Clear selected foundation if it was the one that was deleted
       if (selectedFoundation?.id === foundationToDelete?.id) {
         setSelectedFoundation(null);
       }
+      
       // Reset state
       setFoundationToDelete(null);
       setIsDeleteDialogOpen(false);
