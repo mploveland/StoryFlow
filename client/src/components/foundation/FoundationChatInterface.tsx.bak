@@ -74,7 +74,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   useEffect(() => {
     console.log(`FoundationChatInterface - threadId initialized/changed: ${threadId || 'undefined'}`);
   }, [threadId]);
-
+  // DEBUG code removed - no longer needed
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -242,14 +242,22 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     return saveMessageWithRetry(foundationId, role, content);
   };
   
-  // Load initial messages based on props
   useEffect(() => {
-    const messageHandler = sendMessage || onSendMessage;
-    if (!messageHandler) return;
-    
-    if (foundation) {
-      setIsLoadingMessages(true);
+    if (initialMessages && initialMessages.length > 0) {
+      // Convert format from world-details.tsx to our internal format
+      const convertedMessages = initialMessages.map(msg => ({
+        role: msg.sender === 'ai' ? 'assistant' as const : 'user' as const,
+        content: msg.content
+      }));
       
+      setMessages(convertedMessages);
+      
+      // Set initial suggestions if available in the first message
+      const firstAiMessage = initialMessages.find(msg => msg.sender === 'ai');
+      if (firstAiMessage?.suggestions) {
+        setSuggestions(firstAiMessage.suggestions);
+      }
+    } else if (foundation && foundation.id) {
       // Try to load existing messages for this foundation
       loadMessages(foundation.id).then(hasMessages => {
         // If no existing messages, show the welcome message
@@ -487,6 +495,8 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     }
   };
   
+  // Debug logs removed
+
   return (
     <div className="flex flex-col h-[70vh]">
       <div 
