@@ -179,197 +179,16 @@ export function detectConversationContext(message: string): 'character' | 'world
 }
 
 /**
- * Extract potential response options from an AI question
- * This helps generate more context-relevant suggestions based on the AI's question
+ * This function has been deprecated in favor of getting all suggestions from the OpenAI assistant.
+ * It now only returns a single "Surprise me!" option to encourage using the AI-generated suggestions.
+ * 
+ * This ensures no hardcoded suggestions are used anywhere in the system.
  */
 export function extractSuggestionsFromQuestion(question: string): string[] {
-  const suggestions: string[] = [];
-  const surpriseMeSuggestion = "Surprise me! You decide what works best.";
-  
-  // We no longer return hardcoded genre suggestions - all suggestions come from the assistant
-  // Just log the detection so we know what's happening
-  if (question.toLowerCase().includes("what genre") || 
-      question.toLowerCase().includes("which genre") ||
-      question.toLowerCase().includes("type of story")) {
-    console.log("Detected initial genre question, but not using hardcoded list");
-  }
-  
-  // Check for common phrases about book or author preference (the second typical question)
-  if ((question.toLowerCase().includes("book") || question.toLowerCase().includes("author")) &&
-      (question.toLowerCase().includes("like") || question.toLowerCase().includes("prefer") || 
-       question.toLowerCase().includes("favorite") || question.toLowerCase().includes("enjoy") ||
-       question.toLowerCase().includes("reference") || question.toLowerCase().includes("example"))) {
-    
-    console.log("Detected book or author preference question, but not using hardcoded lists");
-    // No longer returning hardcoded author suggestions
-    // Let the chat suggestions assistant handle this dynamically
-  }
-  
-  // Check if the question contains explicit options in the text
-  // Common pattern: "would you prefer A, B, or C?"
-  const lines = question.split(/[.?!]\s+/);
-  
-  for (const line of lines) {
-    // Skip lines that are too short
-    if (line.length < 15) continue;
-    
-    // Check for lines with "or" which often indicate options
-    if (line.includes(" or ")) {
-      const parts = line.split(/\s+or\s+/);
-      
-      // Check first part for comma-separated list: "A, B, C, or D"
-      if (parts[0].includes(",")) {
-        const commaOptions = parts[0].split(",").map(opt => opt.trim());
-        // Add all but the last one (which is handled by the "or" split)
-        for (const opt of commaOptions) {
-          if (opt && opt.length > 2 && !opt.includes("?")) {
-            // Clean up the option
-            let cleanOption = opt.replace(/would you prefer|do you prefer|would you like|how about/gi, "").trim();
-            
-            // Remove starting articles and conjunctions
-            cleanOption = cleanOption.replace(/^(a|an|the|or|and|but|if|when)\s+/i, "").trim();
-            
-            // Skip if too short after cleaning
-            if (cleanOption.length > 3) {
-              suggestions.push(cleanOption);
-            }
-          }
-        }
-      }
-      
-      // Add the last option after "or"
-      let lastOption = parts[parts.length - 1].trim();
-      
-      // Clean up question marks, prefixes
-      lastOption = lastOption.replace(/\?.*$/, "").trim();
-      lastOption = lastOption.replace(/^(a|an|the|maybe|perhaps|possibly)\s+/i, "").trim();
-      
-      if (lastOption.length > 3 && !lastOption.toLowerCase().includes("what") && !lastOption.toLowerCase().includes("why")) {
-        suggestions.push(lastOption);
-      }
-    }
-  }
-  
-  // Look for numbered or bulleted options
-  const optionPatterns = [
-    /\b(\d+\.\s*|•\s*|\*\s*|-\s*)([^.?!:]+)/g,
-    /\b([A-Z])\)\s*([^.?!:]+)/g
-  ];
-  
-  for (const pattern of optionPatterns) {
-    // Use a more compatible approach instead of matchAll
-    let match;
-    while ((match = pattern.exec(question)) !== null) {
-      const option = match[2].trim();
-      if (option.length > 3) {
-        suggestions.push(option);
-      }
-    }
-  }
-  
-  // Extract directly quoted options (in quotes)
-  const quotePattern = /"([^"]+)"/g;
-  let quoteMatch;
-  while ((quoteMatch = quotePattern.exec(question)) !== null) {
-    const option = quoteMatch[1].trim();
-    if (option.length > 3) {
-      suggestions.push(option);
-    }
-  }
-  
-  // We've removed the hardcoded tone words
-  // Let the AI generate appropriate suggestions instead
-  
-  // Check for a specific pattern where the assistant asks about preferences with "more toward X, Y, or Z?"
-  // This pattern handles questions like "would you prefer X, Y, or Z?"
-  const preferencePattern = /(?:leaning|prefer|interested in|like)\s+more\s+(?:toward|in|for|about)\s+(?:a|an)?\s*([^,]+?)(?:,|or|\?)(?:\s+(?:a|an)?\s*([^,]+?)(?:,|or|\?))?(?:\s+(?:a|an|or)?\s*([^?]+?)(?:\?|$))?/i;
-  
-  // This pattern handles tone/atmosphere questions like "are you envisioning a whimsical tone or darker atmosphere?"
-  const tonePattern = /(?:envision|imagine|want|looking for|thinking of)(?:ing)?\s+(?:a|an)?\s*([^,]+?)(?:(?:,|or)\s+(?:a|an)?\s*([^,]+?))?(?:(?:,|or)\s+(?:a|an)?\s*([^?]+?))?(?:\?|$)/i;
-  
-  const preferenceMatch = question.match(preferencePattern);
-  const toneMatch = question.match(tonePattern);
-  
-  if (preferenceMatch) {
-    console.log("Detected preference options in question");
-    const cleanedSuggestions = [];
-    for (let i = 1; i < preferenceMatch.length; i++) {
-      if (preferenceMatch[i]) {
-        // Clean up each option
-        let option = preferenceMatch[i].trim();
-        // If the option starts with "or", remove it
-        option = option.replace(/^or\s+/i, '').trim();
-        // If the option is "possibly a blend of both", simplify it
-        if (option.includes("blend") && option.includes("both")) {
-          option = "a blend of both";
-        }
-        cleanedSuggestions.push(option);
-      }
-    }
-    
-    // If we found structured options, add the surprise me option and return
-    if (cleanedSuggestions.length > 0) {
-      cleanedSuggestions.push(surpriseMeSuggestion);
-      return cleanedSuggestions;
-    }
-  }
-  
-  // Process tone match (specifically for whimsical vs darker atmosphere type questions)
-  if (toneMatch) {
-    console.log("Detected tone/atmosphere options in question");
-    const cleanedSuggestions = [];
-    for (let i = 1; i < toneMatch.length; i++) {
-      if (toneMatch[i]) {
-        // Clean up each option
-        let option = toneMatch[i].trim();
-        // Remove trailing punctuation
-        option = option.replace(/[,.?!;:]+$/, '').trim();
-        // If the option starts with "or", remove it
-        option = option.replace(/^or\s+/i, '').trim();
-        
-        // Try to make options more readable by adding "a " prefix if needed
-        if (!option.match(/^(a|an|the)\s+/i) && option.length > 3) {
-          option = "a " + option;
-        }
-        
-        cleanedSuggestions.push(option);
-      }
-    }
-    
-    // Removed hardcoded special case for whimsical vs darker match
-    // Let the AI suggestions handle these types of suggestions
-    
-    // If we found structured options, add the surprise me option and return
-    if (cleanedSuggestions.length > 0) {
-      // No longer adding hardcoded "blend of both styles" option
-      
-      cleanedSuggestions.push(surpriseMeSuggestion);
-      return cleanedSuggestions;
-    }
-  }
-  
-  // Deduplicate and limit to a reasonable number of suggestions
-  // Use a manual deduplication approach to avoid Set iterator compatibility issues
-  const uniqueSuggestions: string[] = [];
-  for (const suggestion of suggestions) {
-    if (!uniqueSuggestions.includes(suggestion)) {
-      uniqueSuggestions.push(suggestion);
-    }
-  }
-  
-  // Take the 3-4 most relevant suggestions
-  const finalSuggestions = uniqueSuggestions.slice(0, 4);
-  
-  // Always add the "Surprise me" option if we have room
-  if (finalSuggestions.length < 5) {
-    finalSuggestions.push(surpriseMeSuggestion);
-  }
-  
-  return finalSuggestions;
+  // Simply return the surprise me suggestion - all actual suggestions should come from the AI assistant
+  return ["Surprise me! You decide what works best."];
 }
 
-
-// Interface for genre creation input
 export interface GenreCreationInput {
   userInterests?: string;
   themes?: string[];
@@ -1859,11 +1678,17 @@ export async function generateChatSuggestions(
   assistantReply: string
 ): Promise<string[]> {
   try {
+    // Ensure we have valid inputs
+    if (!userMessage || userMessage.trim() === '' || !assistantReply || assistantReply.trim() === '') {
+      console.log("Missing userMessage or assistantReply for chat suggestions");
+      return defaultSuggestions("");
+    }
+    
     console.log(`Generating chat suggestions for conversation:`);
     console.log(`User: ${userMessage.substring(0, 50)}...`);
     console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
     
-    // No special case hardcoding for genre selection - all suggestions come from the assistant
+    // No special case hardcoding for genre selection - all suggestions come directly from the StoryFlow_ChatResponseSuggestions assistant
     
     // Create a new thread for this suggestions request
     const thread = await openai.beta.threads.create();
@@ -1871,7 +1696,7 @@ export async function generateChatSuggestions(
     // Add messages to provide context for the suggestions
     await openai.beta.threads.messages.create(thread.id, {
       role: "user",
-      content: `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nPlease generate 3-5 suggested responses that the user could reply with. Each suggestion should be concise (1-7 words) and conversational. Format as a JSON array of strings.`,
+      content: `USER MESSAGE: ${userMessage}\n\nASSISTANT RESPONSE: ${assistantReply}\n\nPlease generate 3-5 suggested responses that the user could reply with to continue this conversation.\n\nEach suggestion should be concise (1-7 words), conversational, and relevant to the story creation process.\n\nFor genre-related conversations, include diverse genre suggestions.\nFor tone questions, suggest varied tone options.\nFor transitions, include options to move to the next stage.\n\nFormat as a JSON array of strings.`,
     });
     
     // Run the suggestions assistant
@@ -2088,15 +1913,8 @@ export async function getAppropriateAssistant(
  * @returns Array of default suggested responses
  */
 function defaultSuggestions(assistantReply: string): string[] {
-  // First try to extract suggestions based on the assistant's question
-  const extractedSuggestions = extractSuggestionsFromQuestion(assistantReply);
-  
-  if (extractedSuggestions.length >= 3) {
-    return extractedSuggestions;
-  }
-  
-  // Minimal fallback with only a surprise option
-  // The goal is to encourage using the AI suggestions instead of hardcoded ones
+  // Only return a single "surprise me" option to encourage using the AI suggestions
+  // We no longer rely on extractSuggestionsFromQuestion to avoid any hardcoded options
   return [
     "Surprise me! You decide what works best."
   ];
