@@ -454,8 +454,11 @@ const FoundationDetails: React.FC = () => {
         
         {/* Main content with 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Empty space on the left when items are hidden - for centering */}
+          <div className={`lg:col-span-3 ${isFoundationComplete(foundation, characters) ? '' : 'lg:block'}`}></div>
+
           {/* Left side: Genre/World/Character cards - only show if foundation is complete */}
-          <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : ''}`}>
+          <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : 'lg:block'}`}>
             <div className="space-y-4">
               {foundation.genre && (
                 <Card className="hover:shadow-md transition-shadow">
@@ -579,6 +582,9 @@ const FoundationDetails: React.FC = () => {
               />
             </div>
           </div>
+          
+          {/* Empty space on the right when items are hidden - for centering */}
+          <div className={`lg:col-span-3 ${isFoundationComplete(foundation, characters) ? 'hidden' : 'lg:block'}`}></div>
           
           {/* Right side: Stories list and create button - only shown when foundation is complete */}
           <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : ''}`}>
