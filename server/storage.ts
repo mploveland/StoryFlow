@@ -61,6 +61,7 @@ export interface IStorage {
   createCharacterDetails(characterDetails: InsertCharacterDetails): Promise<CharacterDetails>;
   updateCharacterDetails(id: number, characterDetails: Partial<InsertCharacterDetails>): Promise<CharacterDetails | undefined>;
   deleteCharacterDetails(id: number): Promise<boolean>;
+  getCharacterDetailsByNameAndFoundation(name: string, foundationId: number): Promise<CharacterDetails | undefined>;
   
   // Character relationship operations
   getCharacterRelationships(characterId: number): Promise<CharacterRelationship[]>;
@@ -313,6 +314,16 @@ export class DatabaseStorage implements IStorage {
   async deleteCharacterDetails(id: number): Promise<boolean> {
     const [deleted] = await db.delete(characterDetails).where(eq(characterDetails.id, id)).returning();
     return !!deleted;
+  }
+  
+  async getCharacterDetailsByNameAndFoundation(name: string, foundationId: number): Promise<CharacterDetails | undefined> {
+    const [characterDetail] = await db.select()
+      .from(characterDetails)
+      .where(and(
+        eq(characterDetails.character_name, name),
+        eq(characterDetails.foundationId, foundationId)
+      ));
+    return characterDetail;
   }
   
   // Character relationship operations

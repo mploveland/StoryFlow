@@ -138,6 +138,35 @@ const VoiceStoryCreationPage: React.FC = () => {
       character.id = Date.now();
     }
     
+    // Save character to both tables if we have a foundation ID
+    const foundationId = parseInt(params.get('foundationId') || '0');
+    if (foundationId > 0) {
+      // Use our combined character creation endpoint
+      apiRequest('POST', '/api/character-creation/combined', {
+        name: character.name,
+        role: character.role || 'Supporting Character',
+        foundationId: foundationId,
+        appearance: character.appearance,
+        background: character.background,
+        personality: character.personality,
+        goals: character.goals,
+        fears: character.fears,
+        relationships: character.relationships,
+        skills: character.skills,
+        voice: character.voice,
+        secrets: character.secrets,
+        quirks: character.quirks,
+        motivations: character.motivations,
+        flaws: character.flaws,
+        evolutionStage: 1,
+        significantEvents: []
+      }).then(response => {
+        console.log('Character saved to database with combined approach');
+      }).catch(error => {
+        console.error('Error saving character to database:', error);
+      });
+    }
+    
     setCharacters(prev => {
       // Check if this character already exists (by name)
       const existing = prev.findIndex(c => c.name === character.name);

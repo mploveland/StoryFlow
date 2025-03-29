@@ -245,31 +245,15 @@ const CharacterDetailsPage: React.FC = () => {
       motivations?: string;
       flaws?: string;
     }) => {
-      // First create the character
-      const characterResponse = await apiRequest('POST', '/api/characters', characterData);
-      const newCharacter = await characterResponse.json();
+      // Use the combined endpoint to create character in both tables
+      const response = await apiRequest('POST', '/api/character-creation/combined', {
+        ...characterData,
+        evolutionStage: 1,
+        significantEvents: []
+      });
       
-      // Then create character details
-      if (newCharacter?.id) {
-        // Create character details entry with basic info
-        const characterDetailsData = {
-          character_name: characterData.name,
-          occupation: characterData.role,
-          foundationId: characterData.foundationId,
-          evolutionStage: 1,
-          significantEvents: [],
-          character_type: 'fictional'
-        };
-        
-        try {
-          await apiRequest('POST', '/api/character-details', characterDetailsData);
-        } catch (error) {
-          console.error("Failed to create character details:", error);
-          // Don't fail the whole operation if details creation fails
-        }
-      }
-      
-      return newCharacter;
+      const result = await response.json();
+      return result.character;
     },
     onSuccess: (newCharacter) => {
       // Save the created character for possible use in the dialog

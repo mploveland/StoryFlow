@@ -31,6 +31,12 @@ export interface CharacterData {
   appearance: string;
   voice: string;
   depth: number;
+  secrets?: string;
+  quirks?: string[];
+  motivations?: string[];
+  flaws?: string[];
+  evolutionStage?: number;
+  significantEvents?: any[];
 }
 
 interface TraitSectionProps {

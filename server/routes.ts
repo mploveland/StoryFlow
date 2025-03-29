@@ -845,6 +845,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Get combined character data from both tables
+  apiRouter.get("/character-combined/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const character = await storage.getCharacter(id);
+      
+      if (!character) {
+        return res.status(404).json({ message: "Character not found" });
+      }
+      
+      // Try to find matching character details by name and foundation ID
+      const characterDetails = await storage.getCharacterDetailsByNameAndFoundation(
+        character.name, 
+        character.foundationId
+      );
+      
+      // Return both objects
+      return res.status(200).json({
+        character,
+        characterDetails: characterDetails || null
+      });
+    } catch (error) {
+      console.error("Error getting combined character data:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
   // Character Details routes
   apiRouter.get("/foundations/:foundationId/character-details", async (req: Request, res: Response) => {
     try {
@@ -1139,6 +1166,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to create character with the OpenAI assistant",
         error: error.message || "Unknown error"
       });
+    }
+  });
+  
+  // Combined endpoint to create a character in both the characters and character_details tables
+  apiRouter.post("/character-creation/combined", async (req: Request, res: Response) => {
+    try {
+      const { 
+        name, 
+        role, 
+        foundationId, 
+        appearance, 
+        background,
+        personality,
+        goals,
+        fears,
+        relationships,
+        skills,
+        voice,
+        secrets,
+        quirks,
+        motivations,
+        flaws,
+        threadId,
+        evolutionStage = 1,
+        significantEvents = []
+      } = req.body;
+      
+      // First create the character in the original table
+      const characterData: any = {
+        name,
+        role,
+        foundationId,
+        threadId
+      };
+      
+      // Add optional fields if they exist
+      if (appearance) characterData.appearance = appearance;
+      if (background) characterData.background = background;
+      if (personality) characterData.personality = Array.isArray(personality) ? personality : personality.split(', ');
+      if (goals) characterData.goals = Array.isArray(goals) ? goals : goals.split(', ');
+      if (fears) characterData.fears = Array.isArray(fears) ? fears : fears.split(', ');
+      if (skills) characterData.skills = Array.isArray(skills) ? skills : skills.split(', ');
+      if (voice) characterData.voice = voice;
+      if (secrets) characterData.secrets = secrets;
+      if (quirks) characterData.quirks = Array.isArray(quirks) ? quirks : quirks.split(', ');
+      if (motivations) characterData.motivations = Array.isArray(motivations) ? motivations : motivations.split(', ');
+      if (flaws) characterData.flaws = Array.isArray(flaws) ? flaws : flaws.split(', ');
+      if (evolutionStage) characterData.evolutionStage = evolutionStage;
+      if (significantEvents) characterData.significantEvents = significantEvents;
+      
+      // Create the character in the original table
+      const newCharacter = await storage.createCharacter(characterData);
+      
+      // Now create the character details entry
+      const characterDetailsData: any = {
+        foundationId,
+        character_name: name,
+        occupation: role,
+        evolutionStage: evolutionStage,
+        significantEvents: significantEvents,
+        character_type: 'fictional'
+      };
+      
+      // Add any additional fields that are available
+      if (appearance) characterDetailsData.appearance = appearance;
+      if (background) characterDetailsData.background = background;
+      if (personality) characterDetailsData.personality = Array.isArray(personality) ? personality : personality.split(', ');
+      if (goals) characterDetailsData.goals = Array.isArray(goals) ? goals : goals.split(', ');
+      if (fears) characterDetailsData.fears = Array.isArray(fears) ? fears : fears.split(', ');
+      if (relationships) characterDetailsData.relationships = Array.isArray(relationships) ? relationships : relationships.split(', ');
+      if (skills) characterDetailsData.skills = Array.isArray(skills) ? skills : skills.split(', ');
+      if (voice) characterDetailsData.voice = voice;
+      if (secrets) characterDetailsData.secrets = secrets;
+      if (quirks) characterDetailsData.quirks = Array.isArray(quirks) ? quirks : quirks.split(', ');
+      if (motivations) characterDetailsData.motivations = Array.isArray(motivations) ? motivations : motivations.split(', ');
+      if (flaws) characterDetailsData.flaws = Array.isArray(flaws) ? flaws : flaws.split(', ');
+      if (threadId) characterDetailsData.threadId = threadId;
+      
+      try {
+        const newCharacterDetails = await storage.createCharacterDetails(characterDetailsData);
+        
+        // Return both the character and character details
+        return res.status(201).json({
+          character: newCharacter,
+          characterDetails: newCharacterDetails,
+          success: true
+        });
+      } catch (detailsError) {
+        console.error("Error creating character details:", detailsError);
+        // Even if character details creation fails, we return the character
+        // since it was created successfully
+        return res.status(201).json({
+          character: newCharacter,
+          success: true,
+          detailsError: "Failed to create character details, but character was created"
+        });
+      }
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors 
+        });
+      }
+      
+      console.error("Error creating character with combined approach:", error);
+      return res.status(500).json({ message: "Server error" });
     }
   });
   
