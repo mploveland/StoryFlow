@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
-import { Foundation, Story, Character } from '@shared/schema';
+import { Foundation, Story, Character } from '../types';
 import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
 import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
 import {
@@ -27,31 +27,46 @@ const FoundationDetails: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get foundationId from URL query params
+  // Get foundationId from URL query params or path params
+  // First check for query param in the format /foundation-details?foundationId=35
   const queryString = location.split('?')[1] || '';
   const params = new URLSearchParams(queryString);
-  const foundationIdParam = params.get('foundationId');
-  console.log('Foundation details - location:', location);
-  console.log('Foundation details - query string:', queryString);
-  console.log('Foundation details - foundationId param:', foundationIdParam);
-  console.log('Foundation details - foundationId param type:', typeof foundationIdParam);
+  let foundationIdParam = params.get('foundationId');
   
-  const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
-  console.log('Foundation details - parsed foundationId:', foundationId);
-  console.log('Foundation details - parsed foundationId type:', typeof foundationId);
+  // If not found, check for path param in the format /foundation/35
+  if (!foundationIdParam && location.includes('/foundation/')) {
+    const routeMatch = location.match(/\/foundation\/(\d+)/);
+    if (routeMatch && routeMatch[1]) {
+      foundationIdParam = routeMatch[1];
+      console.log('Found path parameter:', routeMatch[1]);
+    }
+  }
   
-  // DEBUG - Only redirect if explicitly undefined or NaN
+  console.log('URL details:', {
+    location,
+    queryString,
+    foundationIdParam,
+    paramType: typeof foundationIdParam
+  });
+  
+  // Parse as an integer, ensure it's a valid positive number
+  const foundationId = foundationIdParam ? parseInt(foundationIdParam, 10) : 0;
+  console.log('Parsed foundation ID:', foundationId, typeof foundationId);
+  
+  // Only redirect if we have an invalid ID (not just a missing one)
   useEffect(() => {
-    // Check if foundationId is invalid (NaN or explicitly 0)
-    if (isNaN(foundationId) || (foundationIdParam !== null && foundationId === 0)) {
-      console.log('Invalid foundation ID detected, redirecting to dashboard');
-      toast({
-        title: 'Invalid parameters',
-        description: 'The foundation ID is invalid. Redirecting to dashboard.',
-      });
-      navigate('/dashboard');
-    } else {
-      console.log('Foundation ID is valid, not redirecting:', foundationId);
+    if (foundationIdParam !== null && foundationIdParam !== undefined) {
+      // Only validate if a parameter was actually provided
+      if (isNaN(foundationId) || foundationId <= 0) {
+        console.log('Invalid foundation ID detected, redirecting to dashboard');
+        toast({
+          title: 'Invalid Foundation ID',
+          description: 'The foundation ID is invalid. Redirecting to dashboard.',
+        });
+        navigate('/dashboard');
+      } else {
+        console.log('Foundation ID is valid:', foundationId);
+      }
     }
   }, [foundationId, foundationIdParam, navigate, toast]);
   
@@ -63,7 +78,9 @@ const FoundationDetails: React.FC = () => {
   const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
   const [storyCount, setStoryCount] = useState(0);
   
-  // Query foundation details
+  // Query foundation details with extra debugging 
+  console.log(`About to query foundation with ID: ${foundationId}, enabled: ${!!foundationId}`);
+  
   const { 
     data: foundation, 
     isLoading: isLoadingFoundation, 
@@ -71,7 +88,10 @@ const FoundationDetails: React.FC = () => {
   } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${foundationId}`],
     enabled: !!foundationId,
-  });
+    // Use properly typed success and error handlers
+    onSuccess: (data: Foundation) => console.log('Foundation query succeeded:', data),
+    onError: (error: Error) => console.error('Foundation query failed:', error)
+  } as any); // Using type assertion to work around type error
   
   // Log the threadId when foundation is loaded
   useEffect(() => {
@@ -343,6 +363,13 @@ const FoundationDetails: React.FC = () => {
   }
   
   if (foundationError || !foundation) {
+    console.error('Foundation error details:', {
+      foundationError,
+      foundationId,
+      foundationIdParam,
+      queryKey: `/api/foundations/${foundationId}`
+    });
+    
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
@@ -354,6 +381,25 @@ const FoundationDetails: React.FC = () => {
         
         <div className="text-center p-8 bg-white rounded-lg shadow-sm">
           <p className="text-neutral-600 mb-4">The foundation you're looking for could not be found.</p>
+          <p className="text-neutral-500 mb-4">Debug Info: Foundation ID = {foundationId} (Type: {typeof foundationId})</p>
+          <p className="text-neutral-500 mb-2">URL Parameter = {foundationIdParam} (Type: {typeof foundationIdParam})</p>
+          
+          {foundationId > 0 && (
+            <div className="mb-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const specificUrl = `/foundation-details?foundationId=35`;
+                  console.log('Trying hardcoded URL:', specificUrl);
+                  window.location.href = specificUrl;
+                }}
+                className="mb-2"
+              >
+                Try Specific Foundation (ID: 35)
+              </Button>
+            </div>
+          )}
+          
           <Button onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
         </div>
       </div>
