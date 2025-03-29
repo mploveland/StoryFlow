@@ -339,6 +339,31 @@ const FoundationDetails: React.FC = () => {
         });
       }
       
+      // Try to get intelligent chat suggestions from our dedicated AI endpoint
+      try {
+        const suggestionsResponse = await fetch('/api/ai/chat-suggestions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userMessage: message,
+            assistantReply: data.content
+          }),
+        });
+        
+        if (suggestionsResponse.ok) {
+          const suggestionsData = await suggestionsResponse.json();
+          if (suggestionsData.suggestions && Array.isArray(suggestionsData.suggestions) && suggestionsData.suggestions.length > 0) {
+            console.log('Using AI-generated chat suggestions:', suggestionsData.suggestions);
+            data.suggestions = suggestionsData.suggestions;
+          }
+        }
+      } catch (suggestionError) {
+        console.error('Error fetching intelligent suggestions:', suggestionError);
+        // Keep using the suggestions from the original response if available
+      }
+      
       // Return standardized response format
       return {
         content: data.content,
@@ -583,10 +608,11 @@ const FoundationDetails: React.FC = () => {
                   sender: 'ai',
                   timestamp: new Date(),
                   suggestions: [
-                    "I'd like to create a fantasy world",
-                    "Let's explore science fiction",
-                    "I'm thinking about a mystery or thriller",
-                    "I enjoy historical fiction"
+                    "Epic fantasy with magical elements",
+                    "Hard science fiction set in the distant future",
+                    "Dark mystery with supernatural elements",
+                    "Historical fiction with alternate history elements",
+                    "Cyberpunk noir with dystopian themes"
                   ]
                 }] : []}
               />

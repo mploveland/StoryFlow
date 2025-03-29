@@ -272,14 +272,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             saveMessage(foundation.id, 'assistant', welcomeMessage.content);
           }
           
-          // Initial suggestions for foundation - simple 1-2 word genres with "Surprise me!" option
+          // Initial suggestions for foundation - more detailed genre options
           setSuggestions([
-            "Fantasy",
-            "Sci-fi",
-            "Mystery",
-            "Historical fiction",
-            "Romance",
-            "Surprise me!"
+            "Epic fantasy with magical elements",
+            "Hard science fiction set in the distant future",
+            "Dark mystery with supernatural elements",
+            "Historical fiction with alternate history elements",
+            "Cyberpunk noir with dystopian themes",
+            "Surprise me with an unusual genre blend!"
           ]);
         }
       });
