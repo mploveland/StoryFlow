@@ -607,13 +607,7 @@ const FoundationDetails: React.FC = () => {
                   content: `Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we'll build the foundation for a living story world that will evolve as you create characters and narratives within it. We'll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?`,
                   sender: 'ai',
                   timestamp: new Date(),
-                  suggestions: [
-                    "Epic fantasy with magical elements",
-                    "Hard science fiction set in the distant future",
-                    "Dark mystery with supernatural elements",
-                    "Historical fiction with alternate history elements",
-                    "Cyberpunk noir with dystopian themes"
-                  ]
+                  suggestions: [] // Will be populated by the StoryFlow_ChatResponseSuggestions assistant
                 }] : []}
               />
             </div>

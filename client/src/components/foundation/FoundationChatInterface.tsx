@@ -272,15 +272,30 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             saveMessage(foundation.id, 'assistant', welcomeMessage.content);
           }
           
-          // Initial suggestions for foundation - more detailed genre options
-          setSuggestions([
-            "Epic fantasy with magical elements",
-            "Hard science fiction set in the distant future",
-            "Dark mystery with supernatural elements",
-            "Historical fiction with alternate history elements",
-            "Cyberpunk noir with dystopian themes",
-            "Surprise me with an unusual genre blend!"
-          ]);
+          // Get initial foundation suggestions from the chat-suggestions API
+          // Initial fetch is async and will populate when ready
+          fetch('/api/ai/chat-suggestions', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userMessage: '', // Initial message is empty for this case
+              assistantReply: welcomeMessage.content
+            }),
+          })
+            .then(response => response.json())
+            .then(data => {
+              if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+                console.log('Using AI-generated initial chat suggestions:', data.suggestions);
+                setSuggestions(data.suggestions);
+                setShowSuggestions(true);
+              }
+            })
+            .catch(error => {
+              console.error('Error fetching initial suggestions:', error);
+              // No hardcoded fallback - we'll rely completely on the AI suggestions
+            });
         }
       });
     } else if (title) {
@@ -291,13 +306,28 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       };
       setMessages([welcomeMessage]);
       
-      // Default suggestions for world details
-      setSuggestions([
-        "Tell me more about this world",
-        "How can I develop the culture?",
-        "What kind of geography exists here?",
-        "How should I approach conflicts in this world?",
-      ]);
+      // Get world details suggestions from AI
+      fetch('/api/ai/chat-suggestions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userMessage: '',
+          assistantReply: welcomeMessage.content
+        }),
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.suggestions && Array.isArray(data.suggestions) && data.suggestions.length > 0) {
+            console.log('Using AI-generated world details suggestions:', data.suggestions);
+            setSuggestions(data.suggestions);
+            setShowSuggestions(true);
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching world details suggestions:', error);
+        });
     }
   }, [foundation, initialMessages, title]);
   
@@ -406,27 +436,15 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             console.log('Using AI-generated chat suggestions:', data.suggestions);
             setSuggestions(data.suggestions);
             setShowSuggestions(true);
-          } else if (response.suggestions) {
-            // Fallback to provided suggestions if AI ones failed
-            console.log('Falling back to provided suggestions:', response.suggestions);
-            setSuggestions(response.suggestions);
-            setShowSuggestions(true);
-          }
+          } 
+          // No hardcoded fallback - we'll rely completely on the AI suggestions
         } else {
-          // If API call fails, use the provided suggestions
-          if (response.suggestions) {
-            console.log('Using provided suggestions due to API error:', response.suggestions);
-            setSuggestions(response.suggestions);
-            setShowSuggestions(true);
-          }
+          console.error('Error response from suggestions API');
+          // No fallback - we'll try again next time
         }
       } catch (suggestionError) {
         console.error('Error fetching intelligent suggestions:', suggestionError);
-        // Fallback to provided suggestions on error
-        if (response.suggestions) {
-          setSuggestions(response.suggestions);
-          setShowSuggestions(true);
-        }
+        // No fallback - we want all suggestions to come from the AI
       }
     } catch (error) {
       console.error('Error processing message:', error);
