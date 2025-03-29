@@ -599,6 +599,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // If this is a genre-related conversation, save details to genre_details table
+      if (contextType === 'genre') {
+        try {
+          console.log(`Processing genre details from dynamic assistant for foundation ${foundationId}`);
+          
+          // Extract genre information from the conversation
+          // Look for genre patterns in the assistant's response
+          const genrePattern = /(?:genre|style|type): ([^\.,:;]+)/i;
+          const themePattern = /(?:themes|about|focuses on|explores|deals with): ([^\.]+)/i;
+          const moodPattern = /(?:mood|tone|atmosphere|feeling): ([^\.]+)/i;
+          
+          // Try to extract a genre name from the content
+          let mainGenre = "Custom Genre";
+          const genreMatch = content.match(genrePattern);
+          if (genreMatch && genreMatch[1]) {
+            mainGenre = genreMatch[1].trim();
+          }
+          
+          // Try to extract themes
+          let themes: string[] = [];
+          const themeMatch = content.match(themePattern);
+          if (themeMatch && themeMatch[1]) {
+            themes = themeMatch[1].split(/,|and/).map(t => t.trim()).filter(t => t.length > 0);
+          }
+          
+          // Try to extract mood/tone
+          let mood = "";
+          const moodMatch = content.match(moodPattern);
+          if (moodMatch && moodMatch[1]) {
+            mood = moodMatch[1].trim();
+          }
+          
+          // Check if genre details already exist for this foundation
+          const existingDetails = await storage.getGenreDetailsByFoundation(foundationId);
+          
+          // Prepare genre data with extracted information
+          const genreData = {
+            mainGenre,
+            threadId: conversationThreadId,
+            mood,
+            themes,
+            // Use the assistant's response as a description
+            description: content
+          };
+          
+          if (existingDetails) {
+            // Update existing genre details
+            console.log(`Updating existing genre details ID: ${existingDetails.id} from dynamic assistant`);
+            await storage.updateGenreDetails(existingDetails.id, {
+              ...genreData,
+              foundationId
+            });
+          } else {
+            // Create new genre details
+            console.log(`Creating new genre details for foundation ID: ${foundationId} from dynamic assistant`);
+            await storage.createGenreDetails({
+              ...genreData,
+              foundationId
+            });
+          }
+          
+          // Update the foundation with the genre name if it's not already set
+          if (!foundation.genre || foundation.genre === "Undecided") {
+            console.log(`Updating foundation genre to: ${mainGenre}`);
+            await storage.updateFoundation(foundationId, {
+              genre: mainGenre
+            });
+          }
+        } catch (error) {
+          console.error("Error saving genre details from dynamic assistant:", error);
+          // Continue despite the error - don't block the response
+        }
+      }
+      
       // Generate chat suggestions for the response using the dedicated assistant
       console.log(`Generating AI chat suggestions for the dynamic assistant response`);
       let chatSuggestions: string[] = [];

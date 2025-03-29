@@ -1788,7 +1788,7 @@ export async function generateChatSuggestions(
       if (jsonObj && Array.isArray(jsonObj.options) && jsonObj.options.length > 0) {
         // Get the options array from the response
         suggestions = jsonObj.options
-          .filter(item => typeof item === "string");
+          .filter((item: any) => typeof item === "string");
           
         // Add the additional option if present and it's a string
         if (jsonObj.additional_option && typeof jsonObj.additional_option === "string") {
@@ -1796,7 +1796,7 @@ export async function generateChatSuggestions(
         }
       } else if (Array.isArray(jsonObj)) {
         // Fall back to the old format where the response might be a direct array
-        suggestions = jsonObj.filter(item => typeof item === "string");
+        suggestions = jsonObj.filter((item: any) => typeof item === "string");
       }
       
       // Check if this is for genre selection (we want 10 items) or regular suggestions (limit to 5)
