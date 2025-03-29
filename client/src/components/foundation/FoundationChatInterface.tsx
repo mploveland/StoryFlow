@@ -139,8 +139,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   }, []);
   
   // Load saved messages from the server
-  const loadMessages = async (foundationId: number) => {
+  const loadMessages = async (foundationId: number): Promise<boolean> => {
     try {
+      console.log(`[FoundationChatInterface] Loading messages for foundation ID: ${foundationId}`);
       setPersistenceError(null);
       setIsLoadingMessages(true);
       
@@ -150,46 +151,104 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         content: 'Loading your previous conversation...'
       }]);
       
-      const response = await fetch(`/api/foundations/${foundationId}/messages`);
+      const apiUrl = `/api/foundations/${foundationId}/messages`;
+      console.log(`[FoundationChatInterface] Fetching from: ${apiUrl}`);
+      
+      const response = await fetch(apiUrl);
       
       if (!response.ok) {
         throw new Error(`Failed to load messages: ${response.status} ${response.statusText}`);
       }
       
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+        
+        if (!Array.isArray(data)) {
+          console.error(`[FoundationChatInterface] Expected array of messages but got:`, data);
+          throw new Error('Invalid response format: Expected array of messages');
+        }
+        
+        console.log(`[FoundationChatInterface] Loaded ${data.length} messages from server:`, 
+          data.length > 0 ? `First: ${data[0]?.role}/${data[0]?.content?.substring(0, 30)}...` : 'No messages found');
+      } catch (parseError) {
+        console.error(`[FoundationChatInterface] Error parsing messages response:`, parseError);
+        throw new Error(`Failed to parse messages: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+      }
       
       if (data.length > 0) {
         // Add a small delay so the loading message is visible (better UX)
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        setMessages(data.map((msg: any) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content
-        })));
-        
-        // Fetch AI suggestions based on the last assistant message
-        const messagesReversed = [...data].reverse();
-        const lastAssistantMessage = messagesReversed.find(msg => msg.role === 'assistant');
-        const lastUserMessage = messagesReversed.find(msg => msg.role === 'user');
-        
-        if (lastAssistantMessage) {
-          // Use our unified function to fetch suggestions
-          console.log('Fetching suggestions for loaded messages...');
-          fetchSuggestions(
-            lastUserMessage?.content || 'Hello',
-            lastAssistantMessage.content
-          ).catch(error => {
-            console.error('Failed to fetch suggestions for loaded messages:', error);
-          });
+        try {
+          // Validate and sanitize the data to ensure it has the expected format
+          const validMessages = data
+            .map((msg: any, index: number) => {
+              // Check that message has required fields
+              if (!msg) {
+                console.warn(`[FoundationChatInterface] Message at index ${index} is null or undefined, skipping`);
+                return null;
+              }
+              
+              if (!msg.role || (msg.role !== 'user' && msg.role !== 'assistant')) {
+                console.warn(`[FoundationChatInterface] Message at index ${index} has invalid role: ${msg.role}, defaulting to 'assistant'`);
+                msg.role = 'assistant';
+              }
+              
+              if (!msg.content) {
+                console.warn(`[FoundationChatInterface] Message at index ${index} has empty content, providing default`);
+                msg.content = msg.role === 'user' ? 'User message (content missing)' : 'Assistant response (content missing)';
+              }
+              
+              return {
+                role: msg.role as 'user' | 'assistant',
+                content: String(msg.content) // Ensure content is a string
+              };
+            })
+            .filter((msg): msg is Message => msg !== null); // Filter out nulls and ensure type safety
+          
+          console.log(`[FoundationChatInterface] Setting ${validMessages.length} formatted messages`);
+          setMessages(validMessages);
+          
+          // Fetch AI suggestions based on the last assistant message
+          const messagesReversed = [...data].reverse();
+          const lastAssistantMessage = messagesReversed.find(msg => msg.role === 'assistant');
+          const lastUserMessage = messagesReversed.find(msg => msg.role === 'user');
+          
+          if (lastAssistantMessage) {
+            // Use our unified function to fetch suggestions
+            console.log('[FoundationChatInterface] Fetching suggestions for loaded messages...');
+            fetchSuggestions(
+              lastUserMessage?.content || 'Hello',
+              lastAssistantMessage.content
+            ).catch(error => {
+              console.error('[FoundationChatInterface] Failed to fetch suggestions for loaded messages:', error);
+            });
+          }
+          
+          return true;
+        } catch (formatError) {
+          console.error('[FoundationChatInterface] Error formatting messages:', formatError);
+          // If formatting fails, use the raw data directly with minimal formatting
+          const backupMessages: Message[] = data
+            .filter((msg: any) => msg && (typeof msg.content === 'string' || typeof msg.content === 'number'))
+            .map((msg: any) => ({
+              role: (msg.role === 'user' || msg.role === 'assistant') ? msg.role : 'assistant',
+              content: String(msg.content)
+            }));
+          
+          console.log(`[FoundationChatInterface] Using ${backupMessages.length} backup formatted messages`);
+          setMessages(backupMessages);
+          return backupMessages.length > 0;
         }
-        return true;
       } else {
+        console.log('[FoundationChatInterface] No messages found, clearing loading message');
         // Clear the loading message if no messages were found
         setMessages([]);
         return false;
       }
     } catch (error) {
-      console.error("Error loading messages:", error);
+      console.error("[FoundationChatInterface] Error loading messages:", error);
       setPersistenceError(`Failed to load conversation history: ${error instanceof Error ? error.message : String(error)}`);
       // Clear the loading message on error
       setMessages([]);
@@ -281,45 +340,71 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   
   // Save message to the server with retry mechanism
   const saveMessage = async (foundationId: number, role: 'user' | 'assistant', content: string) => {
+    console.log(`[FoundationChatInterface] Saving ${role} message to foundation ${foundationId}, length: ${content.length} chars`);
     return saveMessageWithRetry(foundationId, role, content);
   };
   
   // Load initial messages based on props
   useEffect(() => {
     const messageHandler = sendMessage || onSendMessage;
-    if (!messageHandler) return;
+    if (!messageHandler) {
+      console.log('[FoundationChatInterface] No message handler available, skipping message loading');
+      return;
+    }
     
     if (foundation) {
+      console.log(`[FoundationChatInterface] Foundation loaded with ID: ${foundation.id}, name: ${foundation.name}`);
       setIsLoadingMessages(true);
       
       // Try to load existing messages for this foundation
       loadMessages(foundation.id).then(hasMessages => {
+        console.log(`[FoundationChatInterface] loadMessages for foundation ${foundation.id} returned hasMessages: ${hasMessages}`);
+        
         // If no existing messages, show the welcome message
         if (!hasMessages) {
+          console.log(`[FoundationChatInterface] No messages found for foundation ${foundation.id}, displaying welcome message`);
+          
           // Set welcome message for foundation with stages explanation
           // IMPORTANT: This exact phrasing triggers the genre suggestions in the StoryFlow_ChatResponseSuggestions assistant
           const welcomeMessage = {
             role: 'assistant' as const,
             content: `Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we'll build the foundation for a living story world that will evolve as you create characters and narratives within it. We'll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?`
           };
+          
+          console.log(`[FoundationChatInterface] Setting welcome message for new foundation ${foundation.id}`);
           setMessages([welcomeMessage]);
           
           // Save welcome message to the database for persistence
           if (foundation.id) {
-            saveMessage(foundation.id, 'assistant', welcomeMessage.content);
+            console.log(`[FoundationChatInterface] Saving welcome message to database for foundation ${foundation.id}`);
+            saveMessage(foundation.id, 'assistant', welcomeMessage.content)
+              .then(success => {
+                console.log(`[FoundationChatInterface] Welcome message saved for foundation ${foundation.id}: ${success ? 'success' : 'failed'}`);
+              });
           }
           
           // Get initial foundation suggestions using the unified function - use empty string for better trigger detection
-          console.log('Fetching suggestions for the welcome message with genre selection trigger...');
+          console.log('[FoundationChatInterface] Fetching suggestions for the welcome message with genre selection trigger...');
           fetchSuggestions(
             '', // Initial message - empty for proper trigger detection
             welcomeMessage.content
           ).catch(error => {
-            console.error('Failed to fetch suggestions for welcome message:', error);
+            console.error('[FoundationChatInterface] Failed to fetch suggestions for welcome message:', error);
           });
         }
+      })
+      .catch(error => {
+        console.error(`[FoundationChatInterface] Error during initial message loading for foundation ${foundation.id}:`, error);
+        // Always show something even if message loading fails
+        setMessages([{
+          role: 'assistant',
+          content: 'Welcome back to this foundation. (There was an issue loading previous messages.)'
+        }]);
+        setIsLoadingMessages(false);
       });
     } else if (title && initialMessages && initialMessages.length > 0) {
+      console.log(`[FoundationChatInterface] Using ${initialMessages.length} initialMessages from props`);
+      
       // If we have initial messages, use those instead of a welcome message
       // Convert the initialMessages format to our internal format
       const convertedMessages = initialMessages.map(msg => ({
@@ -327,13 +412,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         content: msg.content
       }));
       
+      console.log(`[FoundationChatInterface] Setting ${convertedMessages.length} converted messages from initialMessages`);
       setMessages(convertedMessages);
       
       // If initialMessages exist but we still want suggestions, use the last message
       const lastMessage = initialMessages[initialMessages.length - 1];
       if (lastMessage.sender === 'ai') {
         // Use our unified function to fetch suggestions
-        console.log('Fetching suggestions for initialMessages...');
+        console.log('[FoundationChatInterface] Fetching suggestions for initialMessages...');
         
         fetchSuggestions(
           initialMessages.length > 1 
@@ -341,11 +427,13 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             : 'Hello',
           lastMessage.content
         ).catch(error => {
-          console.error('Failed to fetch suggestions for initialMessages:', error);
+          console.error('[FoundationChatInterface] Failed to fetch suggestions for initialMessages:', error);
         });
       }
+    } else {
+      console.log('[FoundationChatInterface] No foundation or initialMessages provided');
     }
-  }, [foundation, initialMessages, title, fetchSuggestions]);
+  }, [foundation, initialMessages, title, fetchSuggestions, sendMessage, onSendMessage]);
   
   // Update input value with transcript when speech recognition is active
   useEffect(() => {
