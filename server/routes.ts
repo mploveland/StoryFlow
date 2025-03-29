@@ -614,37 +614,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Extract genre from messages or use more flexible detection
           let mainGenre = "Custom Genre";
           const fullText = message + " " + content;
+          console.log(`[GENRE DEBUG] User message: "${message}"`);
           
-          // Try specific pattern matching
-          const genreMatch = content.match(genrePattern);
-          if (genreMatch && genreMatch[1]) {
-            mainGenre = genreMatch[1].trim();
-            console.log(`[GENRE DEBUG] Found genre via pattern: ${mainGenre}`);
-          }
-          // If pattern fails, try to detect from common genres in text
-          else {
-            // Keywords for common genres
-            const genreKeywords = [
-              {keyword: "science fiction", genre: "Science Fiction"},
-              {keyword: "sci-fi", genre: "Science Fiction"},
-              {keyword: "fantasy", genre: "Fantasy"},
-              {keyword: "post-apocalyptic", genre: "Post-Apocalyptic"},
-              {keyword: "horror", genre: "Horror"},
-              {keyword: "thriller", genre: "Thriller"},
-              {keyword: "mystery", genre: "Mystery"},
-              {keyword: "romance", genre: "Romance"},
-              {keyword: "historical", genre: "Historical Fiction"},
-              {keyword: "western", genre: "Western"},
-              {keyword: "adventure", genre: "Adventure"},
-              {keyword: "cyberpunk", genre: "Cyberpunk"},
-              {keyword: "dystopian", genre: "Dystopian"}
-            ];
-            
-            for (const {keyword, genre} of genreKeywords) {
-              if (fullText.toLowerCase().includes(keyword)) {
-                mainGenre = genre;
-                console.log(`[GENRE DEBUG] Found genre via keyword '${keyword}': ${genre}`);
+          // First, try to extract a specific genre mention from the user message
+          // This approach prioritizes what the user explicitly says
+          const userMessageGenrePatterns = [
+            /I want a ([\w\s-]+) (story|novel|book|setting|world|foundation)/i,
+            /My genre is ([\w\s-]+)/i,
+            /I choose ([\w\s-]+)/i,
+            /Let's go with ([\w\s-]+)/i,
+            /I'd like ([\w\s-]+)/i,
+            /I'm interested in ([\w\s-]+)/i
+          ];
+          
+          let foundUserGenre = false;
+          for (const pattern of userMessageGenrePatterns) {
+            const userGenreMatch = message.match(pattern);
+            if (userGenreMatch && userGenreMatch[1]) {
+              // Check if this is a recognized genre or a sentence fragment
+              const potentialGenre = userGenreMatch[1].trim();
+              if (potentialGenre.length < 30 && !potentialGenre.includes('that I should')) {
+                mainGenre = potentialGenre;
+                console.log(`[GENRE DEBUG] Extracted user-specified genre from message: "${mainGenre}"`);
+                foundUserGenre = true;
                 break;
+              }
+            }
+          }
+          
+          // If we didn't find a genre in the user message, try the AI response
+          if (!foundUserGenre) {
+            // Try specific pattern matching
+            const genreMatch = content.match(genrePattern);
+            if (genreMatch && genreMatch[1]) {
+              mainGenre = genreMatch[1].trim();
+              console.log(`[GENRE DEBUG] Found genre via pattern in AI response: ${mainGenre}`);
+            }
+            // If pattern fails, try to detect from common genres in text
+            else {
+              // Keywords for common genres
+              const genreKeywords = [
+                {keyword: "science fiction", genre: "Science Fiction"},
+                {keyword: "sci-fi", genre: "Science Fiction"},
+                {keyword: "fantasy", genre: "Fantasy"},
+                {keyword: "post-apocalyptic", genre: "Post-Apocalyptic"},
+                {keyword: "horror", genre: "Horror"},
+                {keyword: "thriller", genre: "Thriller"},
+                {keyword: "mystery", genre: "Mystery"},
+                {keyword: "romance", genre: "Romance"},
+                {keyword: "historical", genre: "Historical Fiction"},
+                {keyword: "western", genre: "Western"},
+                {keyword: "adventure", genre: "Adventure"},
+                {keyword: "cyberpunk", genre: "Cyberpunk"},
+                {keyword: "dystopian", genre: "Dystopian"},
+                {keyword: "sci-fi", genre: "Science Fiction"},
+                {keyword: "steampunk", genre: "Steampunk"},
+                {keyword: "urban fantasy", genre: "Urban Fantasy"}
+              ];
+              
+              // First check the user message for genre keywords
+              for (const {keyword, genre} of genreKeywords) {
+                if (message.toLowerCase().includes(keyword)) {
+                  mainGenre = genre;
+                  console.log(`[GENRE DEBUG] Found genre via keyword '${keyword}' in user message: ${genre}`);
+                  foundUserGenre = true;
+                  break;
+                }
+              }
+              
+              // If still not found, check the AI response
+              if (!foundUserGenre) {
+                for (const {keyword, genre} of genreKeywords) {
+                  if (content.toLowerCase().includes(keyword)) {
+                    mainGenre = genre;
+                    console.log(`[GENRE DEBUG] Found genre via keyword '${keyword}' in AI response: ${genre}`);
+                    break;
+                  }
+                }
               }
             }
           }
@@ -691,6 +737,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
               mainGenre = "Fantasy";
             }
             console.log(`[GENRE DEBUG] Forced genre to: ${mainGenre}`);
+          }
+          
+          // Filter out known problematic phrases that might be captured as genres
+          const invalidGenrePhrases = [
+            "that i should", 
+            "that we should", 
+            "you recommend", 
+            "as a reference",
+            "as reference",
+            "please provide",
+            "i want something"
+          ];
+          
+          // Check if current genre contains any invalid phrases
+          const lowerGenre = mainGenre.toLowerCase();
+          for (const phrase of invalidGenrePhrases) {
+            if (lowerGenre.includes(phrase)) {
+              console.log(`[GENRE DEBUG] Found invalid phrase in genre: "${phrase}", resetting to default`);
+              mainGenre = "Custom Genre";
+              break;
+            }
+          }
+          
+          // One final check to ensure we have a reasonable length for a genre name
+          if (mainGenre.length > 30) {
+            console.log(`[GENRE DEBUG] Genre name too long (${mainGenre.length} chars), resetting to default`);
+            mainGenre = "Custom Genre";
           }
           
           // Check if genre details already exist for this foundation
