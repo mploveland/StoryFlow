@@ -148,7 +148,7 @@ const FoundationDetails: React.FC = () => {
         setStoryCount(stories.length);
       }
     }
-  }, [foundation, characters, initialized]);
+  }, [foundation, characters, initialized, stories]);
   
   // Create a new story
   const createStoryMutation = useMutation({
@@ -239,16 +239,7 @@ const FoundationDetails: React.FC = () => {
         });
       }
       
-      // Invalidate all foundation-related queries with the correct query key format
-      queryClient.invalidateQueries({ queryKey: [`/api/foundations`] });
-      
-      // Invalidate the specific user-based foundation query to ensure dashboard updates correctly
-      if (user?.id) {
-        queryClient.invalidateQueries({ queryKey: [`/api/foundations?userId=${user.id}`] });
-      }
-      
-      // Also invalidate this specific foundation's details
-      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${variables.id}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
     },
     onError: (error) => {
       toast({
@@ -346,31 +337,6 @@ const FoundationDetails: React.FC = () => {
           id: foundation.id,
           threadId: data.threadId
         });
-      }
-      
-      // Try to get intelligent chat suggestions from our dedicated AI endpoint
-      try {
-        const suggestionsResponse = await fetch('/api/ai/chat-suggestions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            userMessage: message,
-            assistantReply: data.content
-          }),
-        });
-        
-        if (suggestionsResponse.ok) {
-          const suggestionsData = await suggestionsResponse.json();
-          if (suggestionsData.suggestions && Array.isArray(suggestionsData.suggestions) && suggestionsData.suggestions.length > 0) {
-            console.log('Using AI-generated chat suggestions:', suggestionsData.suggestions);
-            data.suggestions = suggestionsData.suggestions;
-          }
-        }
-      } catch (suggestionError) {
-        console.error('Error fetching intelligent suggestions:', suggestionError);
-        // Keep using the suggestions from the original response if available
       }
       
       // Return standardized response format
@@ -475,135 +441,127 @@ const FoundationDetails: React.FC = () => {
             </Button>
             <h1 className="text-2xl font-bold">{foundation.name}</h1>
           </div>
-          <div className="flex mt-4 md:mt-0">
-            {isFoundationComplete(foundation, characters) && (
-              <Button variant="outline" onClick={handleEditFoundation} className="mr-2">
-                <Edit className="mr-2 h-4 w-4" /> Edit Foundation
-              </Button>
-            )}
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={handleDeleteFoundation}
-              className="text-neutral-500 hover:text-red-500"
-            >
-              <Trash2 className="h-5 w-5" />
+          
+          <div className="flex space-x-2 mt-4 md:mt-0">
+            <Button variant="outline" onClick={handleEditFoundation}>
+              <Edit className="mr-2 h-4 w-4" /> Edit Foundation
+            </Button>
+            <Button variant="outline" className="text-red-600" onClick={handleDeleteFoundation}>
+              <Trash2 className="mr-2 h-4 w-4" /> Delete
             </Button>
           </div>
         </div>
         
         {/* Main content with 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left side: Genre/World/Character cards */}
-          <div className="lg:col-span-3">
-            {isFoundationComplete(foundation, characters) && (
-              <div className="space-y-4">
-                {foundation.genre && (
-                  <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center text-lg">
-                        <Palette className="mr-2 h-5 w-5 text-primary-500" /> 
-                        Genre
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-2">
-                      <p className="text-sm text-neutral-600">{foundation.genre}</p>
-                    </CardContent>
-                    <CardFooter className="pt-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full text-primary-600" 
-                        onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
-                      >
-                        View Details
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                )}
-                
-                {foundation.description && (
-                  <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center text-lg">
-                        <Globe className="mr-2 h-5 w-5 text-primary-500" /> 
-                        World
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-2">
-                      <p className="text-sm text-neutral-600 line-clamp-2">{foundation.description}</p>
-                    </CardContent>
-                    <CardFooter className="pt-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="w-full text-primary-600" 
-                        onClick={() => window.location.href = `/world-details?foundationId=${foundation.id}`}
-                      >
-                        View Details
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                )}
-                
-                {characters.length > 0 && (
-                  <Card className="hover:shadow-md transition-shadow">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="flex items-center text-lg">
-                        <Users className="mr-2 h-5 w-5 text-primary-500" /> 
-                        Characters
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-2">
-                      <p className="text-sm text-neutral-600">{characters.length} character{characters.length !== 1 ? 's' : ''}</p>
-                      <div className="mt-2">
-                        {characters.slice(0, 3).map((character) => (
-                          <div key={character.id} className="text-sm text-neutral-600 truncate">{character.name}</div>
-                        ))}
-                        {characters.length > 3 && <div className="text-xs text-neutral-400">+ {characters.length - 3} more</div>}
-                      </div>
-                    </CardContent>
-                    <CardFooter className="pt-2">
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="w-full text-primary-600"
-                        onClick={() => window.location.href = `/character-details?foundationId=${foundation.id}`}
-                      >
-                        View All Characters
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                )}
-                
-                {/* Add more foundation components */}
+          {/* Left side: Genre/World/Character cards - only show if foundation is complete */}
+          <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : ''}`}>
+            <div className="space-y-4">
+              {foundation.genre && (
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-lg">
-                      <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
-                      Environments
+                      <Palette className="mr-2 h-5 w-5 text-primary-500" /> 
+                      Genre
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pb-2">
-                    <p className="text-sm text-neutral-600">Define locations and their details</p>
+                    <p className="text-sm text-neutral-600">{foundation.genre}</p>
                   </CardContent>
                   <CardFooter className="pt-2">
                     <Button 
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => window.location.href = `/environment-details?foundationId=${foundation.id}`}
+                      onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
                     >
                       View Details
                     </Button>
                   </CardFooter>
                 </Card>
-              </div>
-            )}
+              )}
+              
+              {foundation.description && (
+                <Card className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-lg">
+                      <Globe className="mr-2 h-5 w-5 text-primary-500" /> 
+                      World
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <p className="text-sm text-neutral-600 line-clamp-2">{foundation.description}</p>
+                  </CardContent>
+                  <CardFooter className="pt-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      className="w-full text-primary-600" 
+                      onClick={() => window.location.href = `/world-details?foundationId=${foundation.id}`}
+                    >
+                      View Details
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+              
+              {characters.length > 0 && (
+                <Card className="hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-lg">
+                      <Users className="mr-2 h-5 w-5 text-primary-500" /> 
+                      Characters
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <p className="text-sm text-neutral-600">{characters.length} character{characters.length !== 1 ? 's' : ''}</p>
+                    <div className="mt-2">
+                      {characters.slice(0, 3).map((character) => (
+                        <div key={character.id} className="text-sm text-neutral-600 truncate">{character.name}</div>
+                      ))}
+                      {characters.length > 3 && <div className="text-xs text-neutral-400">+ {characters.length - 3} more</div>}
+                    </div>
+                  </CardContent>
+                  <CardFooter className="pt-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full text-primary-600"
+                      onClick={() => window.location.href = `/character-details?foundationId=${foundation.id}`}
+                    >
+                      View All Characters
+                    </Button>
+                  </CardFooter>
+                </Card>
+              )}
+              
+              {/* Add more foundation components */}
+              <Card className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center text-lg">
+                    <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
+                    Environments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-2">
+                  <p className="text-sm text-neutral-600">Define locations and their details</p>
+                </CardContent>
+                <CardFooter className="pt-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full text-primary-600" 
+                    onClick={() => window.location.href = `/environment-details?foundationId=${foundation.id}`}
+                  >
+                    View Details
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
           </div>
           
           {/* Center: Chat window - always show */}
-          <div className="lg:col-span-6">
+          <div className={`${isFoundationComplete(foundation, characters) ? 'lg:col-span-6' : 'lg:col-span-12'}`}>
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
               <FoundationChatInterface 
                 title={`Building ${foundation.name}`}
@@ -616,63 +574,61 @@ const FoundationDetails: React.FC = () => {
                   content: `Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we'll build the foundation for a living story world that will evolve as you create characters and narratives within it. We'll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?`,
                   sender: 'ai',
                   timestamp: new Date(),
-                  suggestions: [] // No default suggestions - all will come from StoryFlow_ChatResponseSuggestions assistant
+                  suggestions: []
                 }] : []}
               />
             </div>
           </div>
           
           {/* Right side: Stories list and create button - only shown when foundation is complete */}
-          {isFoundationComplete(foundation, characters) && (
-            <div className="lg:col-span-3">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <BookOpen className="mr-2 h-5 w-5 text-primary-500" /> 
-                    Stories
-                  </CardTitle>
-                  <CardDescription>Stories based on this foundation</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isLoadingStories ? (
-                    <div className="space-y-2">
-                      <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
-                      <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
-                    </div>
-                  ) : stories.length === 0 ? (
-                    <div className="text-center py-4 text-neutral-500">
-                      <p>No stories yet</p>
-                      <p className="text-sm mt-1">Create your first story to start writing</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {stories.map((story) => (
-                        <div
-                          key={story.id}
-                          className="p-3 rounded-md bg-neutral-50 hover:bg-neutral-100 cursor-pointer"
-                          onClick={() => navigate(`/story-editor?storyId=${story.id}`)}
-                        >
-                          <div className="font-medium">{story.title}</div>
-                          <div className="text-xs text-neutral-500 mt-1">
-                            {story.status === 'draft' ? 'Draft' : 'Published'} · {new Date(story.createdAt as Date).toLocaleDateString()}
-                          </div>
+          <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : ''}`}>
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BookOpen className="mr-2 h-5 w-5 text-primary-500" /> 
+                  Stories
+                </CardTitle>
+                <CardDescription>Stories based on this foundation</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingStories ? (
+                  <div className="space-y-2">
+                    <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
+                    <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
+                  </div>
+                ) : stories.length === 0 ? (
+                  <div className="text-center py-4 text-neutral-500">
+                    <p>No stories yet</p>
+                    <p className="text-sm mt-1">Create your first story to start writing</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {stories.map((story) => (
+                      <div
+                        key={story.id}
+                        className="p-3 rounded-md bg-neutral-50 hover:bg-neutral-100 cursor-pointer"
+                        onClick={() => navigate(`/story-editor?storyId=${story.id}`)}
+                      >
+                        <div className="font-medium">{story.title}</div>
+                        <div className="text-xs text-neutral-500 mt-1">
+                          {story.status === 'draft' ? 'Draft' : 'Published'} · {new Date(story.createdAt as Date).toLocaleDateString()}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    onClick={handleCreateStory} 
-                    className="w-full"
-                    disabled={!isFoundationComplete(foundation, characters) || createStoryMutation.isPending}
-                  >
-                    <Plus className="mr-2 h-4 w-4" /> Create Story
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-          )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleCreateStory} 
+                  className="w-full"
+                  disabled={!isFoundationComplete(foundation, characters) || createStoryMutation.isPending}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Create Story
+                </Button>
+              </CardFooter>
+            </Card>
+          </div>
         </div>
       </main>
       
