@@ -995,15 +995,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if this is an informative response or just a question
       // If it's just a question, treat it as an conversation in progress
-      const isQuestionOnly = genreDetails.description && 
-        genreDetails.description.includes("?") && 
-        genreDetails.description.length < 100;
+      const description = genreDetails.description || '';
+      const isQuestionOnly = description.includes("?") && description.length < 100;
         
       if (isQuestionOnly) {
         console.log("Detected question-only response, treating as conversation in progress");
         
         // Generate context-aware suggestions based on the question
-        const description = genreDetails.description.toLowerCase();
+        const description = (genreDetails.description || '').toLowerCase();
         let contextAwareSuggestions: string[] = [];
         
         // Default catch-all suggestion that lets AI decide
@@ -1081,6 +1080,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
             "My favorite authors are Stephen King and Neil Gaiman",
             "I enjoy books with complex characters and deep worldbuilding"
           ];
+        }
+        
+        // Save partial genre details to database even during conversation
+        try {
+          // Look up the foundation ID from the request
+          const foundationId = parseInt(req.body.foundationId);
+          
+          if (foundationId && !isNaN(foundationId)) {
+            console.log(`Saving partial genre details during conversation for foundation ID: ${foundationId}`);
+            
+            // Prepare genre data - extract available information even from partial response
+            const partialGenreData = {
+              // Required fields
+              mainGenre: genreDetails.mainGenre || "Custom Genre",
+              threadId: genreDetails.threadId,
+              
+              // Optional fields that might be present in partial responses
+              name: genreDetails.name,
+              description: genreDetails.description,
+              themes: genreDetails.themes,
+              mood: genreDetails.mood,
+              tone: genreDetails.tone,
+              inspirations: genreDetails.inspirations,
+              // Any other fields that might be present
+            };
+            
+            // First, check if genre details already exist for this foundation
+            const existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            
+            if (existingGenreDetails) {
+              // Update existing genre details
+              console.log(`Updating existing genre details ID: ${existingGenreDetails.id} during conversation`);
+              await storage.updateGenreDetails(existingGenreDetails.id, {
+                ...partialGenreData,
+                foundationId: foundationId
+              });
+            } else {
+              // Create new genre details
+              console.log(`Creating new genre details for foundation ID: ${foundationId} during conversation`);
+              await storage.createGenreDetails({
+                ...partialGenreData,
+                foundationId: foundationId
+              });
+            }
+          } else {
+            console.log(`Cannot save partial genre details: Invalid or missing foundation ID: ${req.body.foundationId}`);
+          }
+        } catch (error) {
+          console.error('Error saving partial genre details to database during conversation:', error);
+          // Continue despite the error - don't block the response
         }
         
         return res.status(202).json({
@@ -1180,6 +1229,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Create a complete genre details object
           const genreData = {
+            mainGenre: genreName, // Required field
             name: genreName,
             description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
             themes: ["Identity", "Growth", "Challenge"],
@@ -1234,6 +1284,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           
           // Return a response that completes the genre stage and includes the world-building question
           return res.json({
+            mainGenre: genreName, // Required field
             name: genreName,
             description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
             themes: ["Identity", "Growth", "Challenge"],
@@ -1333,6 +1384,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ];
           }
         } // End of contextAwareSuggestions.length <= 1 block
+        
+        // Save partial genre details to database even during conversation-in-progress
+        try {
+          // Look up the foundation ID from the request
+          const foundationId = parseInt(req.body.foundationId);
+          
+          if (foundationId && !isNaN(foundationId)) {
+            console.log(`Saving partial genre details during CONVERSATION_IN_PROGRESS for foundation ID: ${foundationId}`);
+            
+            // Extract genre name from the request or conversation
+            let genreName = "Custom Genre";
+            const userInterests = req.body.userInterests || "";
+            
+            // Check for genre keywords in the user interests
+            const genreKeywords = {
+              "fantasy": "Fantasy Fiction",
+              "sci-fi": "Science Fiction", 
+              "science fiction": "Science Fiction",
+              "mystery": "Mystery",
+              "thriller": "Thriller",
+              "horror": "Horror",
+              "romance": "Romance",
+              "historical": "Historical Fiction",
+              "adventure": "Adventure"
+            };
+            
+            for (const [keyword, name] of Object.entries(genreKeywords)) {
+              if (userInterests.toLowerCase().includes(keyword)) {
+                genreName = name;
+                break;
+              }
+            }
+            
+            // Prepare minimal genre data with at least the required fields
+            const partialGenreData = {
+              // Required fields
+              mainGenre: genreName,
+              threadId: threadId || `thread-${Date.now()}`,
+              
+              // Optional fields with placeholder values
+              name: genreName,
+              description: question, // Use the current question as partial description
+            };
+            
+            // First, check if genre details already exist for this foundation
+            const existingGenreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            
+            if (existingGenreDetails) {
+              // Update existing genre details
+              console.log(`Updating existing genre details ID: ${existingGenreDetails.id} during CONVERSATION_IN_PROGRESS`);
+              await storage.updateGenreDetails(existingGenreDetails.id, {
+                ...partialGenreData,
+                foundationId: foundationId
+              });
+            } else {
+              // Create new genre details
+              console.log(`Creating new genre details for foundation ID: ${foundationId} during CONVERSATION_IN_PROGRESS`);
+              await storage.createGenreDetails({
+                ...partialGenreData,
+                foundationId: foundationId
+              });
+            }
+          } else {
+            console.log(`Cannot save partial genre details: Invalid or missing foundation ID: ${req.body.foundationId}`);
+          }
+        } catch (error) {
+          console.error('Error saving partial genre details to database during CONVERSATION_IN_PROGRESS:', error);
+          // Continue despite the error - don't block the response
+        }
         
         // Return a special response for the frontend to handle
         return res.status(202).json({

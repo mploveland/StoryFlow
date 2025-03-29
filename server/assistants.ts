@@ -15,6 +15,27 @@ const WORLD_BUILDER_ASSISTANT_ID = "asst_1uR8DP6BZB3CdrUDm6Me7vHA";
 const CHAT_SUGGESTIONS_ASSISTANT_ID = "asst_qRnUXdtrdWBC5Zb5DOU1o5bO";
 
 /**
+ * Helper function to extract pattern matches from text with safety checks
+ * 
+ * @param text The text to search in
+ * @param regex The regex pattern to match
+ * @param contextLength How many characters to extract around the match
+ * @returns The extracted text portion or empty string if no match
+ */
+function extractStringPattern(text: string, regex: RegExp, contextLength = 100): string {
+  const match = text.match(regex);
+  if (!match || typeof match.index !== 'number') return '';
+  
+  const start = match.index;
+  const end = Math.min(start + contextLength, text.length);
+  const extracted = text.substring(start, end);
+  
+  // Get the first sentence or the whole extract if no period found
+  const firstSentence = extracted.split('.')[0];
+  return firstSentence;
+}
+
+/**
  * Helper function to detect conversation context from a message
  * This is used to dynamically switch between assistants based on the content
  * 
@@ -1005,41 +1026,27 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
         worldbuildingElements = ["Cultural Elements", "Geography", "Historical Context"];
     }
     
-    // Extract additional data from the expanded schema by using safer string extraction
-    function extractFromMatch(text: string, regex: RegExp, contextLength = 100): string {
-      const match = text.match(regex);
-      if (!match || typeof match.index !== 'number') return '';
-      
-      const start = match.index;
-      const end = Math.min(start + contextLength, text.length);
-      const extracted = text.substring(start, end);
-      
-      // Get the first sentence or the whole extract if no period found
-      const firstSentence = extracted.split('.')[0];
-      return firstSentence;
-    }
-    
     // Extract mood/tone details
-    const mood = extractFromMatch(
+    const mood = extractStringPattern(
       responseText, 
       /mood|tone|emotional impact|feel|atmosphere/i
     );
     
     // Extract time period details
-    const timePeriod = extractFromMatch(
+    const timePeriod = extractStringPattern(
       responseText, 
       /era|period|time|century|decade/i
     );
     
     // Extract speculative elements
-    const speculativeElements = extractFromMatch(
+    const speculativeElements = extractStringPattern(
       responseText, 
       /magic|technology|supernatural|powers|abilities|fantasy elements|sci-fi|futuristic/i,
       150
     );
     
     // Extract inspirations
-    const inspirationsText = extractFromMatch(
+    const inspirationsText = extractStringPattern(
       responseText,
       /inspired by|like|similar to|comparable to|reference|influenced by/i,
       150
