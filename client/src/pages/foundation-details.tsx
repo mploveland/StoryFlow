@@ -29,22 +29,32 @@ const FoundationDetails: React.FC = () => {
   
   // Get foundationId from URL query params or path params
   // First check for query param in the format /foundation-details?foundationId=35
-  const queryString = location.split('?')[1] || '';
-  const params = new URLSearchParams(queryString);
-  let foundationIdParam = params.get('foundationId');
+  let foundationIdParam: string | null = null;
   
-  // If not found, check for path param in the format /foundation/35
-  if (!foundationIdParam && location.includes('/foundation/')) {
-    const routeMatch = location.match(/\/foundation\/(\d+)/);
-    if (routeMatch && routeMatch[1]) {
-      foundationIdParam = routeMatch[1];
-      console.log('Found path parameter:', routeMatch[1]);
+  try {
+    // Handle both formats: /foundation-details?foundationId=35 and /foundation/35
+    if (location.includes('?')) {
+      // Extract from query params
+      const urlParams = new URLSearchParams(window.location.search);
+      foundationIdParam = urlParams.get('foundationId');
+      console.log('Found query parameter:', foundationIdParam);
+    } else if (location.includes('/foundation/')) {
+      // Extract from path e.g. /foundation/35
+      const routeMatch = location.match(/\/foundation\/(\d+)/);
+      if (routeMatch && routeMatch[1]) {
+        foundationIdParam = routeMatch[1];
+        console.log('Found path parameter:', routeMatch[1]);
+      }
     }
+  } catch (error) {
+    console.error('Error parsing URL parameters:', error);
   }
   
+  // For debugging - log all url parameter formats
   console.log('URL details:', {
     location,
-    queryString,
+    windowLocation: window.location.toString(),
+    searchParams: window.location.search,
     foundationIdParam,
     paramType: typeof foundationIdParam
   });

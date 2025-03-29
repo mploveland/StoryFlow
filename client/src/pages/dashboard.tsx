@@ -79,8 +79,13 @@ const Dashboard: React.FC = () => {
       // We need to ensure the foundation ID is properly passed
       console.log(`Redirecting to new foundation: ${newFoundation.id}`);
       
+      // Construct URL properly to ensure query params are handled correctly
+      const url = new URL(`${window.location.origin}/foundation-details`);
+      url.searchParams.set('foundationId', newFoundation.id.toString());
+      console.log('Navigating to new foundation URL:', url.toString());
+      
       // Force a hard navigation to ensure the query params are properly passed
-      window.location.href = `/foundation-details?foundationId=${newFoundation.id}`;
+      window.location.href = url.toString();
     },
     onError: (error: any) => {
       toast({
@@ -356,17 +361,19 @@ const Dashboard: React.FC = () => {
                         
                         // Make sure foundation has a valid ID before navigating
                         if (foundation && typeof foundation.id === 'number' && foundation.id > 0) {
-                          console.log(`Attempting to navigate to foundation ${foundation.id}`);
+                          const foundationId = foundation.id;
+                          console.log(`Attempting to navigate to foundation ${foundationId}`);
                           
-                          // Create a proper URL with query parameters
-                          const url = new URL(window.location.origin);
-                          url.pathname = '/foundation-details';
-                          url.searchParams.append('foundationId', foundation.id.toString());
+                          // For debugging, log the foundation object
+                          console.log('Foundation object:', foundation);
+                          
+                          // Ensure we're constructing the URL correctly
+                          const url = new URL(`${window.location.origin}/foundation-details`);
+                          url.searchParams.set('foundationId', foundationId.toString());
                           
                           console.log('Navigating to URL:', url.toString());
                           
-                          // Skip wouter and use direct navigation to avoid query parameter issues
-                          console.log('Using window.location for navigation');
+                          // Skip wouter and use direct navigation to ensure query params are preserved
                           window.location.href = url.toString();
                         } else {
                           console.error('Invalid foundation ID:', foundation);
@@ -422,7 +429,10 @@ const Dashboard: React.FC = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          window.location.href = `/genre-details?foundationId=${selectedFoundation.id}`;
+                          const url = new URL(`${window.location.origin}/genre-details`);
+                          url.searchParams.set('foundationId', selectedFoundation.id.toString());
+                          console.log('Navigating to genre details:', url.toString());
+                          window.location.href = url.toString();
                         }}
                       >
                         View Genre Details
@@ -431,7 +441,10 @@ const Dashboard: React.FC = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          window.location.href = `/world-details?foundationId=${selectedFoundation.id}`;
+                          const url = new URL(`${window.location.origin}/world-details`);
+                          url.searchParams.set('foundationId', selectedFoundation.id.toString());
+                          console.log('Navigating to world details:', url.toString());
+                          window.location.href = url.toString();
                         }}
                       >
                         View World Details
@@ -440,7 +453,10 @@ const Dashboard: React.FC = () => {
                         variant="outline" 
                         size="sm"
                         onClick={() => {
-                          window.location.href = `/character-details?foundationId=${selectedFoundation.id}`;
+                          const url = new URL(`${window.location.origin}/character-details`);
+                          url.searchParams.set('foundationId', selectedFoundation.id.toString());
+                          console.log('Navigating to character details:', url.toString());
+                          window.location.href = url.toString();
                         }}
                       >
                         <Users className="h-4 w-4 mr-1" /> Characters
