@@ -460,7 +460,7 @@ const FoundationDetails: React.FC = () => {
         
         {/* Main content with 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left side: Genre/World/Character cards - only show if foundation is complete */}
+          {/* Left side: Genre/World/Character cards */}
           <div className="lg:col-span-3">
             {isFoundationComplete(foundation, characters) && (
               <div className="space-y-4">
@@ -593,55 +593,57 @@ const FoundationDetails: React.FC = () => {
             </div>
           </div>
           
-          {/* Right side: Stories list and create button */}
-          <div className="lg:col-span-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <BookOpen className="mr-2 h-5 w-5 text-primary-500" /> 
-                  Stories
-                </CardTitle>
-                <CardDescription>Stories based on this foundation</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {isLoadingStories ? (
-                  <div className="space-y-2">
-                    <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
-                    <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
-                  </div>
-                ) : stories.length === 0 ? (
-                  <div className="text-center py-4 text-neutral-500">
-                    <p>No stories yet</p>
-                    <p className="text-sm mt-1">Create your first story to start writing</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {stories.map((story) => (
-                      <div
-                        key={story.id}
-                        className="p-3 rounded-md bg-neutral-50 hover:bg-neutral-100 cursor-pointer"
-                        onClick={() => navigate(`/story-editor?storyId=${story.id}`)}
-                      >
-                        <div className="font-medium">{story.title}</div>
-                        <div className="text-xs text-neutral-500 mt-1">
-                          {story.status === 'draft' ? 'Draft' : 'Published'} · {new Date(story.createdAt as Date).toLocaleDateString()}
+          {/* Right side: Stories list and create button - only shown when foundation is complete */}
+          {isFoundationComplete(foundation, characters) && (
+            <div className="lg:col-span-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <BookOpen className="mr-2 h-5 w-5 text-primary-500" /> 
+                    Stories
+                  </CardTitle>
+                  <CardDescription>Stories based on this foundation</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingStories ? (
+                    <div className="space-y-2">
+                      <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
+                      <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
+                    </div>
+                  ) : stories.length === 0 ? (
+                    <div className="text-center py-4 text-neutral-500">
+                      <p>No stories yet</p>
+                      <p className="text-sm mt-1">Create your first story to start writing</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {stories.map((story) => (
+                        <div
+                          key={story.id}
+                          className="p-3 rounded-md bg-neutral-50 hover:bg-neutral-100 cursor-pointer"
+                          onClick={() => navigate(`/story-editor?storyId=${story.id}`)}
+                        >
+                          <div className="font-medium">{story.title}</div>
+                          <div className="text-xs text-neutral-500 mt-1">
+                            {story.status === 'draft' ? 'Draft' : 'Published'} · {new Date(story.createdAt as Date).toLocaleDateString()}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-              <CardFooter>
-                <Button 
-                  onClick={handleCreateStory} 
-                  className="w-full"
-                  disabled={!isFoundationComplete(foundation, characters) || createStoryMutation.isPending}
-                >
-                  <Plus className="mr-2 h-4 w-4" /> Create Story
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+                <CardFooter>
+                  <Button 
+                    onClick={handleCreateStory} 
+                    className="w-full"
+                    disabled={!isFoundationComplete(foundation, characters) || createStoryMutation.isPending}
+                  >
+                    <Plus className="mr-2 h-4 w-4" /> Create Story
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          )}
         </div>
       </main>
       

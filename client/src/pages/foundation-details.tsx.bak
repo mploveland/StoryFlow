@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
-import { Foundation, Story, Character } from '@shared/schema';
+import { Foundation, Story, Character } from '../types';
 import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
 import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
 import {
@@ -27,38 +27,58 @@ const FoundationDetails: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get foundationId from URL query params
-  console.log('URL location:', location);
+  // Get foundationId from URL query params or path params
+  let foundationIdParam: string | null = null;
   
-  // Handle URL parsing safely
-  let foundationId = 0;
   try {
-    const params = new URLSearchParams(window.location.search);
-    const foundationIdParam = params.get('foundationId');
+    // ALWAYS use window.location.search for query parameters
+    // This works regardless of the component location path
+    const urlParams = new URLSearchParams(window.location.search);
+    foundationIdParam = urlParams.get('foundationId');
     
-    console.log('Raw foundation ID param from window.location.search:', foundationIdParam);
-    
-    // Validate foundationId is a proper number
-    if (foundationIdParam && foundationIdParam.trim() !== '' && !isNaN(parseInt(foundationIdParam))) {
-      foundationId = parseInt(foundationIdParam);
-      console.log('Parsed foundation ID:', foundationId);
-    } else {
-      console.error('Invalid foundation ID in URL:', foundationIdParam);
-      // Try parsing from the location directly as a fallback
-      const fallbackParams = new URLSearchParams(location.split('?')[1] || '');
-      const fallbackId = fallbackParams.get('foundationId');
-      console.log('Fallback ID param:', fallbackId);
-      
-      if (fallbackId && !isNaN(parseInt(fallbackId))) {
-        foundationId = parseInt(fallbackId);
-        console.log('Using fallback parsed ID:', foundationId);
+    if (foundationIdParam) {
+      console.log('Found query parameter in URL:', foundationIdParam);
+    } else if (location.includes('/foundation/')) {
+      // If no query param, try to extract from path e.g. /foundation/35
+      const routeMatch = location.match(/\/foundation\/(\d+)/);
+      if (routeMatch && routeMatch[1]) {
+        foundationIdParam = routeMatch[1];
+        console.log('Found path parameter:', routeMatch[1]);
       }
     }
   } catch (error) {
-    console.error('Error parsing foundation ID:', error);
+    console.error('Error parsing URL parameters:', error);
   }
   
-  const [activeTab, setActiveTab] = useState('overview');
+  // For debugging - log all url parameter formats
+  console.log('URL details:', {
+    location,
+    windowLocation: window.location.toString(),
+    searchParams: window.location.search,
+    foundationIdParam,
+    paramType: typeof foundationIdParam
+  });
+  
+  // Parse as an integer, ensure it's a valid positive number
+  const foundationId = foundationIdParam ? parseInt(foundationIdParam, 10) : 0;
+  console.log('Parsed foundation ID:', foundationId, typeof foundationId);
+  
+  // Only redirect if we have an invalid ID (not just a missing one)
+  useEffect(() => {
+    if (foundationIdParam !== null && foundationIdParam !== undefined) {
+      // Only validate if a parameter was actually provided
+      if (isNaN(foundationId) || foundationId <= 0) {
+        console.log('Invalid foundation ID detected, redirecting to dashboard');
+        toast({
+          title: 'Invalid Foundation ID',
+          description: 'The foundation ID is invalid. Redirecting to dashboard.',
+        });
+        navigate('/dashboard');
+      } else {
+        console.log('Foundation ID is valid:', foundationId);
+      }
+    }
+  }, [foundationId, foundationIdParam, navigate, toast]);
   
   // State to track if UI has been initialized
   const [initialized, setInitialized] = useState(false);
@@ -68,7 +88,9 @@ const FoundationDetails: React.FC = () => {
   const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
   const [storyCount, setStoryCount] = useState(0);
   
-  // Query foundation details
+  // Query foundation details with extra debugging 
+  console.log(`About to query foundation with ID: ${foundationId}, enabled: ${!!foundationId}`);
+  
   const { 
     data: foundation, 
     isLoading: isLoadingFoundation, 
@@ -76,7 +98,10 @@ const FoundationDetails: React.FC = () => {
   } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${foundationId}`],
     enabled: !!foundationId,
-  });
+    // Use properly typed success and error handlers
+    onSuccess: (data: Foundation) => console.log('Foundation query succeeded:', data),
+    onError: (error: Error) => console.error('Foundation query failed:', error)
+  } as any); // Using type assertion to work around type error
   
   // Log the threadId when foundation is loaded
   useEffect(() => {
@@ -107,79 +132,86 @@ const FoundationDetails: React.FC = () => {
   const isFoundationComplete = (foundation?: Foundation, characters?: Character[]) => {
     if (!foundation) return false;
     
-    // Check if genre is defined
-    const hasGenre = !!foundation.genre;
+    const hasGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
+    const hasWorldDetails = foundation.description && foundation.description.trim() !== '';
+    const hasCharacters = characters && characters.length > 0;
     
-    // Check if world details exist
-    const hasWorldDetails = !!foundation.description;
-    
-    // Check if at least one character exists
-    const hasCharacters = Array.isArray(characters) && characters.length > 0;
-    
-    return hasGenre && hasWorldDetails && hasCharacters;
+    return hasGenre && hasWorldDetails;
   };
   
-  // Effect to automatically switch to chat tab when foundation is incomplete
+  // Auto-initialize the UI state based on foundation data
   useEffect(() => {
-    if (!initialized && foundation && characters) {
-      const isComplete = isFoundationComplete(foundation, characters);
-      if (!isComplete) {
-        setActiveTab('chat');
-      }
+    if (foundation && characters && !initialized) {
       setInitialized(true);
+      
+      if (stories?.length) {
+        setStoryCount(stories.length);
+      }
     }
   }, [foundation, characters, initialized]);
   
-  // Create story mutation
+  // Create a new story
   const createStoryMutation = useMutation({
     mutationFn: async (storyData: { title: string; genre?: string; foundationId: number }) => {
       const response = await apiRequest('POST', '/api/stories', {
         ...storyData,
-        userId: user?.id,
+        status: 'draft'
       });
-      return response.json();
+      
+      return await response.json();
     },
     onSuccess: (newStory) => {
       toast({
-        title: 'Story created successfully',
-        description: 'Your new story has been created.',
+        title: 'Story created!',
+        description: 'Your new story has been created successfully.'
       });
-      // Refresh stories list
+      
       queryClient.invalidateQueries({ queryKey: [`/api/stories?foundationId=${foundationId}`] });
-      // Navigate to the voice story creation page
+      
+      // Navigate to the story creation page
       navigate(`/voice-story-creation?storyId=${newStory.id}`);
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
-        title: 'Failed to create story',
-        description: error.message || 'An error occurred while creating your story.',
-        variant: 'destructive',
+        title: 'Error creating story',
+        description: 'There was an error creating your story. Please try again.',
+        variant: 'destructive'
       });
     },
   });
   
+  // Handle creating a new story
   const handleCreateStory = () => {
     if (!foundation) return;
     
     createStoryMutation.mutate({
-      title: "New Voice Story",
-      genre: foundation.genre || "Draft",
+      title: `${foundation.name} - New Story`,
+      genre: foundation.genre || undefined,
       foundationId: foundation.id
     });
   };
   
+  // Handle editing the foundation
   const handleEditFoundation = () => {
-    // Will be implemented later
-    toast({
-      title: 'Coming Soon',
-      description: 'Foundation editing will be available soon.',
-    });
+    // Navigate to the foundation editing page
+    navigate(`/foundation-edit?foundationId=${foundationId}`);
   };
   
-  // Delete foundation mutation
+  // Handle deleting the foundation
+  const handleDeleteFoundation = () => {
+    if (stories && stories.length > 0) {
+      setStoryCount(stories.length);
+      setIsDeleteDialogOpen(true);
+    } else {
+      setIsDeleteDialogOpen(true);
+    }
+  };
+  
+  // Delete Foundation mutation
   const deleteFoundationMutation = useMutation({
     mutationFn: async (options: { id: number, force?: boolean }) => {
       const url = `/api/foundations/${options.id}${options.force ? '?force=true' : ''}`;
+      
       try {
         const response = await apiRequest('DELETE', url);
         
@@ -190,72 +222,67 @@ const FoundationDetails: React.FC = () => {
         const data = await response.json();
         return data;
       } catch (error) {
+        console.error('Error deleting foundation:', error);
         throw error;
       }
     },
-    onSuccess: (result) => {
-      if (result.hasStories) {
-        // If the foundation has stories, show confirmation dialog with story count
-        setStoryCount(result.storyCount);
-        setIsForceDeleteDialogOpen(true);
-        return;
+    onSuccess: (_, variables) => {
+      if (variables.force) {
+        toast({
+          title: 'Foundation deleted',
+          description: 'The foundation and all associated stories have been permanently deleted.'
+        });
+      } else {
+        toast({
+          title: 'Foundation deleted',
+          description: 'The foundation has been successfully deleted.'
+        });
       }
       
-      toast({
-        title: 'Foundation deleted',
-        description: 'The foundation has been successfully deleted.',
-      });
-      navigate('/dashboard');
       queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
     },
-    onError: (error: any) => {
+    onError: (error) => {
       toast({
-        title: 'Failed to delete foundation',
-        description: error.message || 'An error occurred while deleting the foundation.',
-        variant: 'destructive',
+        title: 'Error deleting foundation',
+        description: 'There was an error deleting the foundation. Please try again.',
+        variant: 'destructive'
       });
     },
   });
   
-  const handleDeleteFoundation = () => {
-    setIsDeleteDialogOpen(true);
-  };
-  
-  const confirmDeleteFoundation = (force = false) => {
-    if (!foundation) return;
-    
-    deleteFoundationMutation.mutate({
-      id: foundation.id,
-      force
+  // Confirm deleting the foundation
+  const confirmDeleteFoundation = (force: boolean = false) => {
+    deleteFoundationMutation.mutate({ 
+      id: foundationId,
+      force 
     });
     
-    // Close the dialogs
     setIsDeleteDialogOpen(false);
     setIsForceDeleteDialogOpen(false);
+    
+    // Navigate back to dashboard after deletion
+    navigate('/dashboard');
   };
   
-  // Update foundation mutation to store threadId and/or genre
+  // Update Foundation mutation for various properties
   const updateFoundationMutation = useMutation({
     mutationFn: async (updateData: { id: number, threadId?: string, genre?: string }) => {
       // Only include properties that are defined
       const updatePayload: any = {};
-      if (updateData.threadId) updatePayload.threadId = updateData.threadId;
-      if (updateData.genre) updatePayload.genre = updateData.genre;
-      
-      console.log('Updating foundation with:', updatePayload);
+      if (updateData.threadId !== undefined) updatePayload.threadId = updateData.threadId;
+      if (updateData.genre !== undefined) updatePayload.genre = updateData.genre;
       
       const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, updatePayload);
       return response.json();
     },
-    onSuccess: (data) => {
-      console.log('Foundation updated successfully:', data);
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}`] });
     },
-    onError: (error: any) => {
-      console.error('Failed to update foundation:', error);
+    onError: (error) => {
+      console.error('Error updating foundation:', error);
     }
   });
-
+  
   // Function to send messages to the foundation chat
   const sendFoundationChatMessage = async (message: string, threadId?: string): Promise<{
     content: string;
@@ -318,166 +345,6 @@ const FoundationDetails: React.FC = () => {
         threadId: data.threadId,
         suggestions: data.suggestions || []
       };
-        // Legacy implementation (keeping as a fallback)
-        const endpoint = hasDefinedGenre ? '/api/ai/world-details' : '/api/ai/genre-details';
-        console.log(`Using legacy endpoint ${endpoint} for foundation chat message.`);
-        
-        // Special handling for genre initialization
-        const isInitializing = !chatThreadId;
-        
-        if (endpoint === '/api/ai/genre-details') {
-          // Genre details payload
-          const genrePayload = {
-            userInterests: message,
-            foundationId: foundationId,
-            threadId: chatThreadId,
-            isInitialStage: isInitializing
-          };
-          
-          console.log('Sending to genre assistant:', genrePayload);
-          
-          const response = await apiRequest('POST', endpoint, genrePayload);
-          const data = await response.json();
-          console.log('Genre assistant response:', data);
-          
-          // Special handling for conversation in progress response
-          if (data.conversationInProgress && data.question) {
-            console.log('Conversation in progress, received question:', data.question);
-            
-            // Just return the question from the assistant
-          return {
-            content: data.question,
-            suggestions: data.suggestions || [
-              "I love fantasy books like Lord of the Rings",
-              "I'm a fan of sci-fi like Dune",
-              "My favorite authors are Stephen King and Neil Gaiman",
-              "I enjoy books with complex characters and deep worldbuilding"
-            ],
-            threadId: data.threadId
-          };
-        }
-        
-        // ONLY update the threadId for now, not the genre
-        // This ensures we stay in the genre creation flow until we get a final summary
-        if (data.threadId) {
-          // Always update with the current threadId even if it appears same as stored one
-          // This guarantees we're using the latest one
-          console.log(`Updating foundation with threadId: ${data.threadId}`);
-          updateFoundationMutation.mutate({
-            id: foundation.id,
-            threadId: data.threadId
-          });
-        }
-        
-        // SPECIAL CASE: If the response indicates a conversation in progress, we definitely don't update genre
-        if (data.conversationInProgress || data.needsMoreInput) {
-          console.log('Conversation still in progress, not updating genre');
-          
-          // Always update with the latest threadId to maintain conversation state, even during ongoing conversations
-          if (data.threadId) {
-            console.log(`Updating foundation with genre conversation threadId: ${data.threadId}`);
-            updateFoundationMutation.mutate({
-              id: foundation.id,
-              threadId: data.threadId
-            });
-          }
-          
-          return {
-            content: data.question || 'Please tell me more about the genre you want.',
-            suggestions: data.suggestions || [
-              "I love fantasy books like Lord of the Rings",
-              "I'm a fan of sci-fi like Dune",
-              "My favorite authors are Stephen King and Neil Gaiman",
-              "I enjoy books with complex characters and deep worldbuilding"
-            ],
-            threadId: data.threadId
-          };
-        }
-        
-        // Only update the genre when we have a complete conversation 
-        // and it's not just a question (we need a complete genre description)
-        const questionWords = ["?", "would you", "could you", "do you", "tell me", "what", "how", "which"];
-        const hasQuestion = questionWords.some(word => data.description?.includes(word));
-        
-        // Make the genre completion criteria more lenient:
-        // - Either we have themes and a proper name with a decent description, OR
-        // - The description is very substantial (over 500 chars) with a proper name
-        const hasCompleteGenreDescription = data.description && (
-          (data.description.length > 200 && !hasQuestion && data.themes && 
-           data.themes.length > 0 && data.name?.length > 3) ||
-          (data.description.length > 500 && data.name?.length > 3)
-        );
-          
-        if (data.name && !hasDefinedGenre && hasCompleteGenreDescription) {
-          console.log(`Updating foundation with complete genre: ${data.name}`);
-          updateFoundationMutation.mutate({
-            id: foundation.id,
-            genre: data.name
-          });
-        } else {
-          console.log('Genre description not complete yet, continuing conversation');
-          console.log(`Description length: ${data.description?.length}, has question: ${hasQuestion}, themes: ${data.themes?.length}, name length: ${data.name?.length}`);
-        }
-        
-        // Extract the content from the response, prioritizing different fields
-        let content;
-        if (data.question) {
-          content = data.question;
-        } else if (data.description) {
-          content = data.description;
-        } else if (data.name) {
-          content = `Your genre has been set to: ${data.name}`;
-        } else {
-          content = 'I\'m the Genre Creator assistant. Let\'s explore what genre would work best for your story foundation.';
-        }
-        
-        console.log('Returning genre content:', content);
-        
-        return {
-          content: content,
-          suggestions: data.suggestions || [
-            "I want to create a fantasy world",
-            "Let's explore science fiction",
-            "I'm thinking of a mystery/thriller",
-            "I'd like to write historical fiction"
-          ],
-          threadId: data.threadId
-        };
-      } else {
-        // World details payload
-        const worldPayload = {
-          genreContext: foundation.genre,
-          message: message,
-          foundationId: foundationId,
-          threadId: chatThreadId,
-        };
-        
-        console.log('Sending to world builder:', worldPayload);
-        
-        const response = await apiRequest('POST', endpoint, worldPayload);
-        const data = await response.json();
-        console.log('World builder response:', data);
-        
-        // Always update with the latest threadId to maintain conversation state
-        if (data.threadId) {
-          console.log(`Updating foundation with world threadId: ${data.threadId}`);
-          updateFoundationMutation.mutate({
-            id: foundation.id,
-            threadId: data.threadId
-          });
-        }
-        
-        return {
-          content: data.description || data.name || data.question || 'Sorry, I could not process your request. Please try again.',
-          suggestions: data.suggestions || [
-            'Tell me more about this world',
-            'What kind of geography exists here?',
-            'How can I develop the culture?',
-            'What conflicts exist in this world?'
-          ],
-          threadId: data.threadId
-        };
-      }
     } catch (error) {
       console.error('Error sending message to foundation AI:', error);
       throw error;
@@ -506,6 +373,13 @@ const FoundationDetails: React.FC = () => {
   }
   
   if (foundationError || !foundation) {
+    console.error('Foundation error details:', {
+      foundationError,
+      foundationId,
+      foundationIdParam,
+      queryKey: `/api/foundations/${foundationId}`
+    });
+    
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
@@ -517,6 +391,25 @@ const FoundationDetails: React.FC = () => {
         
         <div className="text-center p-8 bg-white rounded-lg shadow-sm">
           <p className="text-neutral-600 mb-4">The foundation you're looking for could not be found.</p>
+          <p className="text-neutral-500 mb-4">Debug Info: Foundation ID = {foundationId} (Type: {typeof foundationId})</p>
+          <p className="text-neutral-500 mb-2">URL Parameter = {foundationIdParam} (Type: {typeof foundationIdParam})</p>
+          
+          {foundationId > 0 && (
+            <div className="mb-4">
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  const specificUrl = `/foundation-details?foundationId=35`;
+                  console.log('Trying hardcoded URL:', specificUrl);
+                  window.location.href = specificUrl;
+                }}
+                className="mb-2"
+              >
+                Try Specific Foundation (ID: 35)
+              </Button>
+            </div>
+          )}
+          
           <Button onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
         </div>
       </div>
@@ -568,8 +461,8 @@ const FoundationDetails: React.FC = () => {
         {/* Main content with 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left side: Genre/World/Character cards - only show if foundation is complete */}
-          <div className="lg:col-span-3">
-            {isFoundationComplete(foundation, characters) && (
+          {isFoundationComplete(foundation, characters) ? (
+            <div className="lg:col-span-3">
               <div className="space-y-4">
                 {foundation.genre && (
                   <Card className="hover:shadow-md transition-shadow">
@@ -611,7 +504,7 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         className="w-full text-primary-600" 
-                        onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
+                        onClick={() => window.location.href = `/world-details?foundationId=${foundation.id}`}
                       >
                         View Details
                       </Button>
@@ -639,16 +532,17 @@ const FoundationDetails: React.FC = () => {
                     <CardFooter className="pt-2">
                       <Button 
                         variant="ghost" 
-                        size="sm"
-                        className="w-full text-primary-600" 
-                        onClick={() => navigate(`/character-details?foundationId=${foundation.id}`)}
+                        size="sm" 
+                        className="w-full text-primary-600"
+                        onClick={() => window.location.href = `/character-details?foundationId=${foundation.id}`}
                       >
-                        View Characters
+                        View All Characters
                       </Button>
                     </CardFooter>
                   </Card>
                 )}
                 
+                {/* Add more foundation components */}
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-lg">
@@ -657,22 +551,26 @@ const FoundationDetails: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="pb-2">
-                    <p className="text-sm text-neutral-600">Define your story settings</p>
+                    <p className="text-sm text-neutral-600">Define locations and their details</p>
                   </CardContent>
                   <CardFooter className="pt-2">
                     <Button 
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
+                      onClick={() => window.location.href = `/environment-details?foundationId=${foundation.id}`}
                     >
                       View Details
                     </Button>
                   </CardFooter>
                 </Card>
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="lg:col-span-3 hidden lg:block">
+              {/* Placeholder when foundation is not complete */}
+            </div>
+          )}
           
           {/* Center: Chat window - always show */}
           <div className="lg:col-span-6">
@@ -689,129 +587,118 @@ const FoundationDetails: React.FC = () => {
                   sender: 'ai',
                   timestamp: new Date(),
                   suggestions: [
-                    "Fantasy",
-                    "Science Fiction",
-                    "Mystery",
-                    "Romance",
-                    "Horror",
-                    "Historical Fiction",
-                    "Surprise me!"
+                    "I'd like to create a fantasy world",
+                    "Let's explore science fiction",
+                    "I'm thinking about a mystery or thriller",
+                    "I enjoy historical fiction"
                   ]
-                }] : undefined}
+                }] : []}
               />
             </div>
           </div>
           
-          {/* Right side: Stories - only show if foundation is complete */}
-          <div className="lg:col-span-3">
-            {isFoundationComplete(foundation, characters) && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-lg font-semibold">Stories</h2>
-                  <Button 
-                    onClick={handleCreateStory} 
-                    disabled={createStoryMutation.isPending} 
-                    size="sm"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    New Story
-                  </Button>
-                </div>
-                
-                {isLoadingStories ? (
-                  <div className="space-y-3">
-                    {[1, 2].map((i) => (
-                      <Card key={i} className="animate-pulse">
-                        <CardContent className="p-4">
-                          <div className="h-5 bg-neutral-200 rounded w-3/4 mb-2"></div>
-                          <div className="h-4 bg-neutral-200 rounded w-1/2 mb-2"></div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                ) : stories.length === 0 ? (
-                  <Card className="bg-white shadow-sm border border-neutral-200">
-                    <CardContent className="p-4 text-center">
-                      <BookOpen className="h-8 w-8 text-neutral-300 mx-auto mb-2" />
-                      <p className="text-sm text-neutral-600 mb-3">
-                        No stories created yet
-                      </p>
-                      <Button 
-                        onClick={handleCreateStory}
-                        disabled={createStoryMutation.isPending}
-                        size="sm"
-                        className="w-full"
-                      >
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Create First Story
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="space-y-3">
-                    {stories.map((story) => (
-                      <Card 
-                        key={story.id} 
-                        className="bg-white shadow-sm hover:shadow transition-shadow cursor-pointer"
-                        onClick={() => navigate(`/voice-story-creation?storyId=${story.id}`)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-semibold text-neutral-800">{story.title}</h3>
-                              {story.updatedAt && (
-                                <p className="text-xs text-neutral-500">
-                                  Updated: {new Date(story.updatedAt).toLocaleDateString()}
-                                </p>
-                              )}
-                            </div>
-                            <BookOpen className="h-5 w-5 text-primary-500" />
+          {/* Right side: Stories list and create button - only shown when foundation is complete */}
+          {isFoundationComplete(foundation, characters) && (
+            <div className="lg:col-span-3">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <BookOpen className="mr-2 h-5 w-5 text-primary-500" /> 
+                    Stories
+                  </CardTitle>
+                  <CardDescription>Stories based on this foundation</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingStories ? (
+                    <div className="space-y-2">
+                      <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
+                      <div className="h-8 bg-neutral-100 rounded animate-pulse"></div>
+                    </div>
+                  ) : stories.length === 0 ? (
+                    <div className="text-center py-4 text-neutral-500">
+                      <p>No stories yet</p>
+                      <p className="text-sm mt-1">Create your first story to start writing</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {stories.map((story) => (
+                        <div
+                          key={story.id}
+                          className="p-3 rounded-md bg-neutral-50 hover:bg-neutral-100 cursor-pointer"
+                          onClick={() => navigate(`/story-editor?storyId=${story.id}`)}
+                        >
+                          <div className="font-medium">{story.title}</div>
+                          <div className="text-xs text-neutral-500 mt-1">
+                            {story.status === 'draft' ? 'Draft' : 'Published'} · {new Date(story.createdAt as Date).toLocaleDateString()}
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
+                        </div>
+                      ))}
+                    </div>
                 )}
-              </div>
-            )}
+              </CardContent>
+              <CardFooter>
+                <Button 
+                  onClick={handleCreateStory} 
+                  className="w-full"
+                  disabled={!isFoundationComplete(foundation, characters) || createStoryMutation.isPending}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Create Story
+                </Button>
+              </CardFooter>
+            </Card>
           </div>
         </div>
       </main>
       
-      {/* Delete confirmation dialog */}
+      {/* Delete Foundation Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Foundation</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to delete this foundation?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this foundation? This action cannot be undone.
+              {storyCount > 0 ? (
+                <>
+                  <p className="mb-2">This foundation has {storyCount} {storyCount === 1 ? 'story' : 'stories'} associated with it.</p>
+                  <div className="flex items-center p-3 bg-amber-50 border border-amber-200 rounded-md mb-2">
+                    <AlertTriangle className="h-5 w-5 text-amber-500 mr-2" />
+                    <p className="text-sm text-amber-800">Deleting this foundation will make these stories inaccessible.</p>
+                  </div>
+                </>
+              ) : (
+                <p>This will permanently delete the foundation and all its details.</p>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => confirmDeleteFoundation()} 
-              className="bg-red-500 hover:bg-red-600 text-white"
+              onClick={() => confirmDeleteFoundation(false)}
             >
-              Delete
+              Delete Foundation
             </AlertDialogAction>
+            {storyCount > 0 && (
+              <AlertDialogAction 
+                onClick={() => setIsForceDeleteDialogOpen(true)} 
+                className="bg-red-500 hover:bg-red-600 text-white"
+              >
+                Delete Foundation and Stories
+              </AlertDialogAction>
+            )}
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       
-      {/* Force delete dialog for foundations with stories */}
+      {/* Force Delete Confirmation Dialog */}
       <AlertDialog open={isForceDeleteDialogOpen} onOpenChange={setIsForceDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center text-red-500">
-              <AlertTriangle className="h-5 w-5 mr-2" /> Warning: Stories Will Be Deleted
-            </AlertDialogTitle>
+            <AlertDialogTitle className="text-red-600">Permanently Delete Everything?</AlertDialogTitle>
             <AlertDialogDescription>
-              This foundation contains {storyCount} {storyCount === 1 ? 'story' : 'stories'} that will be permanently deleted along with the foundation.
-              <div className="mt-2 p-3 bg-red-50 text-red-800 rounded-md">
-                <p className="font-semibold">This action is irreversible!</p>
-                <p>All stories, characters, and content created within this foundation will be lost.</p>
+              <div className="flex items-center p-3 bg-red-50 border border-red-200 rounded-md mb-2">
+                <AlertTriangle className="h-5 w-5 text-red-500 mr-2" />
+                <p className="text-sm text-red-800">This will permanently delete this foundation AND all {storyCount} {storyCount === 1 ? 'story' : 'stories'} associated with it.</p>
               </div>
+              <p className="mt-2">This action cannot be undone.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
