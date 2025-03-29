@@ -602,26 +602,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If this is a genre-related conversation, save details to genre_details table
       if (contextType === 'genre') {
         try {
-          console.log(`Processing genre details from dynamic assistant for foundation ${foundationId}`);
+          console.log(`[GENRE DEBUG] Processing genre details from dynamic assistant for foundation ${foundationId}`);
+          console.log(`[GENRE DEBUG] AI Response content: ${content.substring(0, 200)}...`);
           
           // Extract genre information from the conversation
-          // Look for genre patterns in the assistant's response
-          const genrePattern = /(?:genre|style|type): ([^\.,:;]+)/i;
-          const themePattern = /(?:themes|about|focuses on|explores|deals with): ([^\.]+)/i;
-          const moodPattern = /(?:mood|tone|atmosphere|feeling): ([^\.]+)/i;
+          // Look for genre patterns in the assistant's response - improved pattern matching
+          const genrePattern = /(?:genre|style|type|fiction)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+          const themePattern = /(?:themes|about|focuses on|explores|deals with|centers around|themed around|key themes include)(?:\s+are|\s+include|\s*:|\s+could\s+include)?\s+([^\.!?]+)/i;
+          const moodPattern = /(?:mood|tone|atmosphere|feeling|ambiance|vibe)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.!?]+)/i;
           
-          // Try to extract a genre name from the content
+          // Extract genre from messages or use more flexible detection
           let mainGenre = "Custom Genre";
+          const fullText = message + " " + content;
+          
+          // Try specific pattern matching
           const genreMatch = content.match(genrePattern);
           if (genreMatch && genreMatch[1]) {
             mainGenre = genreMatch[1].trim();
+            console.log(`[GENRE DEBUG] Found genre via pattern: ${mainGenre}`);
+          }
+          // If pattern fails, try to detect from common genres in text
+          else {
+            // Keywords for common genres
+            const genreKeywords = [
+              {keyword: "science fiction", genre: "Science Fiction"},
+              {keyword: "sci-fi", genre: "Science Fiction"},
+              {keyword: "fantasy", genre: "Fantasy"},
+              {keyword: "post-apocalyptic", genre: "Post-Apocalyptic"},
+              {keyword: "horror", genre: "Horror"},
+              {keyword: "thriller", genre: "Thriller"},
+              {keyword: "mystery", genre: "Mystery"},
+              {keyword: "romance", genre: "Romance"},
+              {keyword: "historical", genre: "Historical Fiction"},
+              {keyword: "western", genre: "Western"},
+              {keyword: "adventure", genre: "Adventure"},
+              {keyword: "cyberpunk", genre: "Cyberpunk"},
+              {keyword: "dystopian", genre: "Dystopian"}
+            ];
+            
+            for (const {keyword, genre} of genreKeywords) {
+              if (fullText.toLowerCase().includes(keyword)) {
+                mainGenre = genre;
+                console.log(`[GENRE DEBUG] Found genre via keyword '${keyword}': ${genre}`);
+                break;
+              }
+            }
           }
           
           // Try to extract themes
           let themes: string[] = [];
           const themeMatch = content.match(themePattern);
           if (themeMatch && themeMatch[1]) {
-            themes = themeMatch[1].split(/,|and/).map(t => t.trim()).filter(t => t.length > 0);
+            // Split by commas, semicolons, or "and" with space boundaries
+            const rawThemes = themeMatch[1].split(/,|;|\s+and\s+/);
+            // Trim, filter out empty strings, and limit each theme to reasonable length
+            themes = rawThemes
+              .map(t => t.trim())
+              .filter(t => t.length > 0 && t.length < 100)
+              .slice(0, 10); // Limit to 10 themes maximum
+            
+            console.log(`[GENRE DEBUG] Found themes: ${JSON.stringify(themes)}`);
+            
+            // Double check we have a valid array
+            if (!Array.isArray(themes)) {
+              console.log(`[GENRE DEBUG] Themes was not an array, resetting to empty array`);
+              themes = [];
+            }
+          } else {
+            console.log(`[GENRE DEBUG] No themes found in assistant response`);
           }
           
           // Try to extract mood/tone
@@ -629,46 +677,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const moodMatch = content.match(moodPattern);
           if (moodMatch && moodMatch[1]) {
             mood = moodMatch[1].trim();
+            console.log(`[GENRE DEBUG] Found mood: ${mood}`);
+          }
+          
+          // Force a specific genre if still using default
+          if (mainGenre === "Custom Genre") {
+            // Check for specific genres in the conversation
+            if (fullText.toLowerCase().includes("dystopian")) {
+              mainGenre = "Dystopian";
+            } else if (fullText.toLowerCase().includes("sci-fi") || fullText.toLowerCase().includes("science fiction")) {
+              mainGenre = "Science Fiction";
+            } else if (fullText.toLowerCase().includes("fantasy")) {
+              mainGenre = "Fantasy";
+            }
+            console.log(`[GENRE DEBUG] Forced genre to: ${mainGenre}`);
           }
           
           // Check if genre details already exist for this foundation
           const existingDetails = await storage.getGenreDetailsByFoundation(foundationId);
+          console.log(`[GENRE DEBUG] Existing details found: ${!!existingDetails}`);
           
           // Prepare genre data with extracted information
           const genreData = {
             mainGenre,
             threadId: conversationThreadId,
             mood,
-            themes,
+            // Ensure themes is properly converted to array format for the database
+            themes: Array.isArray(themes) ? themes : [],
+            // Initialize other array fields to empty arrays to prevent null errors
+            tropes: [],
+            commonSettings: [],
+            typicalCharacters: [],
+            plotStructures: [],
+            recommendedReading: [],
+            popularExamples: [],
+            worldbuildingElements: [],
             // Use the assistant's response as a description
             description: content
           };
           
-          if (existingDetails) {
-            // Update existing genre details
-            console.log(`Updating existing genre details ID: ${existingDetails.id} from dynamic assistant`);
-            await storage.updateGenreDetails(existingDetails.id, {
-              ...genreData,
-              foundationId
-            });
-          } else {
-            // Create new genre details
-            console.log(`Creating new genre details for foundation ID: ${foundationId} from dynamic assistant`);
-            await storage.createGenreDetails({
-              ...genreData,
-              foundationId
-            });
+          console.log(`[GENRE DEBUG] Prepared genre data: ${JSON.stringify({
+            mainGenre: genreData.mainGenre,
+            threadId: genreData.threadId?.substring(0, 10) + '...',
+            mood: genreData.mood,
+            themes: genreData.themes,
+            descriptionLength: genreData.description?.length || 0
+          })}`);
+          
+          try {
+            if (existingDetails) {
+              // Update existing genre details
+              console.log(`[GENRE DEBUG] Updating existing genre details ID: ${existingDetails.id} from dynamic assistant`);
+              const updated = await storage.updateGenreDetails(existingDetails.id, {
+                ...genreData,
+                foundationId
+              });
+              console.log(`[GENRE DEBUG] Updated genre details successfully: ${!!updated}`);
+            } else {
+              // Create new genre details
+              console.log(`[GENRE DEBUG] Creating new genre details for foundation ID: ${foundationId} from dynamic assistant`);
+              const created = await storage.createGenreDetails({
+                ...genreData,
+                foundationId
+              });
+              console.log(`[GENRE DEBUG] Created genre details successfully: ${!!created}, ID: ${created?.id}`);
+            }
+          } catch (dbError) {
+            console.error(`[GENRE DEBUG] Database error saving genre details:`, dbError);
           }
           
-          // Update the foundation with the genre name if it's not already set
-          if (!foundation.genre || foundation.genre === "Undecided") {
-            console.log(`Updating foundation genre to: ${mainGenre}`);
-            await storage.updateFoundation(foundationId, {
+          // Update the foundation with the genre name - always do this to ensure it's set
+          console.log(`[GENRE DEBUG] Updating foundation ${foundationId} genre to: ${mainGenre}`);
+          try {
+            const updatedFoundation = await storage.updateFoundation(foundationId, {
               genre: mainGenre
             });
+            console.log(`[GENRE DEBUG] Foundation updated successfully: ${!!updatedFoundation}`);
+          } catch (dbError) {
+            console.error(`[GENRE DEBUG] Database error updating foundation:`, dbError);
           }
         } catch (error) {
-          console.error("Error saving genre details from dynamic assistant:", error);
+          console.error("[GENRE DEBUG] Error saving genre details from dynamic assistant:", error);
           // Continue despite the error - don't block the response
         }
       }

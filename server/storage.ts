@@ -476,22 +476,87 @@ export class DatabaseStorage implements IStorage {
   
   // Genre details operations
   async getGenreDetailsByFoundation(foundationId: number): Promise<GenreDetails | undefined> {
-    const [details] = await db.select().from(genreDetails).where(eq(genreDetails.foundationId, foundationId));
-    return details;
+    console.log(`[GENRE DB] Looking up genre details for foundation ${foundationId}`);
+    try {
+      const foundationGenreDetails = await db.select().from(genreDetails).where(eq(genreDetails.foundationId, foundationId));
+      console.log(`[GENRE DB] Query executed, found ${foundationGenreDetails.length} records`);
+      
+      if (foundationGenreDetails.length === 0) {
+        console.log(`[GENRE DB] No genre details found for foundation ${foundationId}`);
+        return undefined;
+      }
+      
+      const [details] = foundationGenreDetails;
+      console.log(`[GENRE DB] Found genre details with ID ${details.id} and genre '${details.mainGenre}'`);
+      
+      // Log array fields to verify their format
+      if (details.themes) {
+        console.log(`[GENRE DB] Themes array: ${JSON.stringify(details.themes)}`);
+      }
+      
+      return details;
+    } catch (error) {
+      console.error(`[GENRE DB] Error retrieving genre details:`, error);
+      return undefined;
+    }
   }
   
   async createGenreDetails(insertGenreDetails: InsertGenreDetails): Promise<GenreDetails> {
-    const [details] = await db.insert(genreDetails).values(insertGenreDetails).returning();
-    return details;
+    console.log(`[GENRE DB] Creating new genre details for foundation ${insertGenreDetails.foundationId}`);
+    console.log(`[GENRE DB] Genre data: ${JSON.stringify({
+      mainGenre: insertGenreDetails.mainGenre,
+      foundationId: insertGenreDetails.foundationId,
+      themes: insertGenreDetails.themes
+    })}`);
+    
+    try {
+      // Ensure themes is an array if provided
+      if (insertGenreDetails.themes && !Array.isArray(insertGenreDetails.themes)) {
+        console.log(`[GENRE DB] Converting themes to array`);
+        insertGenreDetails.themes = [];
+      }
+      
+      const [details] = await db.insert(genreDetails).values(insertGenreDetails).returning();
+      console.log(`[GENRE DB] Successfully created genre details with ID ${details.id}`);
+      return details;
+    } catch (error) {
+      console.error(`[GENRE DB] Error creating genre details:`, error);
+      throw error;
+    }
   }
   
   async updateGenreDetails(id: number, genreDetailsUpdate: Partial<InsertGenreDetails>): Promise<GenreDetails | undefined> {
-    const [details] = await db
-      .update(genreDetails)
-      .set(genreDetailsUpdate)
-      .where(eq(genreDetails.id, id))
-      .returning();
-    return details;
+    console.log(`[GENRE DB] Updating genre details with ID ${id}`);
+    console.log(`[GENRE DB] Update data: ${JSON.stringify({
+      mainGenre: genreDetailsUpdate.mainGenre,
+      foundationId: genreDetailsUpdate.foundationId,
+      themes: genreDetailsUpdate.themes
+    })}`);
+    
+    try {
+      // Ensure themes is an array if provided
+      if (genreDetailsUpdate.themes && !Array.isArray(genreDetailsUpdate.themes)) {
+        console.log(`[GENRE DB] Converting themes to array for update`);
+        genreDetailsUpdate.themes = [];
+      }
+      
+      const [details] = await db
+        .update(genreDetails)
+        .set(genreDetailsUpdate)
+        .where(eq(genreDetails.id, id))
+        .returning();
+      
+      if (details) {
+        console.log(`[GENRE DB] Successfully updated genre details with ID ${details.id}`);
+      } else {
+        console.log(`[GENRE DB] No record found for update with ID ${id}`);
+      }
+      
+      return details;
+    } catch (error) {
+      console.error(`[GENRE DB] Error updating genre details:`, error);
+      return undefined;
+    }
   }
   
   // World details operations (primary world building data)
