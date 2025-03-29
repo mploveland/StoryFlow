@@ -1,584 +1,414 @@
-import React, { useEffect, useState } from 'react';
-import { useLocation, Link } from 'wouter';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
-import { apiRequest } from '@/lib/queryClient';
-import { useAuth } from '@/contexts/AuthContext';
-import { Foundation } from '@shared/schema';
-import { ArrowLeft, Globe, RefreshCw, Map, History, Building, Coins, Wand2, MessageSquare } from 'lucide-react';
-import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
+import { useEffect, useState } from "react";
+import { useParams, useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
+import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Save } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-// Define WorldDetails type locally
+// Define the WorldDetails interface
 interface WorldDetails {
-  name: string;
-  description: string;
-  era: string;
-  geography: string[];
-  locations: string[];
-  threadId?: string;
-  culture: {
-    socialStructure: string;
-    beliefs: string;
-    customs: string[];
-    languages: string[];
-  };
-  politics: {
-    governmentType: string;
-    powerDynamics: string;
-    majorFactions: string[];
-  };
-  economy: {
-    resources: string[];
-    trade: string;
-    currency: string;
-  };
-  technology: {
-    level: string;
-    innovations: string[];
-    limitations: string;
-  };
-  conflicts: string[];
-  history: {
-    majorEvents: string[];
-    legends: string[];
-  };
-  magicSystem?: {
-    rules: string;
-    limitations: string;
-    practitioners: string;
-  };
+  id: number;
+  foundationId: number;
+  world_name: string;
+  narrative_context: string | null;
+  global_geography_topography: string | null;
+  regions_territories: string | null;
+  boundaries_borders: string | null;
+  climate_environmental_zones: string | null;
+  environment_placements_distances: string | null;
+  resources_economic_geography: string | null;
+  historical_cultural_geography: string | null;
+  speculative_supernatural_geography: string | null;
+  map_generation_details: string | null;
+  inspirations_references: string | null;
 };
 
-const WorldDetailsPage: React.FC = () => {
-  const [location, navigate] = useLocation();
-  const { user } = useAuth();
+// Form schema for world details
+const worldDetailsSchema = z.object({
+  world_name: z.string().min(1, "World name is required"),
+  narrative_context: z.string().optional(),
+  global_geography_topography: z.string().optional(),
+  regions_territories: z.string().optional(),
+  boundaries_borders: z.string().optional(),
+  climate_environmental_zones: z.string().optional(),
+  environment_placements_distances: z.string().optional(),
+  resources_economic_geography: z.string().optional(),
+  historical_cultural_geography: z.string().optional(),
+  speculative_supernatural_geography: z.string().optional(),
+  map_generation_details: z.string().optional(),
+  inspirations_references: z.string().optional(),
+});
+
+type WorldDetailsFormValues = z.infer<typeof worldDetailsSchema>;
+
+export default function WorldDetailsPage() {
+  const params = useParams();
+  const worldId = params.id ? parseInt(params.id) : null;
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  
-  // Get foundationId from URL query params
-  const params = new URLSearchParams(location.split('?')[1]);
-  const foundationId = parseInt(params.get('foundationId') || '0');
-  
-  // State to track if world is being generated
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [activeTab, setActiveTab] = useState('overview');
-  
-  // Query foundation
-  const { 
-    data: foundation, 
-    isLoading: isLoadingFoundation, 
-    error: foundationError 
-  } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${foundationId}`],
-    enabled: !!foundationId,
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Query to fetch world details
+  const { data: worldDetails, isLoading } = useQuery<WorldDetails>({
+    queryKey: ['/api/world-details', worldId],
+    enabled: !!worldId,
   });
-  
-  // Query world details
-  const { 
-    data: worldDetails, 
-    isLoading: isLoadingWorld,
-    error: worldError,
-    refetch: refetchWorld 
-  } = useQuery<WorldDetails>({
-    queryKey: [`/api/foundations/${foundationId}/environment`],
-    enabled: !!foundationId,
-  });
-  
-  // Generate world details mutation
-  const generateWorldMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest('POST', '/api/ai/world-details', {
-        genreContext: foundation?.genre || '',
-        setting: foundation?.description || '',
-        foundationId: foundationId
-      });
-      return response.json();
-    },
-    onMutate: () => {
-      setIsGenerating(true);
-    },
-    onSuccess: () => {
-      toast({
-        title: 'World details generated',
-        description: 'Your world has been generated successfully.',
-      });
-      // Refresh world details
-      refetchWorld();
-      setIsGenerating(false);
-    },
-    onError: (error: any) => {
-      toast({
-        title: 'Generation failed',
-        description: error.message || 'An error occurred while generating world details.',
-        variant: 'destructive',
-      });
-      setIsGenerating(false);
+
+  const form = useForm<WorldDetailsFormValues>({
+    resolver: zodResolver(worldDetailsSchema),
+    defaultValues: {
+      world_name: "",
+      narrative_context: "",
+      global_geography_topography: "",
+      regions_territories: "",
+      boundaries_borders: "",
+      climate_environmental_zones: "",
+      environment_placements_distances: "",
+      resources_economic_geography: "",
+      historical_cultural_geography: "",
+      speculative_supernatural_geography: "",
+      map_generation_details: "",
+      inspirations_references: "",
     },
   });
-  
-  // Handle sending chat messages to the AI
-  const sendWorldChatMessage = async (message: string, threadId?: string) => {
+
+  // Update form with world data when available
+  useEffect(() => {
+    if (worldDetails) {
+      form.reset({
+        world_name: worldDetails.world_name || "",
+        narrative_context: worldDetails.narrative_context || "",
+        global_geography_topography: worldDetails.global_geography_topography || "",
+        regions_territories: worldDetails.regions_territories || "",
+        boundaries_borders: worldDetails.boundaries_borders || "",
+        climate_environmental_zones: worldDetails.climate_environmental_zones || "",
+        environment_placements_distances: worldDetails.environment_placements_distances || "",
+        resources_economic_geography: worldDetails.resources_economic_geography || "",
+        historical_cultural_geography: worldDetails.historical_cultural_geography || "",
+        speculative_supernatural_geography: worldDetails.speculative_supernatural_geography || "",
+        map_generation_details: worldDetails.map_generation_details || "",
+        inspirations_references: worldDetails.inspirations_references || "",
+      });
+    }
+  }, [worldDetails, form]);
+
+  // Save world details
+  const onSubmit = async (data: WorldDetailsFormValues) => {
+    if (!worldId) return;
+    
+    setIsSubmitting(true);
     try {
-      const response = await apiRequest('POST', '/api/ai/world-details', {
-        genreContext: foundation?.genre || '',
-        setting: message, // Use the user's message as input
-        threadId: threadId,
-        previousMessages: threadId ? undefined : [], // Only pass empty array when creating new thread
-        foundationId: foundationId
+      await apiRequest("PATCH", `/api/world-details/${worldId}`, data);
+      
+      // Invalidate the query to refresh data
+      queryClient.invalidateQueries({ queryKey: ['/api/world-details', worldId] });
+      
+      toast({
+        title: "World details saved",
+        description: "Your world details have been successfully updated.",
       });
-      
-      const data = await response.json();
-      
-      // Create suggested responses based on the context
-      let suggestions: string[] = [];
-      if (data.name) {
-        suggestions = [
-          "Tell me more about the geography",
-          "How does the economy work?",
-          "What conflicts exist in this world?",
-          "Describe the cultural aspects"
-        ];
-      }
-      
-      return {
-        content: data.description || data.message || "I've updated the world details based on your input.",
-        threadId: data.threadId,
-        suggestions
-      };
     } catch (error) {
-      console.error('Error sending message to world AI:', error);
-      throw error;
+      console.error("Error saving world details:", error);
+      toast({
+        title: "Error saving world details",
+        description: "There was a problem saving your world details. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
-  
-  const handleGenerateWorld = () => {
-    generateWorldMutation.mutate();
-  };
-  
-  if (isLoadingFoundation) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} className="mr-4">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
-          <div className="h-6 bg-neutral-200 rounded w-1/4 animate-pulse"></div>
-        </div>
-        
-        <div className="grid grid-cols-1 gap-6">
-          <div className="bg-white rounded-lg shadow-sm p-6 animate-pulse">
-            <div className="h-8 bg-neutral-200 rounded w-1/3 mb-4"></div>
-            <div className="h-4 bg-neutral-200 rounded w-2/3 mb-2"></div>
-            <div className="h-4 bg-neutral-200 rounded w-1/2"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-  
-  if (foundationError || !foundation) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex items-center mb-8">
-          <Button variant="ghost" onClick={() => navigate('/dashboard')} className="mr-4">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back
-          </Button>
-          <h1 className="text-2xl font-bold">Foundation Not Found</h1>
-        </div>
-        
-        <div className="text-center p-8 bg-white rounded-lg shadow-sm">
-          <p className="text-neutral-600 mb-4">The foundation you're looking for could not be found.</p>
-          <Button onClick={() => navigate('/dashboard')}>Return to Dashboard</Button>
-        </div>
-      </div>
-    );
-  }
-  
-  return (
-    <div className="min-h-screen bg-neutral-50">
-      <header className="bg-white border-b border-neutral-200 py-4">
-        <div className="container mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center">
-            <Link href="/dashboard">
-              <a className="text-primary-600 text-2xl font-bold">StoryFlow</a>
-            </Link>
-          </div>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-neutral-600">
-              Welcome, {user?.displayName || user?.username || 'Writer'}
-            </span>
-          </div>
-        </div>
-      </header>
-      
-      <main className="container mx-auto p-6">
-        <div className="flex justify-between items-center mb-8">
-          <div className="flex items-center">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate(`/foundation-details?foundationId=${foundationId}`)} 
-              className="mr-4"
-            >
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back
-            </Button>
-            <div>
-              <h1 className="text-2xl font-bold flex items-center">
-                <Globe className="mr-2 h-6 w-6 text-primary-500" /> 
-                World Details
-              </h1>
-              <p className="text-neutral-600">Foundation: {foundation.name}</p>
-            </div>
-          </div>
-          <Button 
-            onClick={handleGenerateWorld} 
-            disabled={isGenerating || generateWorldMutation.isPending}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating ? 'Generating...' : 'Generate World'}
-          </Button>
-        </div>
 
-        {isLoadingWorld || !worldDetails ? (
-          <div className="bg-white rounded-lg shadow-sm p-8">
-            {isLoadingWorld ? (
-              <div className="space-y-4 animate-pulse">
-                <div className="h-8 bg-neutral-200 rounded w-1/3"></div>
-                <div className="h-4 bg-neutral-200 rounded w-2/3"></div>
-                <div className="h-4 bg-neutral-200 rounded w-1/2"></div>
-                <div className="h-4 bg-neutral-200 rounded w-3/4"></div>
-              </div>
-            ) : (
-              <div className="text-center">
-                <Globe className="h-16 w-16 text-neutral-300 mx-auto mb-4" />
-                <h2 className="text-xl font-bold mb-2">No World Details Yet</h2>
-                <p className="text-neutral-600 mb-6 max-w-md mx-auto">
-                  Generate world details to define the geography, culture, politics, and history of your story world.
-                </p>
-                <Button 
-                  onClick={handleGenerateWorld} 
-                  disabled={isGenerating || generateWorldMutation.isPending}
-                >
-                  <RefreshCw className={`mr-2 h-4 w-4 ${isGenerating ? 'animate-spin' : ''}`} />
-                  {isGenerating ? 'Generating...' : 'Generate World'}
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <>
-            <Card className="mb-6">
-              <CardContent className="p-6">
-                <h2 className="text-2xl font-bold mb-2">{worldDetails.name}</h2>
-                <p className="text-neutral-700 mb-4 text-lg">{worldDetails.era}</p>
-                <p className="text-neutral-600">{worldDetails.description}</p>
-              </CardContent>
-            </Card>
-          
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="mb-6">
-                <TabsTrigger value="overview" className="flex items-center">
-                  <Globe className="mr-2 h-4 w-4" /> Overview
-                </TabsTrigger>
-                <TabsTrigger value="geography" className="flex items-center">
-                  <Map className="mr-2 h-4 w-4" /> Geography & Locations
-                </TabsTrigger>
-                <TabsTrigger value="society" className="flex items-center">
-                  <Building className="mr-2 h-4 w-4" /> Society & Politics
-                </TabsTrigger>
-                <TabsTrigger value="economy" className="flex items-center">
-                  <Coins className="mr-2 h-4 w-4" /> Economy & Technology
-                </TabsTrigger>
-                <TabsTrigger value="history" className="flex items-center">
-                  <History className="mr-2 h-4 w-4" /> History & Conflicts
-                </TabsTrigger>
-                {worldDetails.magicSystem && (
-                  <TabsTrigger value="magic" className="flex items-center">
-                    <Wand2 className="mr-2 h-4 w-4" /> Magic System
-                  </TabsTrigger>
+  // Navigate back to the foundation or dashboard
+  const handleBack = () => {
+    if (worldDetails?.foundationId) {
+      setLocation(`/foundation/${worldDetails.foundationId}`);
+    } else {
+      setLocation("/dashboard");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="container py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-10 w-32" />
+          <Skeleton className="h-10 w-20" />
+        </div>
+        <Skeleton className="h-[600px] w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="container py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">World Details</h1>
+        <Button variant="outline" size="sm" onClick={handleBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" /> Back
+        </Button>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle>Core World Information</CardTitle>
+              <CardDescription>
+                Define the basic details of your story world
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <FormField
+                control={form.control}
+                name="world_name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>World Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter world name" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )}
-                <TabsTrigger value="chat" className="flex items-center">
-                  <MessageSquare className="mr-2 h-4 w-4" /> Chat with AI
-                </TabsTrigger>
-              </TabsList>
+              />
+
+              <FormField
+                control={form.control}
+                name="narrative_context"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Narrative Context</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe how this world relates to your story's narrative" 
+                        className="min-h-[100px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Tabs defaultValue="geography">
+            <TabsList className="grid grid-cols-3 md:grid-cols-4">
+              <TabsTrigger value="geography">Geography</TabsTrigger>
+              <TabsTrigger value="regions">Regions & Climate</TabsTrigger>
+              <TabsTrigger value="resources">Resources & History</TabsTrigger>
+              <TabsTrigger value="speculative">Speculative Elements</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="geography" className="pt-4 space-y-4">
+              <FormField
+                control={form.control}
+                name="global_geography_topography"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Global Geography & Topography</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe the overall geography and topography of your world" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </TabsContent>
+
+            <TabsContent value="regions" className="pt-4 space-y-4">
+              <FormField
+                control={form.control}
+                name="regions_territories"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Regions & Territories</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe the major regions and territories in your world" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <TabsContent value="overview">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Geography Highlights</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.geography.slice(0, 3).map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                      
-                      <h3 className="text-xl font-bold mb-4">Key Locations</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.locations.slice(0, 3).map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Culture Overview</h3>
-                      <p className="text-neutral-600 mb-2">
-                        <span className="font-semibold">Social Structure:</span> {worldDetails.culture.socialStructure}
-                      </p>
-                      <p className="text-neutral-600 mb-4">
-                        <span className="font-semibold">Beliefs:</span> {worldDetails.culture.beliefs}
-                      </p>
-                      
-                      <h3 className="text-xl font-bold mb-4">Politics Overview</h3>
-                      <p className="text-neutral-600">
-                        <span className="font-semibold">Government:</span> {worldDetails.politics.governmentType}
-                      </p>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Major Conflicts</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.conflicts.slice(0, 3).map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Technology Level</h3>
-                      <p className="text-neutral-600 mb-4">{worldDetails.technology.level}</p>
-                      
-                      <h3 className="text-xl font-bold mb-4">Key Innovations</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.technology.innovations.slice(0, 3).map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
+              <FormField
+                control={form.control}
+                name="boundaries_borders"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Boundaries & Borders</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe the boundaries and borders between regions" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <TabsContent value="geography">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Geography Features</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.geography.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Important Locations</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.locations.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
+              <FormField
+                control={form.control}
+                name="climate_environmental_zones"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Climate & Environmental Zones</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe the different climate and environmental zones" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <TabsContent value="society">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Culture</h3>
-                      <p className="text-neutral-600 mb-2">
-                        <span className="font-semibold">Social Structure:</span> {worldDetails.culture.socialStructure}
-                      </p>
-                      <p className="text-neutral-600 mb-4">
-                        <span className="font-semibold">Beliefs:</span> {worldDetails.culture.beliefs}
-                      </p>
-                      
-                      <h4 className="text-lg font-semibold mb-2">Key Customs</h4>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.culture.customs.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                      
-                      <h4 className="text-lg font-semibold mb-2">Languages</h4>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.culture.languages.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Politics</h3>
-                      <p className="text-neutral-600 mb-2">
-                        <span className="font-semibold">Government Type:</span> {worldDetails.politics.governmentType}
-                      </p>
-                      <p className="text-neutral-600 mb-4">
-                        <span className="font-semibold">Power Dynamics:</span> {worldDetails.politics.powerDynamics}
-                      </p>
-                      
-                      <h4 className="text-lg font-semibold mb-2">Major Factions</h4>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.politics.majorFactions.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
+              <FormField
+                control={form.control}
+                name="environment_placements_distances"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Environment Placements & Distances</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe how environments are placed and the distances between key locations" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </TabsContent>
+
+            <TabsContent value="resources" className="pt-4 space-y-4">
+              <FormField
+                control={form.control}
+                name="resources_economic_geography"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Resources & Economic Geography</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe the natural resources and economic aspects of your world's geography" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <TabsContent value="economy">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Economy</h3>
-                      <p className="text-neutral-600 mb-2">
-                        <span className="font-semibold">Trade:</span> {worldDetails.economy.trade}
-                      </p>
-                      <p className="text-neutral-600 mb-4">
-                        <span className="font-semibold">Currency:</span> {worldDetails.economy.currency}
-                      </p>
-                      
-                      <h4 className="text-lg font-semibold mb-2">Key Resources</h4>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.economy.resources.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Technology</h3>
-                      <p className="text-neutral-600 mb-2">
-                        <span className="font-semibold">Technology Level:</span> {worldDetails.technology.level}
-                      </p>
-                      <p className="text-neutral-600 mb-4">
-                        <span className="font-semibold">Limitations:</span> {worldDetails.technology.limitations}
-                      </p>
-                      
-                      <h4 className="text-lg font-semibold mb-2">Key Innovations</h4>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.technology.innovations.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
+              <FormField
+                control={form.control}
+                name="historical_cultural_geography"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Historical & Cultural Geography</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe how geography has influenced history and culture in your world" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </TabsContent>
+
+            <TabsContent value="speculative" className="pt-4 space-y-4">
+              <FormField
+                control={form.control}
+                name="speculative_supernatural_geography"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Speculative & Supernatural Geography</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Describe any magical, supernatural, or speculative elements of your world's geography" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <TabsContent value="history">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Major Historical Events</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.history.majorEvents.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Legends & Folklore</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.history.legends.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card className="md:col-span-2">
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Major Conflicts</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {worldDetails.conflicts.map((item, index) => (
-                          <li key={index}>{item}</li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
+              <FormField
+                control={form.control}
+                name="map_generation_details"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Map Generation Details</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="Provide details for generating a map of your world" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              {worldDetails.magicSystem && (
-                <TabsContent value="magic">
-                  <Card>
-                    <CardContent className="p-6">
-                      <h3 className="text-xl font-bold mb-4">Magic System</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <h4 className="text-lg font-semibold mb-2">Rules & Mechanics</h4>
-                          <p className="text-neutral-600">{worldDetails.magicSystem.rules}</p>
-                        </div>
-                        
-                        <div>
-                          <h4 className="text-lg font-semibold mb-2">Limitations</h4>
-                          <p className="text-neutral-600">{worldDetails.magicSystem.limitations}</p>
-                        </div>
-                        
-                        <div>
-                          <h4 className="text-lg font-semibold mb-2">Practitioners</h4>
-                          <p className="text-neutral-600">{worldDetails.magicSystem.practitioners}</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </TabsContent>
-              )}
-              
-              <TabsContent value="chat">
-                <div className="w-full h-[600px]">
-                  <FoundationChatInterface
-                    title={`Chat about ${worldDetails.name}`}
-                    description="Discuss and develop your world with AI assistance. Ask questions or request changes to any aspect of your world."
-                    foundationId={Number(foundationId)}
-                    threadId={worldDetails.threadId}
-                    onSendMessage={sendWorldChatMessage}
-                    initialMessages={[
-                      {
-                        id: 'welcome',
-                        content: `Welcome to the world of ${worldDetails.name}! This is an interactive chat where you can ask me questions about this world or suggest changes to its details. What would you like to explore?`,
-                        sender: 'ai',
-                        timestamp: new Date(),
-                        suggestions: [
-                          "Tell me more about the geography",
-                          "How does the economy work?",
-                          "What conflicts exist in this world?",
-                          "Describe the cultural aspects"
-                        ]
-                      }
-                    ]}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </>
-        )}
-      </main>
+              <FormField
+                control={form.control}
+                name="inspirations_references"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Inspirations & References</FormLabel>
+                    <FormControl>
+                      <Textarea 
+                        placeholder="List any inspirations or references for your world's geography" 
+                        className="min-h-[150px]"
+                        {...field} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save World Details"}
+              <Save className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   );
-};
-
-export default WorldDetailsPage;
+}

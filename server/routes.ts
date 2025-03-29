@@ -11,7 +11,8 @@ import {
   insertVersionSchema,
   insertSuggestionSchema,
   insertEnvironmentDetailsSchema,
-  insertGenreDetailsSchema
+  insertGenreDetailsSchema,
+  insertWorldDetailsSchema
 } from "@shared/schema";
 import {
   getAISuggestions,
@@ -260,6 +261,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json(environmentDetails);
     } catch (error) {
       console.error("Error fetching environment details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // World details routes
+  apiRouter.get("/foundations/:foundationId/world", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      const worldDetails = await storage.getWorldDetailsByFoundation(foundationId);
+      
+      if (!worldDetails) {
+        return res.status(404).json({ message: "World details not found" });
+      }
+      
+      return res.status(200).json(worldDetails);
+    } catch (error) {
+      console.error("Error fetching world details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.get("/world-details/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const worldDetails = await storage.getWorldDetails(id);
+      
+      if (!worldDetails) {
+        return res.status(404).json({ message: "World details not found" });
+      }
+      
+      return res.status(200).json(worldDetails);
+    } catch (error) {
+      console.error("Error fetching world details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.patch("/world-details/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData = insertWorldDetailsSchema.partial().parse(req.body);
+      
+      const updatedWorldDetails = await storage.updateWorldDetails(id, updateData);
+      
+      if (!updatedWorldDetails) {
+        return res.status(404).json({ message: "World details not found" });
+      }
+      
+      return res.status(200).json(updatedWorldDetails);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors 
+        });
+      }
+      
+      console.error("Error updating world details:", error);
       return res.status(500).json({ message: "Server error" });
     }
   });

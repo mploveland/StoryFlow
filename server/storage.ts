@@ -97,6 +97,7 @@ export interface IStorage {
   
   // World details operations (replaces Environment details)
   getWorldDetailsByFoundation(foundationId: number): Promise<WorldDetails | undefined>;
+  getWorldDetails(id: number): Promise<WorldDetails | undefined>;
   createWorldDetails(worldDetails: InsertWorldDetails): Promise<WorldDetails>;
   updateWorldDetails(id: number, worldDetails: Partial<InsertWorldDetails>): Promise<WorldDetails | undefined>;
   
@@ -448,6 +449,11 @@ export class DatabaseStorage implements IStorage {
   // World details operations (primary world building data)
   async getWorldDetailsByFoundation(foundationId: number): Promise<WorldDetails | undefined> {
     const [details] = await db.select().from(worldDetails).where(eq(worldDetails.foundationId, foundationId));
+    return details;
+  }
+  
+  async getWorldDetails(id: number): Promise<WorldDetails | undefined> {
+    const [details] = await db.select().from(worldDetails).where(eq(worldDetails.id, id));
     return details;
   }
   
