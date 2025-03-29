@@ -28,18 +28,18 @@ const FoundationDetails: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Get foundationId from URL query params or path params
-  // First check for query param in the format /foundation-details?foundationId=35
   let foundationIdParam: string | null = null;
   
   try {
-    // Handle both formats: /foundation-details?foundationId=35 and /foundation/35
-    if (location.includes('?')) {
-      // Extract from query params
-      const urlParams = new URLSearchParams(window.location.search);
-      foundationIdParam = urlParams.get('foundationId');
-      console.log('Found query parameter:', foundationIdParam);
+    // ALWAYS use window.location.search for query parameters
+    // This works regardless of the component location path
+    const urlParams = new URLSearchParams(window.location.search);
+    foundationIdParam = urlParams.get('foundationId');
+    
+    if (foundationIdParam) {
+      console.log('Found query parameter in URL:', foundationIdParam);
     } else if (location.includes('/foundation/')) {
-      // Extract from path e.g. /foundation/35
+      // If no query param, try to extract from path e.g. /foundation/35
       const routeMatch = location.match(/\/foundation\/(\d+)/);
       if (routeMatch && routeMatch[1]) {
         foundationIdParam = routeMatch[1];

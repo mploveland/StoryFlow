@@ -1,0 +1,33 @@
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+foundation-details.tsx:54 URL details: {location: '/foundation-details', windowLocation: 'https://90f55998-3a62-487c-903c-890c45539ddd-00-rj…orf.replit.dev/foundation-details?foundationId=34', searchParams: '?foundationId=34', foundationIdParam: null, paramType: 'object'}
+foundation-details.tsx:64 Parsed foundation ID: 0 number
+foundation-details.tsx:92 About to query foundation with ID: 0, enabled: false
+foundation-details.tsx:376 Foundation error details: {foundationError: null, foundationId: 0, foundationIdParam: null, queryKey: '/api/foundations/0'}
+FoundationDetails @ foundation-details.tsx:376
+renderWithHooks @ chunk-RPCDYKBN.js?v=521df9ab:11548
+mountIndeterminateComponent @ chunk-RPCDYKBN.js?v=521df9ab:14926
+beginWork @ chunk-RPCDYKBN.js?v=521df9ab:15914
+beginWork$1 @ chunk-RPCDYKBN.js?v=521df9ab:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=521df9ab:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=521df9ab:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=521df9ab:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=521df9ab:18678
+workLoop @ chunk-RPCDYKBN.js?v=521df9ab:197
+flushWork @ chunk-RPCDYKBN.js?v=521df9ab:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=521df9ab:384Understand this errorAI
+foundation-details.tsx:54 URL details: {location: '/foundation-details', windowLocation: 'https://90f55998-3a62-487c-903c-890c45539ddd-00-rj…orf.replit.dev/foundation-details?foundationId=34', searchParams: '?foundationId=34', foundationIdParam: null, paramType: 'object'}
+foundation-details.tsx:64 Parsed foundation ID: 0 number
+foundation-details.tsx:92 About to query foundation with ID: 0, enabled: false
+foundation-details.tsx:376 Foundation error details: {foundationError: null, foundationId: 0, foundationIdParam: null, queryKey: '/api/foundations/0'}
+FoundationDetails @ foundation-details.tsx:376
+renderWithHooks @ chunk-RPCDYKBN.js?v=521df9ab:11548
+updateFunctionComponent @ chunk-RPCDYKBN.js?v=521df9ab:14582
+beginWork @ chunk-RPCDYKBN.js?v=521df9ab:15924
+beginWork$1 @ chunk-RPCDYKBN.js?v=521df9ab:19753
+performUnitOfWork @ chunk-RPCDYKBN.js?v=521df9ab:19198
+workLoopSync @ chunk-RPCDYKBN.js?v=521df9ab:19137
+renderRootSync @ chunk-RPCDYKBN.js?v=521df9ab:19116
+performConcurrentWorkOnRoot @ chunk-RPCDYKBN.js?v=521df9ab:18678
+workLoop @ chunk-RPCDYKBN.js?v=521df9ab:197
+flushWork @ chunk-RPCDYKBN.js?v=521df9ab:176
+performWorkUntilDeadline @ chunk-RPCDYKBN.js?v=521df9ab:384Understand this errorAI
