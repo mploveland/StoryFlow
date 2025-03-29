@@ -2272,7 +2272,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userMessage, assistantReply } = req.body;
       
-      if (!userMessage || !assistantReply) {
+      // Special case - allow empty userMessage for initial welcome message with genre selection
+      const isGenreSelectionTrigger = assistantReply && assistantReply.includes("What type of genre would you like to explore for your story world?");
+      
+      // For all other cases, require both parameters
+      if ((!userMessage && !isGenreSelectionTrigger) || !assistantReply) {
         return res.status(400).json({ 
           message: "Both userMessage and assistantReply are required" 
         });

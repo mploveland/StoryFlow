@@ -309,10 +309,10 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             saveMessage(foundation.id, 'assistant', welcomeMessage.content);
           }
           
-          // Get initial foundation suggestions using the unified function
-          console.log('Fetching suggestions for welcome message...');
+          // Get initial foundation suggestions using the unified function - use empty string for better trigger detection
+          console.log('Fetching suggestions for the welcome message with genre selection trigger...');
           fetchSuggestions(
-            'Hello', // Initial message needs to be non-empty for API validation
+            '', // Initial message - empty for proper trigger detection
             welcomeMessage.content
           ).catch(error => {
             console.error('Failed to fetch suggestions for welcome message:', error);

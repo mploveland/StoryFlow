@@ -1671,9 +1671,12 @@ export async function generateChatSuggestions(
   assistantReply: string
 ): Promise<string[]> {
   try {
-    // Ensure we have valid inputs
-    if (!userMessage || userMessage.trim() === '' || !assistantReply || assistantReply.trim() === '') {
-      console.log("Missing userMessage or assistantReply for chat suggestions");
+    // Check if this is the special genre selection trigger
+    const isGenreSelectionTrigger = assistantReply && assistantReply.includes("What type of genre would you like to explore for your story world?");
+    
+    // Only require userMessage for non-genre-selection cases
+    if ((!isGenreSelectionTrigger && (!userMessage || userMessage.trim() === '')) || !assistantReply || assistantReply.trim() === '') {
+      console.log("Missing required inputs for chat suggestions");
       return []; // Return empty array - no fallback suggestions
     }
     
