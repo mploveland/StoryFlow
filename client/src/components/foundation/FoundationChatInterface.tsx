@@ -369,21 +369,31 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     }
   }, [messages]);
   
-  // Track if initial load has occurred to avoid duplicate audio
-  const initialLoadRef = useRef(false);
+  // Track if we should play audio for a message
+  const [shouldPlayAudio, setShouldPlayAudio] = useState(false);
+  const isInitialLoadRef = useRef(true);
   
-  // TTS for assistant messages
+  // Only enable TTS after component has fully loaded
+  useEffect(() => {
+    // Wait for a short delay after loading completes
+    if (!isLoadingMessages && isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      // Set a delay before enabling audio to avoid playing initial load messages
+      setTimeout(() => {
+        console.log('Audio playback enabled after initial load');
+        setShouldPlayAudio(true);
+      }, 1000);
+    }
+  }, [isLoadingMessages]);
+  
+  // TTS for assistant messages - only triggered by new messages after initial load
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === 'assistant' && !isLoadingMessages) {
-      // Only speak if not the first load of the component
-      if (initialLoadRef.current) {
-        speak(lastMessage.content);
-      } else {
-        initialLoadRef.current = true;
-      }
+    if (shouldPlayAudio && lastMessage && lastMessage.role === 'assistant') {
+      console.log('Speaking new assistant message');
+      speak(lastMessage.content);
     }
-  }, [messages, speak, isLoadingMessages]);
+  }, [messages, speak, shouldPlayAudio]);
   
   // Cleanup interval on unmount
   useEffect(() => {

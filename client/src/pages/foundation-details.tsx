@@ -88,6 +88,9 @@ const FoundationDetails: React.FC = () => {
   const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
   const [storyCount, setStoryCount] = useState(0);
   
+  // State to track if foundation components should be shown (overrides isFoundationComplete)
+  const [showFoundationComponents, setShowFoundationComponents] = useState(false);
+  
   // Query foundation details with extra debugging 
   console.log(`About to query foundation with ID: ${foundationId}, enabled: ${!!foundationId}`);
   
@@ -129,7 +132,13 @@ const FoundationDetails: React.FC = () => {
   });
   
   // Function to check if foundation is complete (has genre, world details, and at least one character)
+  // Currently always returning false to hide stage cards until explicitly requested
   const isFoundationComplete = (foundation?: Foundation, characters?: Character[]) => {
+    // Always return false to hide stage cards until explicitly requested by the user
+    return false;
+    
+    // The original implementation is commented out below
+    /*
     if (!foundation) return false;
     
     const hasGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
@@ -137,6 +146,7 @@ const FoundationDetails: React.FC = () => {
     const hasCharacters = characters && characters.length > 0;
     
     return hasGenre && hasWorldDetails;
+    */
   };
   
   // Auto-initialize the UI state based on foundation data
@@ -294,6 +304,30 @@ const FoundationDetails: React.FC = () => {
         throw new Error('Foundation not found');
       }
       
+      // Check for special commands to show/hide foundation components
+      const lowerCaseMessage = message.toLowerCase().trim();
+      if (lowerCaseMessage === 'show components' || 
+          lowerCaseMessage === 'show cards' || 
+          lowerCaseMessage === 'show details' ||
+          lowerCaseMessage === 'show foundation') {
+        setShowFoundationComponents(true);
+        return {
+          content: "I've made all foundation components visible in the sidebars. You can now see your genre, world, characters, and story cards.",
+          suggestions: ['Thanks!', 'Can you explain what I can do with these cards?', 'Hide them again please']
+        };
+      }
+      
+      if (lowerCaseMessage === 'hide components' || 
+          lowerCaseMessage === 'hide cards' || 
+          lowerCaseMessage === 'hide details' ||
+          lowerCaseMessage === 'hide foundation') {
+        setShowFoundationComponents(false);
+        return {
+          content: "I've hidden the foundation components from the sidebars. The chat interface is now centered for a more focused experience.",
+          suggestions: ['Thanks!', 'Show them again please', 'Let\'s continue with our story development']
+        };
+      }
+      
       // Use the foundation's threadId if available and no specific threadId was provided
       const chatThreadId = threadId || foundation.threadId;
       
@@ -443,11 +477,8 @@ const FoundationDetails: React.FC = () => {
           </div>
           
           <div className="flex space-x-2 mt-4 md:mt-0">
-            <Button variant="outline" onClick={handleEditFoundation}>
-              <Edit className="mr-2 h-4 w-4" /> Edit Foundation
-            </Button>
-            <Button variant="outline" className="text-red-600" onClick={handleDeleteFoundation}>
-              <Trash2 className="mr-2 h-4 w-4" /> Delete
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleDeleteFoundation}>
+              <Trash2 className="h-4 w-4 text-neutral-500" />
             </Button>
           </div>
         </div>
@@ -455,10 +486,10 @@ const FoundationDetails: React.FC = () => {
         {/* Main content with 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Empty space on the left when items are hidden - for centering */}
-          <div className={`lg:col-span-3 ${isFoundationComplete(foundation, characters) ? '' : 'lg:block'}`}></div>
+          <div className={`lg:col-span-3 ${showFoundationComponents ? '' : 'lg:block'}`}></div>
 
-          {/* Left side: Genre/World/Character cards - only show if foundation is complete */}
-          <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : 'lg:block'}`}>
+          {/* Left side: Genre/World/Character cards - only show if foundation is complete or explicitly requested */}
+          <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : 'lg:block'}`}>
             <div className="space-y-4">
               {foundation.genre && (
                 <Card className="hover:shadow-md transition-shadow">
@@ -584,10 +615,10 @@ const FoundationDetails: React.FC = () => {
           </div>
           
           {/* Empty space on the right when items are hidden - for centering */}
-          <div className={`lg:col-span-3 ${isFoundationComplete(foundation, characters) ? 'hidden' : 'lg:block'}`}></div>
+          <div className={`lg:col-span-3 ${showFoundationComponents ? 'hidden' : 'lg:block'}`}></div>
           
           {/* Right side: Stories list and create button - only shown when foundation is complete */}
-          <div className={`lg:col-span-3 ${!isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : ''}`}>
+          <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : ''}`}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -628,7 +659,7 @@ const FoundationDetails: React.FC = () => {
                 <Button 
                   onClick={handleCreateStory} 
                   className="w-full"
-                  disabled={!isFoundationComplete(foundation, characters) || createStoryMutation.isPending}
+                  disabled={createStoryMutation.isPending}
                 >
                   <Plus className="mr-2 h-4 w-4" /> Create Story
                 </Button>
