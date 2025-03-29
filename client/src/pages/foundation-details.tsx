@@ -331,15 +331,39 @@ const FoundationDetails: React.FC = () => {
       // Use the foundation's threadId if available and no specific threadId was provided
       const chatThreadId = threadId || foundation.threadId;
       
+      // Determine current stage based on foundation data
+      let currentAssistantType = 'genre'; // Default to genre
+
+      // Check for environment details
+      const hasEnvironmentDetails = await apiRequest('GET', `/api/foundations/${foundation.id}/environment`).then(
+        res => res.ok
+      ).catch(() => false);
+      
+      // Check for world details
+      const hasWorldDetails = await apiRequest('GET', `/api/foundations/${foundation.id}/world`).then(
+        res => res.ok
+      ).catch(() => false);
+      
+      // Check for character details
+      const hasCharacterDetails = await apiRequest('GET', `/api/foundations/${foundation.id}/characters`).then(
+        res => res.json().then(data => data.length > 0)
+      ).catch(() => false);
+      
       // For the purpose of thread state tracking, check if we have a defined genre
       const hasDefinedGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
       
-      console.log(`Processing chat message with dynamic assistant. Foundation genre: "${foundation.genre || 'none'}"`);
+      // Determine stage based on what data exists
+      if (hasCharacterDetails) {
+        currentAssistantType = 'character';
+      } else if (hasWorldDetails) {
+        currentAssistantType = 'world';
+      } else if (hasEnvironmentDetails || hasDefinedGenre) {
+        currentAssistantType = 'environment';
+      } else {
+        currentAssistantType = 'genre';
+      }
       
-      // Use the dynamic assistant API that automatically determines the appropriate assistant
-      const currentAssistantType = hasDefinedGenre ? 
-        (foundation.description ? 'character' : 'world') : 
-        'genre';
+      console.log(`Processing chat message with dynamic assistant. Foundation genre: "${foundation.genre || 'none'}", Current stage: ${currentAssistantType}`);
         
       const payload = {
         message,

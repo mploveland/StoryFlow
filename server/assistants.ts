@@ -1853,6 +1853,10 @@ export async function getAppropriateAssistant(
      message.toLowerCase().includes("sounds good") ||
      message.toLowerCase().includes("thank you") ||
      message.toLowerCase().includes("great") ||
+     message.toLowerCase().includes("that sounds") ||
+     message.toLowerCase().includes("i like that") ||
+     message.toLowerCase().includes("perfect") ||
+     message.toLowerCase().includes("awesome") ||
      message.toLowerCase().includes("perfect") ||
      message.toLowerCase().includes("continue") ||
      message.toLowerCase().includes("proceed") ||
