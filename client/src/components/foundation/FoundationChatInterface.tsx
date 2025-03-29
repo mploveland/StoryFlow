@@ -288,22 +288,12 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
                 setShowSuggestions(true);
               } else {
                 console.warn('No valid suggestions returned from API for initial load');
-                // If AI suggestions fail for the welcome message, use default genre suggestions
-                if (welcomeMessage.content.includes("What type of genre would you like to explore")) {
-                  console.log('Using fallback genre suggestions');
-                  setSuggestions(["Fantasy", "Science Fiction", "Mystery", "Romance", "Surprise me! You decide what works best."]);
-                  setShowSuggestions(true);
-                }
+                // Do not add fallback suggestions - rely solely on the StoryFlow_ChatResponseSuggestions assistant
               }
             })
             .catch(error => {
               console.error('Error fetching initial suggestions:', error);
-              // Add fallback suggestions for the genre stage specifically
-              if (welcomeMessage.content.includes("What type of genre would you like to explore")) {
-                console.log('Using fallback genre suggestions after error');
-                setSuggestions(["Fantasy", "Science Fiction", "Mystery", "Romance", "Surprise me! You decide what works best."]);
-                setShowSuggestions(true);
-              }
+              // No hardcoded fallback suggestions - we only want to use suggestions from the AI assistant
             });
         }
       });

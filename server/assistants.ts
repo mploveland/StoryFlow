@@ -1913,20 +1913,8 @@ export async function getAppropriateAssistant(
  * @returns Array of default suggested responses
  */
 function defaultSuggestions(assistantReply: string): string[] {
-  // Special case for the initial welcome message to ensure we always have genre suggestions
-  if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
-    // Provide a default set of genre suggestions to ensure the conversation can start properly
-    return [
-      "Fantasy", 
-      "Science Fiction", 
-      "Mystery", 
-      "Romance", 
-      "Surprise me! You decide what works best."
-    ];
-  }
-  
-  // For all other messages, only return a single "surprise me" option
-  // to encourage using the AI-generated suggestions
+  // Only return a single "surprise me" option to encourage using the AI suggestions
+  // No hardcoded suggestions for any message type - all must come from the AI assistant
   return [
     "Surprise me! You decide what works best."
   ];
