@@ -4,6 +4,7 @@ import {
   stories, type Story, type InsertStory,
   chapters, type Chapter, type InsertChapter,
   characters, type Character, type InsertCharacter,
+  characterDetails, type CharacterDetails, type InsertCharacterDetails,
   characterRelationships, type CharacterRelationship, type InsertCharacterRelationship,
   storyCharacters, type StoryCharacter, type InsertStoryCharacter,
   characterEvents, type CharacterEvent, type InsertCharacterEvent,
@@ -53,6 +54,13 @@ export interface IStorage {
   createCharacter(character: InsertCharacter): Promise<Character>;
   updateCharacter(id: number, character: Partial<InsertCharacter>): Promise<Character | undefined>;
   deleteCharacter(id: number): Promise<boolean>;
+  
+  // Character Details operations
+  getCharacterDetailsByFoundation(foundationId: number): Promise<CharacterDetails[]>;
+  getCharacterDetails(id: number): Promise<CharacterDetails | undefined>;
+  createCharacterDetails(characterDetails: InsertCharacterDetails): Promise<CharacterDetails>;
+  updateCharacterDetails(id: number, characterDetails: Partial<InsertCharacterDetails>): Promise<CharacterDetails | undefined>;
+  deleteCharacterDetails(id: number): Promise<boolean>;
   
   // Character relationship operations
   getCharacterRelationships(characterId: number): Promise<CharacterRelationship[]>;
@@ -275,6 +283,35 @@ export class DatabaseStorage implements IStorage {
   
   async deleteCharacter(id: number): Promise<boolean> {
     const [deleted] = await db.delete(characters).where(eq(characters.id, id)).returning();
+    return !!deleted;
+  }
+  
+  // Character Details operations
+  async getCharacterDetailsByFoundation(foundationId: number): Promise<CharacterDetails[]> {
+    return db.select().from(characterDetails).where(eq(characterDetails.foundationId, foundationId));
+  }
+  
+  async getCharacterDetails(id: number): Promise<CharacterDetails | undefined> {
+    const [characterDetail] = await db.select().from(characterDetails).where(eq(characterDetails.id, id));
+    return characterDetail;
+  }
+  
+  async createCharacterDetails(insertCharacterDetails: InsertCharacterDetails): Promise<CharacterDetails> {
+    const [characterDetail] = await db.insert(characterDetails).values(insertCharacterDetails).returning();
+    return characterDetail;
+  }
+  
+  async updateCharacterDetails(id: number, characterDetailsUpdate: Partial<InsertCharacterDetails>): Promise<CharacterDetails | undefined> {
+    const [characterDetail] = await db
+      .update(characterDetails)
+      .set({ ...characterDetailsUpdate, updatedAt: new Date() })
+      .where(eq(characterDetails.id, id))
+      .returning();
+    return characterDetail;
+  }
+  
+  async deleteCharacterDetails(id: number): Promise<boolean> {
+    const [deleted] = await db.delete(characterDetails).where(eq(characterDetails.id, id)).returning();
     return !!deleted;
   }
   

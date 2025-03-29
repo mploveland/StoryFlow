@@ -1,0 +1,81 @@
+id SERIAL PRIMARY KEY,
+    character_name TEXT NOT NULL,
+    age INTEGER,
+    gender TEXT,
+    occupation TEXT,
+    nationality_ethnicity TEXT,
+    current_residence TEXT,
+
+    -- Physical Description
+    height_build TEXT,
+    hair_description TEXT,
+    eye_description TEXT,
+    skin_complexion TEXT,
+    facial_features TEXT,
+    distinctive_features TEXT,
+    body_type TEXT,
+    posture_body_language TEXT,
+    typical_attire TEXT,
+    general_impression TEXT,
+
+    -- Backstory
+    birthplace_family_background TEXT,
+    childhood_experiences TEXT,
+    education_training TEXT,
+    major_life_events TEXT,
+    current_life_circumstances TEXT,
+
+    -- Psychological Profile
+    personality_type TEXT,
+    core_beliefs_values TEXT,
+    fears_insecurities TEXT,
+    emotional_stability TEXT,
+    coping_mechanisms TEXT,
+
+    -- Emotional Profile
+    dominant_mood TEXT,
+    emotional_triggers TEXT,
+    emotional_strengths_weaknesses TEXT,
+    response_to_conflict_stress TEXT,
+
+    -- Speech
+    speech_accent_dialect TEXT,
+    speech_pace_tone TEXT,
+    common_phrases_quirks TEXT,
+    formality_level TEXT,
+
+    -- Preferences & Personality
+    hobbies_interests TEXT,
+    favorite_activities TEXT,
+    favorite_foods_drinks TEXT,
+    pet_peeves TEXT,
+    disliked_activities TEXT,
+
+    -- Motivations
+    short_term_goals TEXT,
+    long_term_aspirations TEXT,
+    deepest_desires TEXT,
+    driving_motivations TEXT,
+
+    -- Relationships
+    family_dynamics TEXT,
+    friendships_social_life TEXT,
+    romantic_relationships TEXT,
+    professional_relationships TEXT,
+    enemies_rivals TEXT,
+
+    -- Internal Conflict
+    secrets_hidden_aspects TEXT,
+    personal_contradictions TEXT,
+    internal_conflicts TEXT,
+
+    -- References / Metadata
+    inspirations_references TEXT,
+    genre_id INTEGER REFERENCES story_genres(id) ON DELETE SET NULL,
+    environment_id INTEGER REFERENCES story_environments(id) ON DELETE SET NULL,
+    world_id INTEGER REFERENCES story_worlds(id) ON DELETE SET NULL,
+
+    -- Metadata
+    character_type TEXT CHECK (character_type IN ('fictional', 'user', 'historical', 'known')), -- optional enum
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

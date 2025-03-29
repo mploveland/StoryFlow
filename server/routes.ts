@@ -8,6 +8,7 @@ import {
   insertStorySchema,
   insertChapterSchema,
   insertCharacterSchema,
+  insertCharacterDetailsSchema,
   insertVersionSchema,
   insertSuggestionSchema,
   insertEnvironmentDetailsSchema,
@@ -840,6 +841,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(200).json(character);
     } catch (error) {
       console.error("Error fetching character:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  // Character Details routes
+  apiRouter.get("/foundations/:foundationId/character-details", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      const characterDetails = await storage.getCharacterDetailsByFoundation(foundationId);
+      return res.status(200).json(characterDetails);
+    } catch (error) {
+      console.error("Error fetching character details by foundation:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.get("/character-details/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const characterDetail = await storage.getCharacterDetails(id);
+      
+      if (!characterDetail) {
+        return res.status(404).json({ message: "Character details not found" });
+      }
+      
+      return res.status(200).json(characterDetail);
+    } catch (error) {
+      console.error("Error fetching character details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.post("/character-details", async (req: Request, res: Response) => {
+    try {
+      const characterData = insertCharacterDetailsSchema.parse(req.body);
+      const newCharacter = await storage.createCharacterDetails(characterData);
+      return res.status(201).json(newCharacter);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors 
+        });
+      }
+      
+      console.error("Error creating character details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.patch("/character-details/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const characterData = insertCharacterDetailsSchema.partial().parse(req.body);
+      
+      const updatedCharacter = await storage.updateCharacterDetails(id, characterData);
+      
+      if (!updatedCharacter) {
+        return res.status(404).json({ message: "Character details not found" });
+      }
+      
+      return res.status(200).json(updatedCharacter);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Invalid data", 
+          errors: error.errors 
+        });
+      }
+      
+      console.error("Error updating character details:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  });
+  
+  apiRouter.delete("/character-details/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deleteCharacterDetails(id);
+      
+      if (!success) {
+        return res.status(404).json({ message: "Character details not found" });
+      }
+      
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Error deleting character details:", error);
       return res.status(500).json({ message: "Server error" });
     }
   });

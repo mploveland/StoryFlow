@@ -89,6 +89,7 @@ export const foundationsRelations = relations(foundations, ({ one, many }) => ({
   }),
   stories: many(stories),
   characters: many(characters),
+  characterDetails: many(characterDetails),
   worldDetails: one(worldDetails),
   environmentDetails: one(environmentDetails), // For backward compatibility
   genreDetails: one(genreDetails),
@@ -141,6 +142,7 @@ export const chaptersRelations = relations(chapters, ({ one, many }) => ({
 }));
 
 // Character schema - now associated with foundations, not stories
+// Legacy character table - retained for backwards compatibility, will be phased out
 export const characters = pgTable("characters", {
   id: serial("id").primaryKey(),
   foundationId: integer("foundation_id").notNull().references(() => foundations.id),
@@ -165,6 +167,208 @@ export const characters = pgTable("characters", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// New enhanced character details table with expanded fields
+export const characterDetails = pgTable("character_details", {
+  id: serial("id").primaryKey(),
+  foundationId: integer("foundation_id").notNull().references(() => foundations.id),
+  // Core info - basic character information
+  character_name: text("character_name").notNull(),
+  age: integer("age"),
+  gender: text("gender"),
+  occupation: text("occupation"),
+  nationality_ethnicity: text("nationality_ethnicity"),
+  current_residence: text("current_residence"),
+  
+  // Physical Description
+  height_build: text("height_build"),
+  hair_description: text("hair_description"),
+  eye_description: text("eye_description"),
+  skin_complexion: text("skin_complexion"),
+  facial_features: text("facial_features"),
+  distinctive_features: text("distinctive_features"),
+  body_type: text("body_type"),
+  posture_body_language: text("posture_body_language"),
+  typical_attire: text("typical_attire"),
+  general_impression: text("general_impression"),
+  
+  // Backstory
+  birthplace_family_background: text("birthplace_family_background"),
+  childhood_experiences: text("childhood_experiences"),
+  education_training: text("education_training"),
+  major_life_events: text("major_life_events"),
+  current_life_circumstances: text("current_life_circumstances"),
+  
+  // Psychological Profile
+  personality_type: text("personality_type"),
+  core_beliefs_values: text("core_beliefs_values"),
+  fears_insecurities: text("fears_insecurities"),
+  emotional_stability: text("emotional_stability"),
+  coping_mechanisms: text("coping_mechanisms"),
+  
+  // Emotional Profile
+  dominant_mood: text("dominant_mood"),
+  emotional_triggers: text("emotional_triggers"),
+  emotional_strengths_weaknesses: text("emotional_strengths_weaknesses"),
+  response_to_conflict_stress: text("response_to_conflict_stress"),
+  
+  // Speech
+  speech_accent_dialect: text("speech_accent_dialect"),
+  speech_pace_tone: text("speech_pace_tone"),
+  common_phrases_quirks: text("common_phrases_quirks"),
+  formality_level: text("formality_level"),
+  
+  // Preferences & Personality
+  hobbies_interests: text("hobbies_interests"),
+  favorite_activities: text("favorite_activities"),
+  favorite_foods_drinks: text("favorite_foods_drinks"),
+  pet_peeves: text("pet_peeves"),
+  disliked_activities: text("disliked_activities"),
+  
+  // Motivations
+  short_term_goals: text("short_term_goals"),
+  long_term_aspirations: text("long_term_aspirations"),
+  deepest_desires: text("deepest_desires"),
+  driving_motivations: text("driving_motivations"),
+  
+  // Relationships
+  family_dynamics: text("family_dynamics"),
+  friendships_social_life: text("friendships_social_life"),
+  romantic_relationships: text("romantic_relationships"),
+  professional_relationships: text("professional_relationships"),
+  enemies_rivals: text("enemies_rivals"),
+  
+  // Internal Conflict
+  secrets_hidden_aspects: text("secrets_hidden_aspects"),
+  personal_contradictions: text("personal_contradictions"),
+  internal_conflicts: text("internal_conflicts"),
+  
+  // Legacy fields (keeping for backward compatibility)
+  role: text("role"),
+  background: text("background"),
+  personality: text("personality").array(),
+  goals: text("goals").array(),
+  fears: text("fears").array(),
+  skills: text("skills").array(),
+  appearance: text("appearance"),
+  voice: text("voice"),
+  secrets: text("secrets"),
+  quirks: text("quirks").array(),
+  motivations: text("motivations").array(),
+  flaws: text("flaws").array(),
+  
+  // References / Metadata
+  threadId: text("thread_id"),
+  genre_id: integer("genre_id").references(() => genreDetails.id, { onDelete: 'set null' }),
+  environment_id: integer("environment_id").references(() => environmentDetails.id, { onDelete: 'set null' }),
+  world_id: integer("world_id").references(() => worldDetails.id, { onDelete: 'set null' }),
+  
+  // Character type/evolution tracking
+  character_type: text("character_type").default('fictional'),
+  evolutionStage: integer("evolution_stage").default(1),
+  significantEvents: jsonb("significant_events").default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCharacterDetailsSchema = createInsertSchema(characterDetails).pick({
+  foundationId: true,
+  character_name: true,
+  age: true,
+  gender: true,
+  occupation: true,
+  nationality_ethnicity: true,
+  current_residence: true,
+  
+  // Physical Description
+  height_build: true,
+  hair_description: true,
+  eye_description: true,
+  skin_complexion: true,
+  facial_features: true,
+  distinctive_features: true,
+  body_type: true,
+  posture_body_language: true,
+  typical_attire: true,
+  general_impression: true,
+  
+  // Backstory
+  birthplace_family_background: true,
+  childhood_experiences: true,
+  education_training: true,
+  major_life_events: true,
+  current_life_circumstances: true,
+  
+  // Psychological Profile
+  personality_type: true,
+  core_beliefs_values: true,
+  fears_insecurities: true,
+  emotional_stability: true,
+  coping_mechanisms: true,
+  
+  // Emotional Profile
+  dominant_mood: true,
+  emotional_triggers: true,
+  emotional_strengths_weaknesses: true,
+  response_to_conflict_stress: true,
+  
+  // Speech
+  speech_accent_dialect: true,
+  speech_pace_tone: true,
+  common_phrases_quirks: true,
+  formality_level: true,
+  
+  // Preferences & Personality
+  hobbies_interests: true,
+  favorite_activities: true,
+  favorite_foods_drinks: true,
+  pet_peeves: true,
+  disliked_activities: true,
+  
+  // Motivations
+  short_term_goals: true,
+  long_term_aspirations: true,
+  deepest_desires: true,
+  driving_motivations: true,
+  
+  // Relationships
+  family_dynamics: true,
+  friendships_social_life: true,
+  romantic_relationships: true,
+  professional_relationships: true,
+  enemies_rivals: true,
+  
+  // Internal Conflict
+  secrets_hidden_aspects: true,
+  personal_contradictions: true,
+  internal_conflicts: true,
+  
+  // Legacy fields (keeping for backward compatibility)
+  role: true,
+  background: true,
+  personality: true,
+  goals: true,
+  fears: true,
+  skills: true,
+  appearance: true,
+  voice: true,
+  secrets: true,
+  quirks: true,
+  motivations: true,
+  flaws: true,
+  
+  // References / Metadata
+  threadId: true,
+  genre_id: true,
+  environment_id: true,
+  world_id: true,
+  
+  // Character type/evolution tracking
+  character_type: true,
+  evolutionStage: true,
+  significantEvents: true,
+});
+
+// Keep legacy character schema for backward compatibility
 export const insertCharacterSchema = createInsertSchema(characters).pick({
   foundationId: true,
   name: true,
@@ -260,6 +464,26 @@ export const charactersRelations = relations(characters, ({ one, many }) => ({
   relatedTo: many(characterRelationships, { relationName: 'related_character' }),
   appearances: many(storyCharacters),
   events: many(characterEvents),
+}));
+
+// Relations for character details
+export const characterDetailsRelations = relations(characterDetails, ({ one }) => ({
+  foundation: one(foundations, {
+    fields: [characterDetails.foundationId],
+    references: [foundations.id],
+  }),
+  genre: one(genreDetails, {
+    fields: [characterDetails.genre_id],
+    references: [genreDetails.id],
+  }),
+  environment: one(environmentDetails, {
+    fields: [characterDetails.environment_id],
+    references: [environmentDetails.id],
+  }),
+  world: one(worldDetails, {
+    fields: [characterDetails.world_id],
+    references: [worldDetails.id],
+  }),
 }));
 
 // Relations for character relationships
@@ -664,6 +888,9 @@ export type InsertChapter = z.infer<typeof insertChapterSchema>;
 
 export type Character = typeof characters.$inferSelect;
 export type InsertCharacter = z.infer<typeof insertCharacterSchema>;
+
+export type CharacterDetails = typeof characterDetails.$inferSelect;
+export type InsertCharacterDetails = z.infer<typeof insertCharacterDetailsSchema>;
 
 export type CharacterRelationship = typeof characterRelationships.$inferSelect;
 export type InsertCharacterRelationship = z.infer<typeof insertCharacterRelationshipSchema>;

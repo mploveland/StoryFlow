@@ -18,7 +18,81 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation, Character } from '@shared/schema';
-import { ArrowLeft, RefreshCw, User, Users, Plus } from 'lucide-react';
+import { ArrowLeft, RefreshCw, User, Users, Plus, Edit } from 'lucide-react';
+
+// Type definition for the significant events in character evolution
+interface SignificantEvent {
+  title: string;
+  date: string;
+  description: string;
+  impact: string;
+}
+
+// Extended type definition for Character Details
+interface CharacterDetails {
+  id?: number;
+  foundationId: number;
+  character_name: string;
+  age?: number;
+  gender?: string;
+  occupation?: string;
+  nationality_ethnicity?: string;
+  current_residence?: string;
+  
+  // Physical attributes
+  height_build?: string;
+  hair_description?: string;
+  eye_description?: string;
+  skin_complexion?: string;
+  facial_features?: string;
+  distinctive_features?: string;
+  body_type?: string;
+  posture_body_language?: string;
+  typical_attire?: string;
+  
+  // Backstory
+  birthplace_family_background?: string;
+  childhood_experiences?: string;
+  education_training?: string;
+  major_life_events?: string;
+  current_life_circumstances?: string;
+  
+  // Personality
+  personality_type?: string;
+  core_beliefs_values?: string;
+  fears_insecurities?: string;
+  emotional_stability?: string;
+  dominant_mood?: string;
+  
+  // Relationships
+  family_dynamics?: string;
+  friendships_social_life?: string;
+  romantic_relationships?: string;
+  professional_relationships?: string;
+  enemies_rivals?: string;
+  
+  // Legacy fields
+  role?: string;
+  background?: string;
+  personality?: string[];
+  goals?: string[];
+  fears?: string[];
+  skills?: string[];
+  appearance?: string;
+  voice?: string;
+  secrets?: string;
+  quirks?: string[];
+  motivations?: string[];
+  flaws?: string[];
+  
+  // Character evolution
+  character_type?: string;
+  evolutionStage?: number;
+  significantEvents?: SignificantEvent[];
+  
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 // Import type definition only
 type DetailedCharacter = {
@@ -75,6 +149,16 @@ const CharacterDetailsPage: React.FC = () => {
     refetch: refetchCharacter
   } = useQuery<Character>({
     queryKey: [`/api/characters/${characterId}`],
+    enabled: !!characterId && !isCreating,
+  });
+  
+  // Query character details if not creating
+  const {
+    data: characterDetails,
+    isLoading: isLoadingCharacterDetails,
+    refetch: refetchCharacterDetails
+  } = useQuery<CharacterDetails>({
+    queryKey: [`/api/character-details/${characterId}`],
     enabled: !!characterId && !isCreating,
   });
   
@@ -142,7 +226,7 @@ const CharacterDetailsPage: React.FC = () => {
     },
   });
   
-  // Create character mutation
+  // Create character and character details mutation
   const createCharacterMutation = useMutation({
     mutationFn: async (characterData: { 
       name: string; 
@@ -161,8 +245,31 @@ const CharacterDetailsPage: React.FC = () => {
       motivations?: string;
       flaws?: string;
     }) => {
-      const response = await apiRequest('POST', '/api/characters', characterData);
-      return response.json();
+      // First create the character
+      const characterResponse = await apiRequest('POST', '/api/characters', characterData);
+      const newCharacter = await characterResponse.json();
+      
+      // Then create character details
+      if (newCharacter?.id) {
+        // Create character details entry with basic info
+        const characterDetailsData = {
+          character_name: characterData.name,
+          occupation: characterData.role,
+          foundationId: characterData.foundationId,
+          evolutionStage: 1,
+          significantEvents: [],
+          character_type: 'fictional'
+        };
+        
+        try {
+          await apiRequest('POST', '/api/character-details', characterDetailsData);
+        } catch (error) {
+          console.error("Failed to create character details:", error);
+          // Don't fail the whole operation if details creation fails
+        }
+      }
+      
+      return newCharacter;
     },
     onSuccess: (newCharacter) => {
       // Save the created character for possible use in the dialog
@@ -271,8 +378,8 @@ const CharacterDetailsPage: React.FC = () => {
     }
   };
   
-  // If loading foundation or character (when viewing existing)
-  if (isLoadingFoundation || (!isCreating && isLoadingCharacter)) {
+  // If loading foundation or character data (when viewing existing)
+  if (isLoadingFoundation || (!isCreating && (isLoadingCharacter || isLoadingCharacterDetails))) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center mb-8">
@@ -487,17 +594,88 @@ const CharacterDetailsPage: React.FC = () => {
               <div className="lg:col-span-1 space-y-6">
                 <Card>
                   <CardContent className="p-6">
-                    <h2 className="text-xl font-bold mb-2">{character?.name}</h2>
-                    <p className="text-neutral-600 mb-6">{character?.role}</p>
+                    <div className="flex justify-between items-start mb-2">
+                      <h2 className="text-xl font-bold">{characterDetails?.character_name || character?.name}</h2>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => navigate(`/character-details?foundationId=${foundationId}&characterId=${characterId}&action=edit`)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-neutral-600 mb-6">{characterDetails?.occupation || character?.role}</p>
                     
                     <div>
-                      <h3 className="font-semibold text-lg mb-2">Appearance</h3>
-                      <p className="text-neutral-600 mb-4">{character?.appearance}</p>
+                      <h3 className="font-semibold text-lg mb-2">Basic Information</h3>
+                      <div className="space-y-3">
+                        {characterDetails?.age && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Age:</span>
+                            <p className="text-neutral-600">{characterDetails.age}</p>
+                          </div>
+                        )}
+                        {characterDetails?.gender && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Gender:</span>
+                            <p className="text-neutral-600">{characterDetails.gender}</p>
+                          </div>
+                        )}
+                        {characterDetails?.nationality_ethnicity && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Nationality/Ethnicity:</span>
+                            <p className="text-neutral-600">{characterDetails.nationality_ethnicity}</p>
+                          </div>
+                        )}
+                        {characterDetails?.current_residence && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Current Residence:</span>
+                            <p className="text-neutral-600">{characterDetails.current_residence}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Voice</h3>
-                      <p className="text-neutral-600">{character?.voice}</p>
+                    <div className="mt-6">
+                      <h3 className="font-semibold text-lg mb-2">Appearance</h3>
+                      <div className="space-y-3">
+                        {characterDetails?.height_build && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Height/Build:</span>
+                            <p className="text-neutral-600">{characterDetails.height_build}</p>
+                          </div>
+                        )}
+                        {characterDetails?.hair_description && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Hair:</span>
+                            <p className="text-neutral-600">{characterDetails.hair_description}</p>
+                          </div>
+                        )}
+                        {characterDetails?.eye_description && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Eyes:</span>
+                            <p className="text-neutral-600">{characterDetails.eye_description}</p>
+                          </div>
+                        )}
+                        {characterDetails?.skin_complexion && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Skin Complexion:</span>
+                            <p className="text-neutral-600">{characterDetails.skin_complexion}</p>
+                          </div>
+                        )}
+                        {characterDetails?.facial_features && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Facial Features:</span>
+                            <p className="text-neutral-600">{characterDetails.facial_features}</p>
+                          </div>
+                        )}
+                        {characterDetails?.distinctive_features && (
+                          <div>
+                            <span className="text-sm font-medium text-neutral-500">Distinctive Features:</span>
+                            <p className="text-neutral-600">{characterDetails.distinctive_features}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -530,12 +708,93 @@ const CharacterDetailsPage: React.FC = () => {
               </div>
               
               <div className="lg:col-span-2 space-y-6">
+                {/* Background Section */}
                 <Card>
                   <CardContent className="p-6">
                     <h3 className="text-xl font-bold mb-4">Background</h3>
-                    <p className="text-neutral-600 whitespace-pre-line">{character?.background}</p>
+                    {characterDetails?.birthplace_family_background || characterDetails?.childhood_experiences ? (
+                      <div className="space-y-4">
+                        {characterDetails.birthplace_family_background && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Family & Origins</h4>
+                            <p className="text-neutral-600 whitespace-pre-line">{characterDetails.birthplace_family_background}</p>
+                          </div>
+                        )}
+                        {characterDetails.childhood_experiences && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Childhood</h4>
+                            <p className="text-neutral-600 whitespace-pre-line">{characterDetails.childhood_experiences}</p>
+                          </div>
+                        )}
+                        {characterDetails.education_training && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Education & Training</h4>
+                            <p className="text-neutral-600 whitespace-pre-line">{characterDetails.education_training}</p>
+                          </div>
+                        )}
+                        {characterDetails.major_life_events && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Major Life Events</h4>
+                            <p className="text-neutral-600 whitespace-pre-line">{characterDetails.major_life_events}</p>
+                          </div>
+                        )}
+                        {characterDetails.current_life_circumstances && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Current Circumstances</h4>
+                            <p className="text-neutral-600 whitespace-pre-line">{characterDetails.current_life_circumstances}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-neutral-600 whitespace-pre-line">{character?.background}</p>
+                    )}
                   </CardContent>
                 </Card>
+                
+                {/* Personality and Psychology Section */}
+                {(characterDetails?.personality_type || 
+                 characterDetails?.core_beliefs_values || 
+                 characterDetails?.fears_insecurities ||
+                 characterDetails?.emotional_stability ||
+                 characterDetails?.dominant_mood) && (
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Personality & Psychology</h3>
+                      <div className="space-y-4">
+                        {characterDetails.personality_type && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Personality Type</h4>
+                            <p className="text-neutral-600">{characterDetails.personality_type}</p>
+                          </div>
+                        )}
+                        {characterDetails.core_beliefs_values && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Core Beliefs & Values</h4>
+                            <p className="text-neutral-600">{characterDetails.core_beliefs_values}</p>
+                          </div>
+                        )}
+                        {characterDetails.fears_insecurities && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Fears & Insecurities</h4>
+                            <p className="text-neutral-600">{characterDetails.fears_insecurities}</p>
+                          </div>
+                        )}
+                        {characterDetails.emotional_stability && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Emotional Stability</h4>
+                            <p className="text-neutral-600">{characterDetails.emotional_stability}</p>
+                          </div>
+                        )}
+                        {characterDetails.dominant_mood && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Dominant Mood</h4>
+                            <p className="text-neutral-600">{characterDetails.dominant_mood}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Card>
@@ -591,7 +850,87 @@ const CharacterDetailsPage: React.FC = () => {
                   </Card>
                 </div>
                 
-                {/* Relationships will be shown here in the future */}
+                {/* Character Evolution Section */}
+                {Boolean((characterDetails?.evolutionStage && characterDetails.evolutionStage > 1) || 
+                 (characterDetails?.significantEvents && Array.isArray(characterDetails.significantEvents) && characterDetails.significantEvents.length > 0)) && (
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Character Evolution</h3>
+                      <div className="mb-4">
+                        <h4 className="font-semibold text-md mb-1">Evolution Stage</h4>
+                        <p className="text-neutral-600">
+                          {characterDetails?.evolutionStage === 1 ? 'Initial character development' : 
+                           characterDetails?.evolutionStage === 2 ? 'Character development in progress' :
+                           characterDetails?.evolutionStage === 3 ? 'Advanced character development' :
+                           characterDetails?.evolutionStage === 4 ? 'Fully developed character' :
+                           'Character evolution not tracked'}
+                        </p>
+                      </div>
+                      
+                      {Boolean(characterDetails?.significantEvents && Array.isArray(characterDetails.significantEvents) && characterDetails.significantEvents.length > 0) && (
+                        <div>
+                          <h4 className="font-semibold text-md mb-2">Significant Events</h4>
+                          <ul className="divide-y divide-neutral-100">
+                            {Array.isArray(characterDetails?.significantEvents) && characterDetails.significantEvents.map((event: SignificantEvent, index: number) => (
+                              <li key={index} className="py-3">
+                                <p className="font-medium text-neutral-700">{event.title}</p>
+                                <p className="text-sm text-neutral-500">{new Date(event.date).toLocaleDateString()}</p>
+                                <p className="mt-1 text-neutral-600">{event.description}</p>
+                                <p className="mt-1 text-sm text-neutral-500">Impact: {event.impact}</p>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Relationships Section */}
+                
+                {Boolean(characterDetails?.family_dynamics || 
+                  characterDetails?.friendships_social_life || 
+                  characterDetails?.romantic_relationships || 
+                  characterDetails?.professional_relationships || 
+                  characterDetails?.enemies_rivals) && (
+                  <Card>
+                    <CardContent className="p-6">
+                      <h3 className="text-xl font-bold mb-4">Relationships</h3>
+                      <div className="space-y-4">
+                        {characterDetails?.family_dynamics && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Family Dynamics</h4>
+                            <p className="text-neutral-600">{characterDetails.family_dynamics}</p>
+                          </div>
+                        )}
+                        {characterDetails?.friendships_social_life && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Friendships & Social Life</h4>
+                            <p className="text-neutral-600">{characterDetails.friendships_social_life}</p>
+                          </div>
+                        )}
+                        {characterDetails?.romantic_relationships && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Romantic Relationships</h4>
+                            <p className="text-neutral-600">{characterDetails.romantic_relationships}</p>
+                          </div>
+                        )}
+                        {characterDetails?.professional_relationships && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Professional Relationships</h4>
+                            <p className="text-neutral-600">{characterDetails.professional_relationships}</p>
+                          </div>
+                        )}
+                        {characterDetails?.enemies_rivals && (
+                          <div>
+                            <h4 className="font-semibold text-md mb-1">Enemies & Rivals</h4>
+                            <p className="text-neutral-600">{characterDetails.enemies_rivals}</p>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
                 
                 {character?.secrets && (
                   <Card>
