@@ -1969,6 +1969,21 @@ export async function generateChatSuggestions(
     console.log(`User: ${userMessage.substring(0, 50)}...`);
     console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
     
+    // Special case for the genre selection trigger phrase
+    // This matches the trigger phrase in the StoryFlow_ChatResponseSuggestions assistant prompt
+    if (assistantReply.includes("What type of genre would you like to explore for your story world?")) {
+      console.log("Detected genre selection trigger phrase - returning genre suggestions");
+      return [
+        "Fantasy",
+        "Science Fiction",
+        "Mystery",
+        "Romance",
+        "Historical Fiction",
+        "Horror",
+        "Adventure"
+      ];
+    }
+    
     // Create a new thread for this suggestions request
     const thread = await openai.beta.threads.create();
     
