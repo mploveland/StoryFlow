@@ -369,13 +369,21 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     }
   }, [messages]);
   
+  // Track if initial load has occurred to avoid duplicate audio
+  const initialLoadRef = useRef(false);
+  
   // TTS for assistant messages
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (lastMessage && lastMessage.role === 'assistant') {
-      speak(lastMessage.content);
+    if (lastMessage && lastMessage.role === 'assistant' && !isLoadingMessages) {
+      // Only speak if not the first load of the component
+      if (initialLoadRef.current) {
+        speak(lastMessage.content);
+      } else {
+        initialLoadRef.current = true;
+      }
     }
-  }, [messages, speak]);
+  }, [messages, speak, isLoadingMessages]);
   
   // Cleanup interval on unmount
   useEffect(() => {
