@@ -53,16 +53,24 @@ const worldDetailsSchema = z.object({
 type WorldDetailsFormValues = z.infer<typeof worldDetailsSchema>;
 
 export default function WorldDetailsPage() {
-  const params = useParams();
-  const worldId = params.id ? parseInt(params.id) : null;
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Get foundationId from URL query params
+  const queryString = location.split('?')[1] || '';
+  const params = new URLSearchParams(queryString);
+  const foundationIdParam = params.get('foundationId');
+  console.log('World details - location:', location);
+  console.log('World details - query string:', queryString);
+  console.log('World details - foundationId param:', foundationIdParam);
+  
+  const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
 
   // Query to fetch world details
   const { data: worldDetails, isLoading } = useQuery<WorldDetails>({
-    queryKey: ['/api/world-details', worldId],
-    enabled: !!worldId,
+    queryKey: [`/api/foundations/${foundationId}/world-details`],
+    enabled: !!foundationId,
   });
 
   const form = useForm<WorldDetailsFormValues>({
@@ -105,14 +113,22 @@ export default function WorldDetailsPage() {
 
   // Save world details
   const onSubmit = async (data: WorldDetailsFormValues) => {
-    if (!worldId) return;
+    if (!foundationId) return;
     
     setIsSubmitting(true);
     try {
-      await apiRequest("PATCH", `/api/world-details/${worldId}`, data);
+      const endpoint = worldDetails && worldDetails.id
+        ? `/api/world-details/${worldDetails.id}`
+        : `/api/foundations/${foundationId}/world-details`;
+      
+      await apiRequest(
+        worldDetails && worldDetails.id ? "PATCH" : "POST", 
+        endpoint, 
+        data
+      );
       
       // Invalidate the query to refresh data
-      queryClient.invalidateQueries({ queryKey: ['/api/world-details', worldId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}/world-details`] });
       
       toast({
         title: "World details saved",
@@ -132,8 +148,8 @@ export default function WorldDetailsPage() {
 
   // Navigate back to the foundation or dashboard
   const handleBack = () => {
-    if (worldDetails?.foundationId) {
-      setLocation(`/foundation/${worldDetails.foundationId}`);
+    if (foundationId) {
+      setLocation(`/foundation-details?foundationId=${foundationId}`);
     } else {
       setLocation("/dashboard");
     }

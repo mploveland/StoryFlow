@@ -28,8 +28,14 @@ const FoundationDetails: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Get foundationId from URL query params
-  const params = new URLSearchParams(location.split('?')[1]);
-  const foundationId = parseInt(params.get('foundationId') || '0');
+  const queryString = location.split('?')[1] || '';
+  const params = new URLSearchParams(queryString);
+  const foundationIdParam = params.get('foundationId');
+  console.log('Foundation details - location:', location);
+  console.log('Foundation details - query string:', queryString);
+  console.log('Foundation details - foundationId param:', foundationIdParam);
+  
+  const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
   
   // State to track if UI has been initialized
   const [initialized, setInitialized] = useState(false);
@@ -424,7 +430,7 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm"
                         className="w-full text-primary-600" 
-                        onClick={() => navigate(`/world-details/${foundation.id}`)}
+                        onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
                       >
                         View Details
                       </Button>
@@ -454,7 +460,7 @@ const FoundationDetails: React.FC = () => {
                         variant="ghost" 
                         size="sm" 
                         className="w-full text-primary-600"
-                        onClick={() => navigate(`/character-details/${foundation.id}`)}
+                        onClick={() => navigate(`/character-details?foundationId=${foundation.id}`)}
                       >
                         View All Characters
                       </Button>
@@ -478,7 +484,7 @@ const FoundationDetails: React.FC = () => {
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => navigate(`/environment-details/${foundation.id}`)}
+                      onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
                     >
                       View Details
                     </Button>
