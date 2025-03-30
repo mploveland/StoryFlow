@@ -6,6 +6,7 @@ interface UseTTSOptions {
   defaultVoiceId?: string;
   defaultProvider?: 'elevenlabs' | 'openai';
   defaultPlaybackSpeed?: number;
+  autoPlay?: boolean;
 }
 
 export function useTTS(options: UseTTSOptions = {}) {
@@ -15,12 +16,14 @@ export function useTTS(options: UseTTSOptions = {}) {
   const defaultVoiceId = options.defaultVoiceId || 'nova';
   const defaultProvider = options.defaultProvider || 'openai';
   const defaultPlaybackSpeed = options.defaultPlaybackSpeed || 1.1; // Updated default to 1.1 as requested
+  const defaultAutoplay = options.hasOwnProperty('autoPlay') ? options.autoPlay : true;
   
   // State
   const [isPlaying, setIsPlaying] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<VoiceOption | null>(null);
   const [currentAudioUrl, setCurrentAudioUrl] = useState<string | null>(null);
   const [playbackSpeed, setPlaybackSpeed] = useState(defaultPlaybackSpeed);
+  const [autoPlay, setAutoPlay] = useState(defaultAutoplay);
   
   // Refs for audio elements
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -327,37 +330,39 @@ export function useTTS(options: UseTTSOptions = {}) {
       // Explicitly set the audio src to make sure it's set
       tempAudio.src = audioDataUrl;
       
-      // Play immediately
-      try {
-        await tempAudio.play();
-        console.log("useTTS: Successfully started audio playback");
-      } catch (playError) {
-        console.error("useTTS: Error playing audio directly:", playError);
-        
-        // Fallback to auto-play by user interaction
-        const playOnInteraction = () => {
-          tempAudio.play()
-            .then(() => console.log("useTTS: Audio started after user interaction"))
-            .catch(err => console.error("useTTS: Failed to play even after user interaction:", err));
-            
-          // Remove listeners
-          document.removeEventListener('click', playOnInteraction);
-          document.removeEventListener('keydown', playOnInteraction);
-        };
-        
-        // Add event listeners for user interaction
-        document.addEventListener('click', playOnInteraction, { once: true });
-        document.addEventListener('keydown', playOnInteraction, { once: true });
-        
-        // Dispatch synthetic events to trigger audio playback
+      // Play immediately if autoPlay is enabled
+      if (autoPlay) {
         try {
-          document.dispatchEvent(new MouseEvent('click', {
-            view: window,
-            bubbles: true,
-            cancelable: true
-          }));
-        } catch (e) {
-          console.warn("useTTS: Failed to dispatch synthetic click:", e);
+          await tempAudio.play();
+          console.log("useTTS: Successfully started audio playback");
+        } catch (playError) {
+          console.error("useTTS: Error playing audio directly:", playError);
+          
+          // Fallback to auto-play by user interaction
+          const playOnInteraction = () => {
+            tempAudio.play()
+              .then(() => console.log("useTTS: Audio started after user interaction"))
+              .catch(err => console.error("useTTS: Failed to play even after user interaction:", err));
+              
+            // Remove listeners
+            document.removeEventListener('click', playOnInteraction);
+            document.removeEventListener('keydown', playOnInteraction);
+          };
+          
+          // Add event listeners for user interaction
+          document.addEventListener('click', playOnInteraction, { once: true });
+          document.addEventListener('keydown', playOnInteraction, { once: true });
+          
+          // Dispatch synthetic events to trigger audio playback
+          try {
+            document.dispatchEvent(new MouseEvent('click', {
+              view: window,
+              bubbles: true,
+              cancelable: true
+            }));
+          } catch (e) {
+            console.warn("useTTS: Failed to dispatch synthetic click:", e);
+          }
         }
       }
       
@@ -404,7 +409,7 @@ export function useTTS(options: UseTTSOptions = {}) {
       
       setIsPlaying(false);
     }
-  }, [selectedVoice, stop, playbackSpeed]);
+  }, [selectedVoice, stop, playbackSpeed, autoPlay]);
   
   // Change the current voice
   const changeVoice = useCallback((voiceId: string, provider: 'elevenlabs' | 'openai') => {
@@ -440,6 +445,8 @@ export function useTTS(options: UseTTSOptions = {}) {
     currentAudioUrl,
     playbackSpeed,
     changePlaybackSpeed,
+    autoPlay,
+    setAutoPlay,
     apiKeyError,
     clearApiKeyError: () => setApiKeyError(null)
   };
