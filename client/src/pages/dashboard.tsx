@@ -446,14 +446,14 @@ const Dashboard: React.FC = () => {
                         <Button 
                           variant="ghost" 
                           size="sm"
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1"
                           onClick={(e) => {
                             e.stopPropagation(); // Prevent card click
                             handleDeleteFoundation(foundation);
                           }}
                         >
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete</span>
                         </Button>
                       </div>
                     </CardContent>
