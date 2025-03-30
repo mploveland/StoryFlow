@@ -486,6 +486,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     return saveMessageWithRetry(foundationId, role, content);
   };
   
+  // Flag to track whether initial loading has been done
+  const initialLoadDoneRef = useRef<boolean>(false);
+  
   // Load initial messages based on props
   useEffect(() => {
     const messageHandler = sendMessage || onSendMessage;
@@ -494,7 +497,10 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       return;
     }
     
-    if (foundation) {
+    // Only proceed if we haven't already loaded messages for this foundation
+    if (foundation && !initialLoadDoneRef.current) {
+      // Mark as loaded to prevent duplicate loading
+      initialLoadDoneRef.current = true;
       console.log(`[FoundationChatInterface] Foundation loaded with ID: ${foundation.id}, name: ${foundation.name}, threadId: ${foundation.threadId || 'undefined'}`);
       setIsLoadingMessages(true);
       
@@ -570,7 +576,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         
         setIsLoadingMessages(false);
       });
-    } else if (title && initialMessages && initialMessages.length > 0) {
+    } else if (title && initialMessages && initialMessages.length > 0 && !initialLoadDoneRef.current) {
+      // Mark as loaded to prevent duplicate loading
+      initialLoadDoneRef.current = true;
       console.log(`[FoundationChatInterface] Using ${initialMessages.length} initialMessages from props`);
       
       // If we have initial messages, use those instead of a welcome message
@@ -606,9 +614,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         });
       }
     } else {
-      console.log('[FoundationChatInterface] No foundation or initialMessages provided');
+      console.log('[FoundationChatInterface] No foundation or initialMessages provided, or initial load already done');
     }
-  }, [foundation, initialMessages, title, fetchSuggestions, sendMessage, onSendMessage]);
+    
+    // Clean up function to reset the initialLoadDone flag when the component is unmounted
+    return () => {
+      initialLoadDoneRef.current = false;
+    };
+  }, [foundation?.id, initialMessages, title, fetchSuggestions, sendMessage, onSendMessage]);
   
   // Update input value with transcript when speech recognition is active
   useEffect(() => {
@@ -657,22 +670,33 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   
   // TTS for assistant messages - only triggered by new messages after initial load
   useEffect(() => {
+    // Ensure we're not in the middle of loading messages
+    if (isLoadingMessages) return;
+    
     const lastMessage = messages[messages.length - 1];
     
     // Only speak if:
     // 1. Audio should be played (not initial load)
-    // 2. It's an assistant message
+    // 2. It's an assistant message 
     // 3. We haven't spoken this exact message before
+    // 4. We're not in the middle of loading messages
     if (shouldPlayAudio && 
         lastMessage && 
         lastMessage.role === 'assistant' && 
         lastMessage.content !== lastSpokenMessageRef.current) {
       
       console.log('Speaking new assistant message');
+      // Set this BEFORE we speak to prevent any potential duplicate calls
       lastSpokenMessageRef.current = lastMessage.content;
-      speak(lastMessage.content);
+      
+      // Use a small delay to ensure we don't try to speak the message while React is still updating
+      setTimeout(() => {
+        speak(lastMessage.content).catch(err => {
+          console.error('Error speaking message:', err);
+        });
+      }, 100);
     }
-  }, [messages, speak, shouldPlayAudio]);
+  }, [messages, speak, shouldPlayAudio, isLoadingMessages]);
   
   // Cleanup interval on unmount
   useEffect(() => {

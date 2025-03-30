@@ -302,41 +302,90 @@ export function useTTS(options: UseTTSOptions = {}) {
       );
       
       console.log(`useTTS: Received audio data URL (length: ${audioDataUrl.length})`);
+      
+      // Set the audio URL to state
       setCurrentAudioUrl(audioDataUrl);
       
-      // We'll use only one audio playback method to avoid echo
-      // The audioRef will be updated in the useEffect that watches currentAudioUrl
+      // Force browser audio playback
+      // Create a completely fresh Audio element to avoid issues with reused elements
+      const tempAudio = new Audio(audioDataUrl);
+      tempAudio.volume = 1.0;
+      tempAudio.playbackRate = playbackSpeed;
+      
+      // Log when audio starts playing
+      tempAudio.addEventListener('play', () => {
+        console.log("useTTS: Temp audio started playing");
+        setIsPlaying(true);
+      });
+      
+      // Log when audio ends
+      tempAudio.addEventListener('ended', () => {
+        console.log("useTTS: Temp audio ended");
+        setIsPlaying(false);
+      });
+      
+      // Explicitly set the audio src to make sure it's set
+      tempAudio.src = audioDataUrl;
+      
+      // Play immediately
+      try {
+        await tempAudio.play();
+        console.log("useTTS: Successfully started audio playback");
+      } catch (playError) {
+        console.error("useTTS: Error playing audio directly:", playError);
+        
+        // Fallback to auto-play by user interaction
+        const playOnInteraction = () => {
+          tempAudio.play()
+            .then(() => console.log("useTTS: Audio started after user interaction"))
+            .catch(err => console.error("useTTS: Failed to play even after user interaction:", err));
+            
+          // Remove listeners
+          document.removeEventListener('click', playOnInteraction);
+          document.removeEventListener('keydown', playOnInteraction);
+        };
+        
+        // Add event listeners for user interaction
+        document.addEventListener('click', playOnInteraction, { once: true });
+        document.addEventListener('keydown', playOnInteraction, { once: true });
+        
+        // Dispatch synthetic events to trigger audio playback
+        try {
+          document.dispatchEvent(new MouseEvent('click', {
+            view: window,
+            bubbles: true,
+            cancelable: true
+          }));
+        } catch (e) {
+          console.warn("useTTS: Failed to dispatch synthetic click:", e);
+        }
+      }
+      
+      // Store temp audio in the audioRef
+      if (!audioRef.current) {
+        audioRef.current = tempAudio;
+      }
       
       // Return a promise that resolves when playback finishes
       return new Promise((resolve) => {
-        if (!audioRef.current) {
-          console.error("useTTS: No audio element available");
-          resolve();
-          return;
-        }
-        
         const onEnded = () => {
-          console.log("useTTS: Playback ended, resolving promise");
-          audioRef.current?.removeEventListener('ended', onEnded);
+          tempAudio.removeEventListener('ended', onEnded);
           resolve();
         };
         
-        audioRef.current.addEventListener('ended', onEnded);
+        tempAudio.addEventListener('ended', onEnded);
         
         // Safety timeout (30 seconds max)
         const safetyTimeout = setTimeout(() => {
           console.log("useTTS: Safety timeout reached, resolving promise");
-          audioRef.current?.removeEventListener('ended', onEnded);
+          tempAudio.removeEventListener('ended', onEnded);
           resolve();
         }, 30000);
         
         // Clean up timeout when audio ends
-        const clearTimeoutOnEnd = () => {
+        tempAudio.addEventListener('ended', () => {
           clearTimeout(safetyTimeout);
-          audioRef.current?.removeEventListener('ended', clearTimeoutOnEnd);
-        };
-        
-        audioRef.current.addEventListener('ended', clearTimeoutOnEnd);
+        }, { once: true });
       });
     } catch (error: any) {
       console.error('useTTS: Error in speak function:', error);
@@ -355,7 +404,7 @@ export function useTTS(options: UseTTSOptions = {}) {
       
       setIsPlaying(false);
     }
-  }, [selectedVoice, stop]);
+  }, [selectedVoice, stop, playbackSpeed]);
   
   // Change the current voice
   const changeVoice = useCallback((voiceId: string, provider: 'elevenlabs' | 'openai') => {
