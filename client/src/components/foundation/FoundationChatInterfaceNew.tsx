@@ -14,6 +14,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   hasBeenPlayed?: boolean;  // Track if message has been played before
+  processingAudio?: boolean; // Track if we're currently generating audio for this message
 }
 
 // Define component props
@@ -39,6 +40,13 @@ interface FoundationChatInterfaceProps {
 // Define the ref interface
 export interface FoundationChatInterfaceRef {
   setCurrentStage: (stage: string) => void;
+}
+
+// Extend the Window interface to allow storing audio elements
+declare global {
+  interface Window {
+    [key: string]: any;
+  }
 }
 
 // Create the component with forwardRef
@@ -597,23 +605,45 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                   <button
                     onClick={async () => {
                       const index = messages.indexOf(message);
+                      const audioRef = window[`audio_${index}`] as HTMLAudioElement;
                       
                       // If already playing this message, stop it
-                      if (currentPlayingMessageId === index) {
-                        stopSpeaking();
+                      if (currentPlayingMessageId === index && audioRef) {
+                        audioRef.pause();
+                        audioRef.currentTime = 0;
                         setCurrentPlayingMessageId(null);
                         return;
                       }
                       
                       // First, completely stop any current audio playback
-                      stopSpeaking();
+                      if (currentPlayingMessageId !== null) {
+                        const currentAudio = window[`audio_${currentPlayingMessageId}`] as HTMLAudioElement;
+                        if (currentAudio) {
+                          currentAudio.pause();
+                          currentAudio.currentTime = 0;
+                        }
+                        stopSpeaking();
+                      }
                       
                       try {
-                        // Set current playing message
+                        // Show loading state
                         setCurrentPlayingMessageId(index);
                         
-                        // Use a longer timeout to ensure everything is completely stopped
-                        await new Promise(resolve => setTimeout(resolve, 300));
+                        // If message has been played before, we should have the audio cached already
+                        let isFirstPlay = !message.hasBeenPlayed;
+                        
+                        // Add loading indicator for first play
+                        if (isFirstPlay) {
+                          // Mark button as processing
+                          setMessages(prev => 
+                            prev.map((m, i) => 
+                              i === index ? { 
+                                ...m, 
+                                processingAudio: true 
+                              } : m
+                            )
+                          );
+                        }
                         
                         // Get the current voice settings but process independently
                         const url = await generateSpeechCached(
@@ -625,12 +655,31 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                         // Create a completely independent audio element not connected to any shared state
                         const independentAudio = new Audio();
                         
+                        // Store reference in window for stop functionality
+                        window[`audio_${index}`] = independentAudio;
+                        
                         // Configure audio properties
                         independentAudio.volume = 1.0;
                         independentAudio.playbackRate = playbackSpeed;
                         independentAudio.preload = 'auto';
                         
                         // Set up logging events
+                        independentAudio.onloadstart = () => console.log('Message playback: Load started');
+                        independentAudio.oncanplay = () => {
+                          console.log('Message playback: Can play');
+                          
+                          // Remove processing state
+                          if (isFirstPlay) {
+                            setMessages(prev => 
+                              prev.map((m, i) => 
+                                i === index ? { 
+                                  ...m, 
+                                  processingAudio: false 
+                                } : m
+                              )
+                            );
+                          }
+                        };
                         independentAudio.onplay = () => console.log('Message playback: Started');
                         independentAudio.onended = () => {
                           console.log('Message playback: Ended');
@@ -648,29 +697,61 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                         independentAudio.onerror = (e) => {
                           console.error('Message playback: Error', e);
                           setCurrentPlayingMessageId(null);
+                          
+                          // Remove processing state
+                          if (isFirstPlay) {
+                            setMessages(prev => 
+                              prev.map((m, i) => 
+                                i === index ? { 
+                                  ...m, 
+                                  processingAudio: false 
+                                } : m
+                              )
+                            );
+                          }
                         };
                         
-                        // Set source and play
+                        // Assign the source last to avoid race conditions
                         independentAudio.src = url;
                         await independentAudio.play();
                       } catch (error) {
                         console.error('Error playing message audio:', error);
                         setCurrentPlayingMessageId(null);
+                        
+                        // Remove processing state
+                        setMessages(prev => 
+                          prev.map((m, i) => 
+                            i === index ? { 
+                              ...m, 
+                              processingAudio: false 
+                            } : m
+                          )
+                        );
                       }
                     }}
                     className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded transition-colors
                       ${currentPlayingMessageId === messages.indexOf(message)
-                        ? 'bg-red-100 hover:bg-red-200 text-red-700' 
+                        ? message.processingAudio
+                          ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' 
+                          : 'bg-red-100 hover:bg-red-200 text-red-700'
                         : message.hasBeenPlayed 
                           ? 'bg-purple-100 hover:bg-purple-200 text-purple-700'
                           : 'bg-primary-100 hover:bg-primary-200 text-primary-700'
                       }`}
+                    disabled={message.processingAudio}
                   >
                     {currentPlayingMessageId === messages.indexOf(message) ? (
-                      <>
-                        <Square size={14} className="animate-pulse" />
-                        Stop playback
-                      </>
+                      message.processingAudio ? (
+                        <>
+                          <div className="animate-spin h-3 w-3 border-2 border-amber-700 border-t-transparent rounded-full mr-1"></div>
+                          Generating audio...
+                        </>
+                      ) : (
+                        <>
+                          <Square size={14} className="animate-pulse" />
+                          Stop playback
+                        </>
+                      )
                     ) : (
                       <>
                         <Volume2 size={14} />
