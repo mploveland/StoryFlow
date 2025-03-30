@@ -2,6 +2,7 @@ import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
+import NavigationBar from "@/components/ui/navigation-bar";
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
@@ -13,6 +14,7 @@ import FoundationDetails from "@/pages/foundation-details";
 import WorldDetails from "@/pages/world-details";
 import GenreDetails from "@/pages/genre-details";
 import CharacterDetails from "@/pages/character-details";
+import Settings from "@/pages/settings";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { EditorProvider } from "@/contexts/EditorContext";
 
@@ -38,6 +40,8 @@ function Router() {
       <Route path="/structured-story" component={StoryCreation} />
       <Route path="/story/:storyId" component={StoryEditor} />
       <Route path="/story/:storyId/chapter/:chapterId" component={StoryEditor} />
+      {/* Settings page */}
+      <Route path="/settings" component={Settings} />
       {/* Legacy routes - keep for backward compatibility */}
       <Route path="/world/:id" component={WorldDetails} />
       <Route path="/character/:id" component={CharacterDetails} />
@@ -51,7 +55,12 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <EditorProvider>
-          <Router />
+          <div className="flex flex-col min-h-screen">
+            <NavigationBar />
+            <main className="flex-grow">
+              <Router />
+            </main>
+          </div>
           <Toaster />
         </EditorProvider>
       </AuthProvider>
