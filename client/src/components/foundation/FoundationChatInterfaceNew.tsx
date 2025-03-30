@@ -573,9 +573,9 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           structuredData = JSON.parse(jsonString);
           console.log('Found structured JSON data in genre summary:', structuredData);
           
-          // If we have valid JSON with mainGenre, use it directly
-          if (structuredData && structuredData.mainGenre) {
-            mainGenre = structuredData.mainGenre;
+          // If we have valid JSON with mainGenre or main_genre, use it directly
+          if (structuredData && (structuredData.mainGenre || structuredData.main_genre)) {
+            mainGenre = structuredData.mainGenre || structuredData.main_genre;
             console.log('Using main genre from structured data:', mainGenre);
           }
         }
@@ -814,9 +814,10 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         const jsonString = jsonMatch[0];
         const parsedData = JSON.parse(jsonString);
         
-        // If we have valid JSON with mainGenre field, consider it a complete genre summary
-        if (parsedData && parsedData.mainGenre) {
-          console.log('Found structured JSON with mainGenre field - triggering transition');
+        // If we have valid JSON with mainGenre or main_genre field, consider it a complete genre summary
+        if (parsedData && (parsedData.mainGenre || parsedData.main_genre)) {
+          const genreName = parsedData.mainGenre || parsedData.main_genre;
+          console.log(`Found structured JSON with genre field (${genreName}) - triggering transition`);
           return currentStage === 'genre';
         }
       }

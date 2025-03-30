@@ -1440,6 +1440,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('Foundation updated to environment stage');
       
       // 2. Add genre details to the database - handle all possible structured fields
+      
+      // First, convert any snake_case field names to camelCase for consistency
+      if (genreDetails.main_genre && !genreDetails.mainGenre) {
+        console.log('Converting main_genre to mainGenre for consistency');
+        genreDetails.mainGenre = genreDetails.main_genre;
+      }
+      if (genreDetails.genre_rationale && !genreDetails.genreRationale) {
+        genreDetails.genreRationale = genreDetails.genre_rationale;
+      }
+      if (genreDetails.audience_expectations && !genreDetails.audienceExpectations) {
+        genreDetails.audienceExpectations = genreDetails.audience_expectations;
+      }
+      if (genreDetails.time_period && !genreDetails.timePeriod) {
+        genreDetails.timePeriod = genreDetails.time_period;
+      }
+      if (genreDetails.technology_level && !genreDetails.technologyLevel) {
+        genreDetails.technologyLevel = genreDetails.technology_level;
+      }
+      if (genreDetails.physical_environment && !genreDetails.physicalEnvironment) {
+        genreDetails.physicalEnvironment = genreDetails.physical_environment;
+      }
+      if (genreDetails.key_tropes && !genreDetails.keyTropes) {
+        genreDetails.keyTropes = genreDetails.key_tropes;
+      }
+      if (genreDetails.trope_strategy && !genreDetails.tropeStrategy) {
+        genreDetails.tropeStrategy = genreDetails.trope_strategy;
+      }
+      if (genreDetails.speculative_elements && !genreDetails.speculativeElements) {
+        genreDetails.speculativeElements = genreDetails.speculative_elements;
+      }
+      if (genreDetails.speculative_rules && !genreDetails.speculativeRules) {
+        genreDetails.speculativeRules = genreDetails.speculative_rules;
+      }
+      if (genreDetails.emotional_impact && !genreDetails.emotionalImpact) {
+        genreDetails.emotionalImpact = genreDetails.emotional_impact;
+      }
+      
       const genreData = {
         foundationId,
         // Core identifying information
@@ -1542,11 +1579,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     // If we have structured data, create a more personalized message
     if (structuredData) {
+      // Handle both camelCase and snake_case field names
       // Use available structured fields to make a more customized message
-      const mood = structuredData.mood || structuredData.tone || '';
-      const timePeriod = structuredData.timePeriod || '';
-      const physicalEnvironment = structuredData.physicalEnvironment || '';
-      const atmosphere = structuredData.atmosphere || mood;
+      const mood = structuredData.mood || structuredData.tone || structuredData.mood_tone || '';
+      const timePeriod = structuredData.timePeriod || structuredData.time_period || '';
+      const physicalEnvironment = structuredData.physicalEnvironment || structuredData.physical_environment || '';
+      const atmosphere = structuredData.atmosphere || structuredData.atmospheric_tone || mood;
       
       if (mood || atmosphere) {
         baseMessage += ` You've defined a ${mood || atmosphere} mood for your world.`;

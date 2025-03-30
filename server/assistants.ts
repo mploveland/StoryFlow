@@ -677,8 +677,28 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
         const parsedJson = JSON.parse(jsonString);
         
         // Validate that it has the expected structure
-        if (parsedJson && parsedJson.mainGenre) {
+        // Handle both "mainGenre" and "main_genre" formats
+        if (parsedJson && (parsedJson.mainGenre || parsedJson.main_genre)) {
           console.log("Found structured JSON response from Genre Creator assistant");
+          
+          // If the data uses snake_case format (main_genre), convert it to camelCase format (mainGenre)
+          if (parsedJson.main_genre && !parsedJson.mainGenre) {
+            console.log("Converting from snake_case to camelCase format");
+            parsedJson.mainGenre = parsedJson.main_genre;
+            
+            // Convert other snake_case fields to camelCase if they exist
+            if (parsedJson.genre_rationale) parsedJson.genreRationale = parsedJson.genre_rationale;
+            if (parsedJson.audience_expectations) parsedJson.audienceExpectations = parsedJson.audience_expectations;
+            if (parsedJson.time_period) parsedJson.timePeriod = parsedJson.time_period;
+            if (parsedJson.technology_level) parsedJson.technologyLevel = parsedJson.technology_level;
+            if (parsedJson.physical_environment) parsedJson.physicalEnvironment = parsedJson.physical_environment;
+            if (parsedJson.key_tropes) parsedJson.keyTropes = parsedJson.key_tropes;
+            if (parsedJson.trope_strategy) parsedJson.tropeStrategy = parsedJson.trope_strategy; 
+            if (parsedJson.speculative_elements) parsedJson.speculativeElements = parsedJson.speculative_elements;
+            if (parsedJson.speculative_rules) parsedJson.speculativeRules = parsedJson.speculative_rules;
+            if (parsedJson.emotional_impact) parsedJson.emotionalImpact = parsedJson.emotional_impact;
+          }
+          
           parsedGenreData = parsedJson;
           isStructuredResponse = true;
         }
