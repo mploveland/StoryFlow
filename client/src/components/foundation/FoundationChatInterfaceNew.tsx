@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Foundation } from '@shared/schema';
-import { Mic, Send, Pause } from 'lucide-react';
+import { Mic, Send, Pause, Volume2, VolumeX, Square } from 'lucide-react';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
@@ -13,6 +13,7 @@ import { generateSpeechCached } from '@/lib/tts';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  hasBeenPlayed?: boolean;  // Track if message has been played before
 }
 
 // Define component props
@@ -55,6 +56,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [currentStage, setCurrentStage] = useState<string>(foundation?.currentStage ?? 'genre');  // Use foundation stage or default to genre
+  const [currentPlayingMessageId, setCurrentPlayingMessageId] = useState<number | null>(null);
   
   // Refs for managing the chat
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -594,10 +596,22 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                 <div className="mt-2 flex justify-end">
                   <button
                     onClick={async () => {
+                      const index = messages.indexOf(message);
+                      
+                      // If already playing this message, stop it
+                      if (currentPlayingMessageId === index) {
+                        stopSpeaking();
+                        setCurrentPlayingMessageId(null);
+                        return;
+                      }
+                      
                       // First, completely stop any current audio playback
                       stopSpeaking();
                       
                       try {
+                        // Set current playing message
+                        setCurrentPlayingMessageId(index);
+                        
                         // Use a longer timeout to ensure everything is completely stopped
                         await new Promise(resolve => setTimeout(resolve, 300));
                         
@@ -618,19 +632,51 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                         
                         // Set up logging events
                         independentAudio.onplay = () => console.log('Message playback: Started');
-                        independentAudio.onended = () => console.log('Message playback: Ended');
-                        independentAudio.onerror = (e) => console.error('Message playback: Error', e);
+                        independentAudio.onended = () => {
+                          console.log('Message playback: Ended');
+                          setCurrentPlayingMessageId(null);
+                          
+                          // Mark this message as having been played
+                          if (!message.hasBeenPlayed) {
+                            setMessages(prev => 
+                              prev.map((m, i) => 
+                                i === index ? { ...m, hasBeenPlayed: true } : m
+                              )
+                            );
+                          }
+                        };
+                        independentAudio.onerror = (e) => {
+                          console.error('Message playback: Error', e);
+                          setCurrentPlayingMessageId(null);
+                        };
                         
                         // Set source and play
                         independentAudio.src = url;
                         await independentAudio.play();
                       } catch (error) {
                         console.error('Error playing message audio:', error);
+                        setCurrentPlayingMessageId(null);
                       }
                     }}
-                    className="text-xs flex items-center gap-1 px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded"
+                    className={`text-xs flex items-center gap-1.5 px-2 py-1 rounded transition-colors
+                      ${currentPlayingMessageId === messages.indexOf(message)
+                        ? 'bg-red-100 hover:bg-red-200 text-red-700' 
+                        : message.hasBeenPlayed 
+                          ? 'bg-purple-100 hover:bg-purple-200 text-purple-700'
+                          : 'bg-primary-100 hover:bg-primary-200 text-primary-700'
+                      }`}
                   >
-                    Play message
+                    {currentPlayingMessageId === messages.indexOf(message) ? (
+                      <>
+                        <Square size={14} className="animate-pulse" />
+                        Stop playback
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 size={14} />
+                        {message.hasBeenPlayed ? 'Re-play message' : 'Play message'}
+                      </>
+                    )}
                   </button>
                 </div>
               )}
