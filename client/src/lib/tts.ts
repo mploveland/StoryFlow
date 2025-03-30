@@ -30,6 +30,12 @@ export async function fetchAvailableVoices(): Promise<VoiceOption[]> {
  * @param provider The provider of the voice ('elevenlabs' or 'openai')
  * @returns A data URL containing the audio data
  */
+export interface TTSError extends Error {
+  needsApiKey?: boolean;
+  provider?: 'elevenlabs' | 'openai';
+  originalError?: any;
+}
+
 export async function generateSpeech(
   text: string,
   voiceId: string,
@@ -41,11 +47,38 @@ export async function generateSpeech(
       voiceId,
       provider
     });
+    
+    // Check for non-OK status
+    if (!response.ok) {
+      // Try to get error details
+      const errorData = await response.json().catch(() => null);
+      
+      // Check for auth errors (missing or invalid API key)
+      if (response.status === 401 && errorData?.needsApiKey) {
+        const ttsError = new Error(errorData.error || 'API key is missing or invalid') as TTSError;
+        ttsError.needsApiKey = true;
+        // Use the provider from the response if available, otherwise fallback to the request provider
+        ttsError.provider = errorData.provider || provider;
+        ttsError.originalError = errorData;
+        throw ttsError;
+      }
+      
+      // For other errors
+      throw new Error(errorData?.error || `Server error: ${response.status}`);
+    }
+    
     const data = await response.json();
     return data.audio;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating speech:', error);
-    throw new Error('Failed to generate speech');
+    
+    // Re-throw if it's our custom TTSError
+    if (error.needsApiKey) {
+      throw error;
+    }
+    
+    // For other errors, use a generic message
+    throw new Error('Failed to generate speech: ' + (error.message || 'Unknown error'));
   }
 }
 

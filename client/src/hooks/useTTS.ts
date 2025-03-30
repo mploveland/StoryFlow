@@ -267,6 +267,12 @@ export function useTTS(options: UseTTSOptions = {}) {
   }, []);
   
   // Generate speech and play it
+  // State for API key errors
+  const [apiKeyError, setApiKeyError] = useState<{
+    provider: 'elevenlabs' | 'openai';
+    message: string;
+  } | null>(null);
+  
   const speak = useCallback(async (text: string): Promise<void> => {
     if (!selectedVoice) {
       console.error('useTTS: Cannot speak: No voice selected');
@@ -278,6 +284,9 @@ export function useTTS(options: UseTTSOptions = {}) {
       console.warn('useTTS: Cannot speak: Empty text provided');
       return;
     }
+    
+    // Clear any previous API key error
+    setApiKeyError(null);
     
     console.log(`useTTS: Generating speech for "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" with voice ${selectedVoice.name}`);
     
@@ -329,8 +338,21 @@ export function useTTS(options: UseTTSOptions = {}) {
         
         audioRef.current.addEventListener('ended', clearTimeoutOnEnd);
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('useTTS: Error in speak function:', error);
+      
+      // Handle API key errors specially
+      if (error.needsApiKey && error.provider) {
+        console.warn(`useTTS: API key error detected for provider: ${error.provider}`);
+        setApiKeyError({
+          provider: error.provider,
+          message: error.message || `The ${error.provider} API key is missing or invalid`
+        });
+        
+        // Show a toast or notification about the API key issue
+        // We'll handle this in the UI instead of here
+      }
+      
       setIsPlaying(false);
     }
   }, [selectedVoice, stop]);
@@ -368,6 +390,8 @@ export function useTTS(options: UseTTSOptions = {}) {
     changeVoice,
     currentAudioUrl,
     playbackSpeed,
-    changePlaybackSpeed
+    changePlaybackSpeed,
+    apiKeyError,
+    clearApiKeyError: () => setApiKeyError(null)
   };
 }

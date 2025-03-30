@@ -2,11 +2,14 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 import { Foundation } from '@shared/schema';
 import { Mic, Send, Pause, Volume2 } from 'lucide-react';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
+import { ApiKeyModal } from '@/components/shared/ApiKeyModal';
+import { updateApiKey } from '@/lib/settings';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -69,6 +72,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(true);
   
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const { toast } = useToast();
   
   // Debug log for threadId state
   useEffect(() => {
@@ -76,10 +80,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   }, [threadId]);
 
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
+  // State for API key modal
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [apiKeyModalProvider, setApiKeyModalProvider] = useState<'elevenlabs' | 'openai'>('elevenlabs');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
   const pendingSaveQueue = useRef<{role: 'user' | 'assistant', content: string, foundationId: number}[]>([]);
+  const lastSpokenMessageRef = useRef<string | null>(null);
   
   // Voice input
   const {
@@ -92,9 +100,72 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   } = useSpeechRecognition();
   
   // Text-to-speech
-  const { speak, isPlaying, currentAudioUrl, stop, playbackSpeed, changePlaybackSpeed } = useTTS({
+  const { 
+    speak, 
+    isPlaying, 
+    currentAudioUrl, 
+    stop, 
+    playbackSpeed, 
+    changePlaybackSpeed,
+    apiKeyError,
+    clearApiKeyError
+  } = useTTS({
     defaultPlaybackSpeed: 1.0
   });
+  
+  // Function to handle API key updates
+  const handleApiKeyUpdate = async (apiKey: string): Promise<boolean> => {
+    try {
+      // Use the settings API to update the key
+      const response = await fetch('/api/settings/api-key', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider: apiKeyModalProvider,
+          apiKey: apiKey
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update API key: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        // Clear the API key error
+        clearApiKeyError();
+        
+        // Show success toast
+        toast({
+          title: "API Key Updated",
+          description: `${apiKeyModalProvider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'} API key has been updated successfully.`,
+          variant: "default"
+        });
+        
+        // Close the modal
+        setShowApiKeyModal(false);
+        return true;
+      } else {
+        throw new Error(data.message || 'Failed to update API key');
+      }
+    } catch (error) {
+      console.error('Error updating API key:', error);
+      
+      // Show error toast
+      toast({
+        title: "API Key Update Failed",
+        description: error instanceof Error ? error.message : String(error),
+        variant: "destructive"
+      });
+      
+      return false;
+    }
+  };
+  
+
   
   // Get effective message handler (prefer sendMessage if provided)
   const messageHandler = sendMessage || onSendMessage;
@@ -139,17 +210,23 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   }, []);
   
   // Load saved messages from the server
-  const loadMessages = async (foundationId: number): Promise<boolean> => {
+  const loadMessages = async (foundationId: number, isNewFoundation: boolean = false): Promise<boolean> => {
     try {
-      console.log(`[FoundationChatInterface] Loading messages for foundation ID: ${foundationId}`);
+      console.log(`[FoundationChatInterface] Loading messages for foundation ID: ${foundationId}, isNewFoundation: ${isNewFoundation}`);
       setPersistenceError(null);
       setIsLoadingMessages(true);
       
-      // Show loading message
-      setMessages([{
-        role: 'assistant',
-        content: 'Loading your previous conversation...'
-      }]);
+      // Don't show a loading message for new foundations as they won't have any messages
+      if (!isNewFoundation) {
+        // Show loading message for existing foundations
+        setMessages([{
+          role: 'assistant',
+          content: 'Loading your previous conversation...'
+        }]);
+        
+        // Mark as already spoken
+        lastSpokenMessageRef.current = 'Loading your previous conversation...';
+      }
       
       const apiUrl = `/api/foundations/${foundationId}/messages`;
       console.log(`[FoundationChatInterface] Fetching from: ${apiUrl}`);
@@ -398,8 +475,11 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         setThreadId(foundation.threadId);
       }
       
+      // Check if this is a new foundation (new foundations won't have a threadId)
+      const isNewFoundation = !foundation.threadId;
+      
       // Try to load existing messages for this foundation
-      loadMessages(foundation.id).then(hasMessages => {
+      loadMessages(foundation.id, isNewFoundation).then(hasMessages => {
         console.log(`[FoundationChatInterface] loadMessages for foundation ${foundation.id} returned hasMessages: ${hasMessages}`);
         
         // If no existing messages but we have a threadId, something might be wrong
@@ -547,7 +627,7 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
   }, [isLoadingMessages]);
   
   // Keep track of the last spoken message to avoid duplicates
-  const lastSpokenMessageRef = useRef<string | null>(null);
+  // Note: lastSpokenMessageRef is declared above
   
   // TTS for assistant messages - only triggered by new messages after initial load
   useEffect(() => {
@@ -737,6 +817,44 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
               <h3 className="text-sm font-medium text-amber-800">Persistence Warning</h3>
               <div className="mt-1 text-sm text-amber-700">
                 <p>{persistenceError}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* API key error message display */}
+      {apiKeyError && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">API Key Error - Voice Generation</h3>
+              <div className="mt-1 text-sm text-red-700">
+                <p>{apiKeyError.message}</p>
+                <p className="mt-1">Provider: {apiKeyError.provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'}</p>
+                <div className="mt-2 flex gap-2">
+                  <button 
+                    onClick={clearApiKeyError}
+                    className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md text-xs font-medium transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                  <a 
+                    href={apiKeyError.provider === 'elevenlabs' 
+                      ? "https://elevenlabs.io/app/account" 
+                      : "https://platform.openai.com/account/api-keys"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-md text-xs font-medium transition-colors"
+                  >
+                    Get {apiKeyError.provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'} API Key
+                  </a>
+                </div>
               </div>
             </div>
           </div>

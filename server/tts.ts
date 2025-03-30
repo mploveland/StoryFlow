@@ -121,22 +121,40 @@ export async function generateElevenLabsSpeech(
     throw new Error("Missing ElevenLabs API key");
   }
   
+  // Simple validation for API key format
+  if (typeof apiKey !== 'string' || apiKey.trim().length < 10) {
+    console.error("ElevenLabs TTS: API key appears to be invalid (too short or improperly formatted)");
+    throw new Error("ElevenLabs API key appears to be invalid (too short or improperly formatted)");
+  }
+  
   console.log("ElevenLabs TTS: API key is present, proceeding...");
   
   try {
     // Use the client to generate speech
     console.log("ElevenLabs TTS: Calling API...");
-    const audioStream = await elevenLabsClient.textToSpeech.convert(
-      voiceId, 
-      {
-        text,
-        model_id: "eleven_multilingual_v2", // Use the multilingual model for better quality
-        voice_settings: {
-          stability: 0.5,
-          similarity_boost: 0.8
+    let audioStream;
+    
+    try {
+      audioStream = await elevenLabsClient.textToSpeech.convert(
+        voiceId, 
+        {
+          text,
+          model_id: "eleven_multilingual_v2", // Use the multilingual model for better quality
+          voice_settings: {
+            stability: 0.5,
+            similarity_boost: 0.8
+          }
         }
+      );
+    } catch (apiError: any) {
+      // Check specifically for auth errors
+      if (apiError.statusCode === 401 || apiError.status === 401) {
+        console.error("ElevenLabs TTS: Authentication error (401). API key may be invalid or expired.");
+        throw new Error("ElevenLabs API key is invalid or expired. Please provide a valid key.");
       }
-    );
+      // Re-throw other errors
+      throw apiError;
+    }
     
     console.log("ElevenLabs TTS: Successfully received audio stream");
     
@@ -196,15 +214,33 @@ export async function generateOpenAISpeech(
     throw new Error("Missing OpenAI API key");
   }
   
+  // Simple validation for API key format (should start with "sk-" for OpenAI)
+  if (typeof apiKey !== 'string' || apiKey.trim().length < 20 || !apiKey.startsWith('sk-')) {
+    console.error("OpenAI TTS: API key appears to be invalid (improper format)");
+    throw new Error("OpenAI API key appears to be invalid (improper format)");
+  }
+  
   console.log("OpenAI TTS: API key is present, proceeding...");
   
   try {
     console.log("OpenAI TTS: Calling API...");
-    const mp3 = await openai.audio.speech.create({
-      model: "tts-1", // or "tts-1-hd" for higher quality
-      voice,
-      input: text,
-    });
+    let mp3;
+    
+    try {
+      mp3 = await openai.audio.speech.create({
+        model: "tts-1", // or "tts-1-hd" for higher quality
+        voice,
+        input: text,
+      });
+    } catch (apiError: any) {
+      // Check specifically for auth errors
+      if (apiError.status === 401 || apiError.statusCode === 401) {
+        console.error("OpenAI TTS: Authentication error (401). API key may be invalid or expired.");
+        throw new Error("OpenAI API key is invalid or expired. Please provide a valid key.");
+      }
+      // Re-throw other errors
+      throw apiError;
+    }
     
     console.log("OpenAI TTS: Successfully received response");
     

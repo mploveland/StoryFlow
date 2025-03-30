@@ -25,7 +25,13 @@ import {
 import { createDetailedCharacter, createGenreDetails, createWorldDetails, createEnvironmentDetails, generateChatSuggestions, getAppropriateAssistant, waitForRunCompletion } from "./assistants";
 import OpenAI from "openai";
 
-import { generateSpeech, getAvailableVoices, VoiceOption } from "./tts";
+import { 
+  generateSpeech, 
+  getAvailableVoices, 
+  VoiceOption, 
+  generateElevenLabsSpeech, 
+  generateOpenAISpeech 
+} from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
 
 // Initialize OpenAI client for dynamic assistant API
@@ -2425,6 +2431,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // API Key update endpoint (for TTS services)
+  apiRouter.post("/settings/api-key", async (req: Request, res: Response) => {
+    try {
+      const { provider, apiKey } = req.body;
+      
+      if (!provider || !apiKey) {
+        return res.status(400).json({ message: "Provider and API key are required" });
+      }
+      
+      if (provider !== 'elevenlabs' && provider !== 'openai') {
+        return res.status(400).json({ message: "Invalid provider. Must be 'elevenlabs' or 'openai'" });
+      }
+      
+      // Validation checks
+      if (typeof apiKey !== 'string' || apiKey.trim().length < 10) {
+        return res.status(400).json({ message: "API key appears to be invalid (too short)" });
+      }
+      
+      // Provider-specific validation
+      if (provider === 'openai' && !apiKey.startsWith('sk-')) {
+        return res.status(400).json({ message: "OpenAI API key should start with 'sk-'" });
+      }
+      
+      console.log(`Updating ${provider} API key`);
+      
+      // For security, we don't want to save API keys in a session or cookie
+      // Instead, we'll set it as an environment variable for the current process
+      // Note: This will be lost when the server restarts
+      if (provider === 'elevenlabs') {
+        process.env.ELEVEN_LABS_API_KEY = apiKey;
+      } else {
+        process.env.OPENAI_API_KEY = apiKey;
+      }
+      
+      // Attempt a test call to validate the key
+      try {
+        // Small test to validate the key
+        if (provider === 'elevenlabs') {
+          // Simple test to confirm key works
+          const testText = "API key testing message.";
+          await generateElevenLabsSpeech(testText, "21m00Tcm4TlvDq8ikWAM");
+        } else {
+          // Test OpenAI key
+          const testText = "API key testing message.";
+          await generateOpenAISpeech(testText, "nova");
+        }
+        
+        console.log(`Successfully validated ${provider} API key`);
+        return res.status(200).json({ 
+          success: true, 
+          message: `Successfully updated ${provider} API key` 
+        });
+      } catch (validationError: any) {
+        console.error(`Error validating ${provider} API key:`, validationError);
+        
+        // Clear the invalid key
+        if (provider === 'elevenlabs') {
+          process.env.ELEVEN_LABS_API_KEY = '';
+        } else {
+          process.env.OPENAI_API_KEY = '';
+        }
+        
+        return res.status(401).json({ 
+          success: false, 
+          message: `Invalid ${provider} API key: ${validationError.message}` 
+        });
+      }
+    } catch (error: any) {
+      console.error("Error updating API key:", error);
+      return res.status(500).json({ 
+        success: false,
+        message: "Failed to update API key",
+        error: error.message || "Unknown error"
+      });
+    }
+  });
+  
   apiRouter.post("/tts/generate", async (req: Request, res: Response) => {
     try {
       console.log("TTS Generate request received");
@@ -2461,9 +2544,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(200).json({ audio: audioDataUrl });
       } catch (speechError: any) {
         console.error("TTS: Specific error during speech generation:", speechError);
+        
+        // Check for API key related errors specifically
+        const errorMsg = speechError.message || "Unknown error";
+        if (errorMsg.includes("API key") && (errorMsg.includes("invalid") || 
+            errorMsg.includes("expired") || errorMsg.includes("missing"))) {
+          // Determine which provider is having the issue
+          const providerWithIssue = voiceOption.provider;
+          console.log(`TTS: API key issue detected for provider: ${providerWithIssue}`);
+          
+          // Return a 401 for auth errors so the client can handle them specially
+          return res.status(401).json({ 
+            message: "Speech generation failed due to API key issues", 
+            error: errorMsg,
+            needsApiKey: true,
+            provider: providerWithIssue
+          });
+        }
+        
         return res.status(500).json({ 
           message: "Speech generation failed", 
-          error: speechError.message || "Unknown error" 
+          error: errorMsg
         });
       }
     } catch (error: any) {
