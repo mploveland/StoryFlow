@@ -113,6 +113,35 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     defaultPlaybackSpeed: 1.0
   });
   
+  // Handle API key errors
+  useEffect(() => {
+    if (apiKeyError) {
+      console.error('TTS API key error:', apiKeyError);
+      
+      // Set provider for the modal directly from error object
+      setApiKeyModalProvider(apiKeyError.provider);
+      
+      // Show the error toast
+      toast({
+        title: "Text-to-Speech Error",
+        description: (
+          <div className="flex flex-col space-y-2">
+            <p>{apiKeyError.message}</p>
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => setShowApiKeyModal(true)}
+            >
+              Update API Key
+            </Button>
+          </div>
+        ),
+        variant: "destructive",
+        duration: 10000 // 10 seconds
+      });
+    }
+  }, [apiKeyError, toast]);
+  
   // Function to handle API key updates
   const handleApiKeyUpdate = async (apiKey: string): Promise<boolean> => {
     try {
@@ -625,9 +654,6 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       }, 1000);
     }
   }, [isLoadingMessages]);
-  
-  // Keep track of the last spoken message to avoid duplicates
-  // Note: lastSpokenMessageRef is declared above
   
   // TTS for assistant messages - only triggered by new messages after initial load
   useEffect(() => {
