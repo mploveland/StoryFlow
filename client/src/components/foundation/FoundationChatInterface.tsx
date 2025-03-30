@@ -171,6 +171,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         
         console.log(`[FoundationChatInterface] Loaded ${data.length} messages from server:`, 
           data.length > 0 ? `First: ${data[0]?.role}/${data[0]?.content?.substring(0, 30)}...` : 'No messages found');
+        
+        // Log the full array of messages for debugging
+        console.log('Full messages array:', JSON.stringify(data));
       } catch (parseError) {
         console.error(`[FoundationChatInterface] Error parsing messages response:`, parseError);
         throw new Error(`Failed to parse messages: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
@@ -208,25 +211,33 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             .filter((msg): msg is Message => msg !== null); // Filter out nulls and ensure type safety
           
           console.log(`[FoundationChatInterface] Setting ${validMessages.length} formatted messages`);
-          setMessages(validMessages);
           
-          // Fetch AI suggestions based on the last assistant message
-          const messagesReversed = [...data].reverse();
-          const lastAssistantMessage = messagesReversed.find(msg => msg.role === 'assistant');
-          const lastUserMessage = messagesReversed.find(msg => msg.role === 'user');
-          
-          if (lastAssistantMessage) {
-            // Use our unified function to fetch suggestions
-            console.log('[FoundationChatInterface] Fetching suggestions for loaded messages...');
-            fetchSuggestions(
-              lastUserMessage?.content || 'Hello',
-              lastAssistantMessage.content
-            ).catch(error => {
-              console.error('[FoundationChatInterface] Failed to fetch suggestions for loaded messages:', error);
-            });
+          // Only update the messages state if we have valid messages
+          if (validMessages.length > 0) {
+            setMessages(validMessages);
+            
+            // Fetch AI suggestions based on the last assistant message
+            const messagesReversed = [...data].reverse();
+            const lastAssistantMessage = messagesReversed.find(msg => msg.role === 'assistant');
+            const lastUserMessage = messagesReversed.find(msg => msg.role === 'user');
+            
+            if (lastAssistantMessage) {
+              // Use our unified function to fetch suggestions
+              console.log('[FoundationChatInterface] Fetching suggestions for loaded messages...');
+              fetchSuggestions(
+                lastUserMessage?.content || 'Hello',
+                lastAssistantMessage.content
+              ).catch(error => {
+                console.error('[FoundationChatInterface] Failed to fetch suggestions for loaded messages:', error);
+              });
+            }
+            
+            return true;
+          } else {
+            console.warn('[FoundationChatInterface] No valid messages after filtering');
+            setMessages([]);
+            return false;
           }
-          
-          return true;
         } catch (formatError) {
           console.error('[FoundationChatInterface] Error formatting messages:', formatError);
           // If formatting fails, use the raw data directly with minimal formatting
@@ -238,8 +249,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
             }));
           
           console.log(`[FoundationChatInterface] Using ${backupMessages.length} backup formatted messages`);
-          setMessages(backupMessages);
-          return backupMessages.length > 0;
+          
+          if (backupMessages.length > 0) {
+            setMessages(backupMessages);
+            return true;
+          } else {
+            setMessages([]);
+            return false;
+          }
         }
       } else {
         console.log('[FoundationChatInterface] No messages found, clearing loading message');
@@ -353,8 +370,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     }
     
     if (foundation) {
-      console.log(`[FoundationChatInterface] Foundation loaded with ID: ${foundation.id}, name: ${foundation.name}`);
+      console.log(`[FoundationChatInterface] Foundation loaded with ID: ${foundation.id}, name: ${foundation.name}, threadId: ${foundation.threadId || 'undefined'}`);
       setIsLoadingMessages(true);
+      
+      // If we have a threadId, update it
+      if (foundation.threadId) {
+        console.log(`[FoundationChatInterface] Setting threadId from foundation to: ${foundation.threadId}`);
+        setThreadId(foundation.threadId);
+      }
       
       // Try to load existing messages for this foundation
       loadMessages(foundation.id).then(hasMessages => {

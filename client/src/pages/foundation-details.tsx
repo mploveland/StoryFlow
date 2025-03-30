@@ -622,18 +622,12 @@ const FoundationDetails: React.FC = () => {
           <div className="lg:col-span-6">
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
               <FoundationChatInterface 
+                foundation={foundation}
                 title={`Building ${foundation.name}`}
                 description="Discuss and develop your story foundation through natural conversation"
                 foundationId={foundation.id}
                 sendMessage={sendFoundationChatMessage}
                 initialThreadId={foundation.threadId || undefined}
-                initialMessages={!foundation.threadId ? [{
-                  id: 'welcome',
-                  content: `Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we'll build the foundation for a living story world that will evolve as you create characters and narratives within it. We'll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?`,
-                  sender: 'ai',
-                  timestamp: new Date(),
-                  suggestions: []
-                }] : []}
               />
             </div>
           </div>
