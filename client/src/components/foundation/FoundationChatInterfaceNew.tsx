@@ -561,15 +561,38 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         return;
       }
       
-      // Extract the main genre from the summary text
-      // This is a simple extraction - in a real app, you might want to use AI to extract this more reliably
+      // First try to extract JSON content from the response
       let mainGenre = 'Unknown';
-      const genreMatch = genreSummary.match(/Genre:\s*([^\n\.]+)/i);
-      if (genreMatch && genreMatch[1]) {
-        mainGenre = genreMatch[1].trim();
+      let structuredData = null;
+      
+      // Try to parse any JSON block in the content
+      try {
+        const jsonMatch = genreSummary.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          structuredData = JSON.parse(jsonString);
+          console.log('Found structured JSON data in genre summary:', structuredData);
+          
+          // If we have valid JSON with mainGenre, use it directly
+          if (structuredData && structuredData.mainGenre) {
+            mainGenre = structuredData.mainGenre;
+            console.log('Using main genre from structured data:', mainGenre);
+          }
+        }
+      } catch (jsonError) {
+        console.log('No valid JSON found in response, falling back to regex extraction');
       }
       
-      console.log('Extracted main genre:', mainGenre);
+      // If JSON parsing failed, fallback to regex extraction
+      if (mainGenre === 'Unknown') {
+        console.log('Extracting main genre using regex patterns');
+        const genreMatch = genreSummary.match(/Genre:\s*([^\n\.]+)/i);
+        if (genreMatch && genreMatch[1]) {
+          mainGenre = genreMatch[1].trim();
+        }
+      }
+      
+      console.log('Final main genre for transition:', mainGenre);
       
       // Generate name suggestions based on the genre summary
       const nameResponse = await fetch(`/api/foundations/${effectiveFoundationId}/name-suggestions`, {
@@ -721,6 +744,19 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         return;
       }
       
+      // Try to extract structured JSON data from the genre summary if available
+      let structuredGenreData = null;
+      try {
+        const jsonMatch = genreSummary.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          structuredGenreData = JSON.parse(jsonString);
+          console.log('Found structured JSON data for genre-to-environment transition:', structuredGenreData);
+        }
+      } catch (jsonError) {
+        console.log('No valid JSON found in genre summary for transition', jsonError);
+      }
+      
       // Call the API to perform the genre-to-environment transition
       const transitionResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre-to-environment`, {
         method: 'POST',
@@ -729,8 +765,10 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           genreSummary,
           mainGenre,
           suggestedNames,
-          genreDetails: {
-            // Add detailed genre information if available
+          genreDetails: structuredGenreData || {
+            // If no structured data, provide basic information
+            mainGenre,
+            description: genreSummary
           }
         })
       });
@@ -769,7 +807,24 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   
   // Check if a message is a genre summary that should trigger transition
   const isGenreSummaryComplete = (content: string): boolean => {
-    // This is a simple heuristic - in a real app, you'd want to use more sophisticated detection
+    // First, check for structured JSON data which is the most reliable indicator
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonString = jsonMatch[0];
+        const parsedData = JSON.parse(jsonString);
+        
+        // If we have valid JSON with mainGenre field, consider it a complete genre summary
+        if (parsedData && parsedData.mainGenre) {
+          console.log('Found structured JSON with mainGenre field - triggering transition');
+          return currentStage === 'genre';
+        }
+      }
+    } catch (error) {
+      console.log('No valid JSON found, using text-based detection');
+    }
+    
+    // Fallback to text-based heuristics if JSON not found
     const hasGenre = content.includes('Genre:') || content.includes('Main Genre:');
     const hasDescription = content.length > 500; // Assuming a good summary is reasonably detailed
     

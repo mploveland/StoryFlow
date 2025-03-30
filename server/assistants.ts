@@ -663,6 +663,50 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
     const responseText = textContent.text.value;
     console.log("Received response from Genre Creator assistant:", responseText);
     
+    // First, check if the response contains structured JSON data
+    // Look for JSON-like structure with curly braces
+    let parsedGenreData: GenreDetails | null = null;
+    let isStructuredResponse = false;
+    
+    try {
+      // Check if the response contains a JSON block (might be surrounded by other text)
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonString = jsonMatch[0];
+        // Try to parse the JSON
+        const parsedJson = JSON.parse(jsonString);
+        
+        // Validate that it has the expected structure
+        if (parsedJson && parsedJson.mainGenre) {
+          console.log("Found structured JSON response from Genre Creator assistant");
+          parsedGenreData = parsedJson;
+          isStructuredResponse = true;
+        }
+      }
+    } catch (error) {
+      console.log("Response does not contain valid JSON:", error);
+      // Continue with the existing text-based parsing approach
+    }
+    
+    // If we have structured JSON data, use it directly
+    if (isStructuredResponse && parsedGenreData) {
+      console.log("Using structured JSON data for genre details");
+      
+      // Extract the main genre name for storage
+      const genreName = parsedGenreData.mainGenre || "Custom Genre";
+      console.log(`Genre name from structured data: ${genreName}`);
+      
+      // Return the structured genre details with the thread ID
+      return {
+        ...parsedGenreData,
+        mainGenre: genreName,
+        threadId: thread.id
+      };
+    }
+    
+    // If no structured data found, fallback to the existing text-based parsing approach
+    console.log("No structured data found, using text-based parsing");
+    
     // Parse the response content to extract genre information
     // More robust check if we've received an informative response or if we're still in question mode
     const containsQuestion = responseText.includes("?");

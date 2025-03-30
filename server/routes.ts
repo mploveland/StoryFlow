@@ -508,17 +508,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
             if (genreDetails) {
-              // Create a transition message with genre context
-              currentMessage = `I'd like to create the first environment for my story. Here's the genre context for reference: 
-                Genre: ${genreDetails.mainGenre}
-                Description: ${genreDetails.description || ''}
-                Themes: ${Array.isArray(genreDetails.themes) ? genreDetails.themes.join(', ') : ''}
-                Mood/Tone: ${genreDetails.mood || ''}
-                Atmosphere: ${genreDetails.atmosphere || ''}
+              // Create a transition message with more comprehensive genre context
+              // Include all available structured data fields
+              let genreContext = `I'd like to create the first environment for my story. Here's the detailed genre context:`;
+              
+              // Core genre information
+              genreContext += `\nGenre: ${genreDetails.mainGenre}`;
+              if (genreDetails.genreRationale) genreContext += `\nGenre Rationale: ${genreDetails.genreRationale}`;
+              if (genreDetails.audienceExpectations) genreContext += `\nAudience Expectations: ${genreDetails.audienceExpectations}`;
+              
+              // Subgenre details if available
+              if (genreDetails.subgenres) genreContext += `\nSubgenres: ${genreDetails.subgenres}`;
+              if (genreDetails.subgenreRationale) genreContext += `\nSubgenre Rationale: ${genreDetails.subgenreRationale}`;
+              
+              // Mood and tone
+              if (genreDetails.tone) genreContext += `\nTone: ${genreDetails.tone}`;
+              if (genreDetails.mood) genreContext += `\nMood: ${genreDetails.mood}`;
+              if (genreDetails.emotionalImpact) genreContext += `\nEmotional Impact: ${genreDetails.emotionalImpact}`;
+              
+              // Setting elements
+              if (genreDetails.timePeriod) genreContext += `\nTime Period: ${genreDetails.timePeriod}`;
+              if (genreDetails.physicalEnvironment) genreContext += `\nPhysical Environment: ${genreDetails.physicalEnvironment}`;
+              
+              // Tropes and speculative elements
+              if (genreDetails.keyTropes) genreContext += `\nKey Tropes: ${genreDetails.keyTropes}`;
+              if (genreDetails.speculativeElements) genreContext += `\nSpeculative Elements: ${genreDetails.speculativeElements}`;
+              
+              // Themes (either from structured data or legacy field)
+              const themesList = Array.isArray(genreDetails.themes) ? genreDetails.themes.join(', ') : '';
+              if (themesList) genreContext += `\nThemes: ${themesList}`;
+              
+              // Add generic description if specific fields aren't available
+              if (genreDetails.description) genreContext += `\nDescription: ${genreDetails.description}`;
+              
+              // Add user's initial environment thoughts
+              genreContext += `\n\nMy initial thoughts for an environment: ${message}`;
                 
-                My initial thoughts for an environment: ${message}`;
-                
-              console.log("Added genre context to environment transition message");
+              // Use the enhanced context message
+              currentMessage = genreContext;
+              console.log("Added comprehensive genre context to environment transition message");
             }
           } catch (contextError) {
             console.error("Error retrieving genre context for transition:", contextError);
@@ -1395,6 +1423,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const foundationId = parseInt(id);
       const effectiveMainGenre = mainGenre || 'Fantasy'; // Fallback to Fantasy if not provided
       
+      // Log the received genre details if structured JSON data is present
+      if (Object.keys(genreDetails).length > 0) {
+        console.log('Received structured genre data with fields:', 
+          Object.keys(genreDetails).join(', '));
+      } else {
+        console.log('No structured genre data received, using basic info');
+      }
+      
       // 1. Update the foundation with genre info and change stage
       await storage.updateFoundation(foundationId, { 
         genre: effectiveMainGenre, 
@@ -1403,17 +1439,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log('Foundation updated to environment stage');
       
-      // 2. Add genre details to the database
+      // 2. Add genre details to the database - handle all possible structured fields
       const genreData = {
         foundationId,
+        // Core identifying information
         name: genreDetails.name || `${effectiveMainGenre} Genre`, // Default name is required
         mainGenre: effectiveMainGenre,
         description: genreDetails.description || genreSummary,
-        themes: genreDetails.themes || [],
+        
+        // Handle all possible JSON fields from the GenreDetails interface
+        // Expanded genre information
+        genreRationale: genreDetails.genreRationale || '',
+        audienceExpectations: genreDetails.audienceExpectations || '',
+        
+        // Subgenre details
         subgenres: genreDetails.subgenres || '',
-        mood: genreDetails.mood || '',
+        subgenreRationale: genreDetails.subgenreRationale || '',
+        subgenreInteraction: genreDetails.subgenreInteraction || '',
+        subgenreTropes: genreDetails.subgenreTropes || '',
+        
+        // Mood and tone
         tone: genreDetails.tone || '',
+        mood: genreDetails.mood || '',
+        emotionalImpact: genreDetails.emotionalImpact || '',
+        
+        // Setting elements
+        timePeriod: genreDetails.timePeriod || '',
+        technologyLevel: genreDetails.technologyLevel || '',
+        physicalEnvironment: genreDetails.physicalEnvironment || '',
+        geography: genreDetails.geography || '',
+        
+        // Tropes and speculative elements
+        keyTropes: genreDetails.keyTropes || '',
+        tropeStrategy: genreDetails.tropeStrategy || '',
+        speculativeElements: genreDetails.speculativeElements || '',
+        speculativeRules: genreDetails.speculativeRules || '',
+        
+        // Atmosphere and style
+        atmosphere: genreDetails.atmosphere || '',
+        sensoryDetails: genreDetails.sensoryDetails || '',
+        atmosphericStyle: genreDetails.atmosphericStyle || '',
+        thematicEnvironmentTieins: genreDetails.thematicEnvironmentTieins || '',
+        
+        // Inspirations
         inspirations: genreDetails.inspirations || '',
+        inspirationDetails: genreDetails.inspirationDetails || '',
+        divergenceFromInspirations: genreDetails.divergenceFromInspirations || '',
+        
+        // Legacy fields (arrays and nested objects are handled separately)
+        themes: genreDetails.themes || [],
+        
+        // Thread ID for continued conversation
         threadId: genreDetails.threadId || null
       };
       
@@ -1446,37 +1522,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Helper function to generate environment introduction message
+  // Helper function to generate environment introduction message with enhanced genre data
   function getEnvironmentIntroMessage(mainGenre: string, genreSummary: string): string {
+    // Try to extract structured JSON data from the genre summary if available
+    let structuredData = null;
+    try {
+      const jsonMatch = genreSummary.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonString = jsonMatch[0];
+        structuredData = JSON.parse(jsonString);
+        console.log('Found structured JSON data for environment intro message');
+      }
+    } catch (jsonError) {
+      console.log('No valid JSON found in genre summary for environment intro', jsonError);
+    }
+    
     // Base message template
     let baseMessage = `Welcome to the Environment Stage! Now that we've established the ${mainGenre} genre for your story world, let's explore the physical settings where your stories will take place.`;
     
-    // Add genre-specific extensions
-    switch (mainGenre.toLowerCase()) {
-      case 'fantasy':
-        baseMessage += ' Consider magical landscapes, ancient forests, mystical mountains, or enchanted cities. What environments do you envision for your fantasy world?';
-        break;
-      case 'sci-fi':
-      case 'science fiction':
-        baseMessage += ' Think about futuristic cities, space stations, distant planets, or post-apocalyptic landscapes. What settings would you like to explore in your sci-fi universe?';
-        break;
-      case 'horror':
-        baseMessage += ' Imagine eerie mansions, foggy towns, abandoned facilities, or supernatural locations. What kind of unsettling environments would you like to include?';
-        break;
-      case 'romance':
-        baseMessage += ' Consider picturesque towns, beautiful natural settings, cozy cafes, or exotic destinations. What romantic settings would you like to include in your world?';
-        break;
-      case 'mystery':
-      case 'detective':
-      case 'thriller':
-        baseMessage += ' Think about atmospheric cities, secluded towns, or locations with hidden secrets. What intriguing settings would best serve your mystery world?';
-        break;
-      case 'historical':
-      case 'historical fiction':
-        baseMessage += ' Consider authentic period locations, notable historical sites, or settings during significant events. In which historical environments would you like to set your stories?';
-        break;
-      default:
-        baseMessage += ' What types of physical settings would you like to include in your story world?';
+    // If we have structured data, create a more personalized message
+    if (structuredData) {
+      // Use available structured fields to make a more customized message
+      const mood = structuredData.mood || structuredData.tone || '';
+      const timePeriod = structuredData.timePeriod || '';
+      const physicalEnvironment = structuredData.physicalEnvironment || '';
+      const atmosphere = structuredData.atmosphere || mood;
+      
+      if (mood || atmosphere) {
+        baseMessage += ` You've defined a ${mood || atmosphere} mood for your world.`;
+      }
+      
+      if (timePeriod) {
+        baseMessage += ` Your world is set in ${timePeriod}.`;
+      }
+      
+      if (physicalEnvironment) {
+        baseMessage += ` You've mentioned settings like ${physicalEnvironment}.`;
+      }
+      
+      baseMessage += ' Now, let\'s expand on these ideas to create specific environments within your world.';
+    }
+    // If no structured data, fall back to the genre-specific template
+    else {
+      // Add genre-specific extensions
+      switch (mainGenre.toLowerCase()) {
+        case 'fantasy':
+          baseMessage += ' Consider magical landscapes, ancient forests, mystical mountains, or enchanted cities. What environments do you envision for your fantasy world?';
+          break;
+        case 'sci-fi':
+        case 'science fiction':
+          baseMessage += ' Think about futuristic cities, space stations, distant planets, or post-apocalyptic landscapes. What settings would you like to explore in your sci-fi universe?';
+          break;
+        case 'horror':
+          baseMessage += ' Imagine eerie mansions, foggy towns, abandoned facilities, or supernatural locations. What kind of unsettling environments would you like to include?';
+          break;
+        case 'romance':
+          baseMessage += ' Consider picturesque towns, beautiful natural settings, cozy cafes, or exotic destinations. What romantic settings would you like to include in your world?';
+          break;
+        case 'mystery':
+        case 'detective':
+        case 'thriller':
+          baseMessage += ' Think about atmospheric cities, secluded towns, or locations with hidden secrets. What intriguing settings would best serve your mystery world?';
+          break;
+        case 'historical':
+        case 'historical fiction':
+          baseMessage += ' Consider authentic period locations, notable historical sites, or settings during significant events. In which historical environments would you like to set your stories?';
+          break;
+        default:
+          baseMessage += ' What types of physical settings would you like to include in your story world?';
+      }
     }
     
     return baseMessage;
