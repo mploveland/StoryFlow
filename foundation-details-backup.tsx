@@ -201,29 +201,6 @@ const FoundationDetails: React.FC = () => {
     }
   }, [foundation, characters, initialized, stories]);
   
-  // Update Foundation mutation for various properties
-  const updateFoundationMutation = useMutation({
-    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string, currentStage?: string, name?: string }) => {
-      // Only include properties that are defined
-      const updatePayload: any = {};
-      if (updateData.threadId !== undefined) updatePayload.threadId = updateData.threadId;
-      if (updateData.genre !== undefined) updatePayload.genre = updateData.genre;
-      if (updateData.currentStage !== undefined) updatePayload.currentStage = updateData.currentStage;
-      if (updateData.name !== undefined) updatePayload.name = updateData.name;
-      
-      const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, updatePayload);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}`] });
-      // Also invalidate the list of foundations on the dashboard
-      queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
-    },
-    onError: (error) => {
-      console.error('Error updating foundation:', error);
-    }
-  });
-  
   // Auto-reveal genre details card when genre details are available
   useEffect(() => {
     if (genreDetails && genreDetails.mainGenre) {
@@ -248,6 +225,29 @@ const FoundationDetails: React.FC = () => {
       }
     }
   }, [genreDetails, foundation, updateFoundationMutation, toast]);
+  
+  // Update Foundation mutation for various properties
+  const updateFoundationMutation = useMutation({
+    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string, currentStage?: string, name?: string }) => {
+      // Only include properties that are defined
+      const updatePayload: any = {};
+      if (updateData.threadId !== undefined) updatePayload.threadId = updateData.threadId;
+      if (updateData.genre !== undefined) updatePayload.genre = updateData.genre;
+      if (updateData.currentStage !== undefined) updatePayload.currentStage = updateData.currentStage;
+      if (updateData.name !== undefined) updatePayload.name = updateData.name;
+      
+      const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, updatePayload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}`] });
+      // Also invalidate the list of foundations on the dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
+    },
+    onError: (error) => {
+      console.error('Error updating foundation:', error);
+    }
+  });
   
   // Create a new story
   const createStoryMutation = useMutation({
