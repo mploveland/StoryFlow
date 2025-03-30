@@ -1674,24 +1674,20 @@ export async function generateChatSuggestions(
     // Check if this is the special genre selection trigger (welcome message)
     const isGenreSelectionTrigger = assistantReply && assistantReply.includes("What type of genre would you like to explore for your story world?");
     
-    // For welcome message (genre selection), return predefined genre options
+    // No more hardcoded options - all suggestions must come from the AI assistant
+    // Just log a special message for debugging welcome case
     if (isGenreSelectionTrigger) {
-      console.log("Detected welcome message with genre selection prompt, providing genre suggestions");
-      return [
-        "Fantasy",
-        "Science Fiction", 
-        "Mystery", 
-        "Romance", 
-        "Historical Fiction",
-        "Horror", 
-        "Adventure", 
-        "Dystopian", 
-        "Cyberpunk"
-      ];
+      console.log("Detected welcome message with genre selection prompt, passing to suggestions assistant");
     }
     
-    // For other cases, require both parameters
-    if (!userMessage || userMessage.trim() === '' || !assistantReply || assistantReply.trim() === '') {
+    // For non-welcome cases, require both parameters
+    // For welcome message case, we can proceed with just the assistant reply
+    const isWelcomeMessage = assistantReply && (
+      assistantReply.includes("Welcome to Foundation Builder") || 
+      assistantReply.includes("What type of genre would you like to explore")
+    );
+    
+    if ((!isWelcomeMessage && (!userMessage || userMessage.trim() === '')) || !assistantReply || assistantReply.trim() === '') {
       console.log("Missing required inputs for chat suggestions");
       return []; // Return empty array - no fallback suggestions
     }

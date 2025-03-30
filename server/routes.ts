@@ -2673,7 +2673,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`User message: "${userMessage?.substring(0, 50)}${userMessage?.length > 50 ? '...' : ''}"`);
       console.log(`Assistant reply: "${assistantReply?.substring(0, 50)}${assistantReply?.length > 50 ? '...' : ''}"`);
       
-      // The generateChatSuggestions function now handles the genre selection case internally
+      // Check for welcome message specifically
+      const isWelcomeMessage = assistantReply && (
+        assistantReply.includes("Welcome to Foundation Builder") || 
+        assistantReply.includes("What type of genre would you like to explore")
+      );
+      
+      // All suggestions must come from the AI assistant, even for welcome messages
+      // The generateChatSuggestions function now handles all cases consistently
       const suggestions = await generateChatSuggestions(
         userMessage || '', // Pass empty string if userMessage is null/undefined
         assistantReply
