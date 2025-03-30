@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, Link } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation, Story, Character } from '../types';
 import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
-import FoundationChatInterfaceNew from '@/components/foundation/FoundationChatInterfaceNew';
+import FoundationChatInterfaceNew, { FoundationChatInterfaceRef } from '@/components/foundation/FoundationChatInterfaceNew';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -90,6 +90,9 @@ const FoundationDetails: React.FC = () => {
   
   // State to track if foundation components should be shown (overrides isFoundationComplete)
   const [showFoundationComponents, setShowFoundationComponents] = useState(false);
+  
+  // Chat interface ref for accessing the component's methods
+  const chatInterfaceRef = useRef<FoundationChatInterfaceRef>(null);
   
   // Query foundation details with extra debugging 
   console.log(`About to query foundation with ID: ${foundationId}, enabled: ${!!foundationId}`);
@@ -294,10 +297,11 @@ const FoundationDetails: React.FC = () => {
   });
   
   // Function to send messages to the foundation chat
-  const sendFoundationChatMessage = async (message: string, threadId?: string): Promise<{
+  const sendFoundationChatMessage = async (message: string, threadId?: string, chatInterface?: any): Promise<{
     content: string;
     suggestions?: string[];
     threadId?: string;
+    currentStage?: string;
   }> => {
     try {
       if (!foundation) {
@@ -363,6 +367,11 @@ const FoundationDetails: React.FC = () => {
         currentAssistantType = 'genre';
       }
       
+      // Set the current stage in the chat interface if it's provided
+      if (chatInterface && typeof chatInterface.setCurrentStage === 'function') {
+        chatInterface.setCurrentStage(currentAssistantType);
+      }
+      
       // Additional logging to debug stage determination
       console.log(`Foundation stage determination details:`, {
         hasCharacterDetails,
@@ -395,6 +404,12 @@ const FoundationDetails: React.FC = () => {
       // If we received an auto-transition flag, we need to update the UI to reflect the transition
       if (data.isAutoTransition) {
         console.log(`Auto-transitioning from ${currentAssistantType} to ${data.contextType}`);
+        
+        // Update the current stage in the chat interface
+        if (chatInterface && typeof chatInterface.setCurrentStage === 'function') {
+          chatInterface.setCurrentStage(data.contextType);
+        }
+        
         toast({
           title: `Moving to ${data.contextType} creation`,
           description: `We're now developing the ${data.contextType} for your story.`,
@@ -415,7 +430,8 @@ const FoundationDetails: React.FC = () => {
       return {
         content: data.content,
         threadId: data.threadId,
-        suggestions: data.suggestions || []
+        suggestions: data.suggestions || [],
+        currentStage: data.contextType || currentAssistantType
       };
     } catch (error) {
       console.error('Error sending message to foundation AI:', error);
@@ -640,8 +656,13 @@ const FoundationDetails: React.FC = () => {
                 title={`Building ${foundation.name}`}
                 description="Discuss and develop your story foundation through natural conversation"
                 foundationId={foundation.id}
-                messageHandler={sendFoundationChatMessage}
+                messageHandler={(message, threadId) => sendFoundationChatMessage(
+                  message, 
+                  threadId, 
+                  chatInterfaceRef.current
+                )}
                 initialThreadId={foundation.threadId || undefined}
+                ref={chatInterfaceRef}
               />
             </div>
           </div>

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -9,11 +9,13 @@ import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { updateApiKey } from '@/lib/settings';
 
+// Define message interface
 interface Message {
   role: 'user' | 'assistant';
   content: string;
 }
 
+// Define component props
 interface FoundationChatInterfaceProps {
   // Foundation details
   foundation?: Foundation;
@@ -33,28 +35,31 @@ interface FoundationChatInterfaceProps {
   initialThreadId?: string;
 }
 
-const FoundationChatInterfaceNew: React.FC<FoundationChatInterfaceProps> = ({
-  foundation,
-  title,
-  description,
-  foundationId,
-  messageHandler,
-  initialThreadId
-}) => {
+// Define the ref interface
+export interface FoundationChatInterfaceRef {
+  setCurrentStage: (stage: string) => void;
+}
+
+// Create the component with forwardRef
+const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, FoundationChatInterfaceProps>((props, ref) => {
+  const { foundation, title, description, foundationId, messageHandler, initialThreadId } = props;
+  const { toast } = useToast();
+  
   // State for the chat
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [threadId, setThreadId] = useState<string | undefined>(initialThreadId ?? foundation?.threadId);
+  const [threadId, setThreadId] = useState<string | undefined>(() => initialThreadId || foundation?.threadId);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [currentStage, setCurrentStage] = useState<string>('genre');  // Default to genre stage
   
   // Refs for managing the chat
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageContainerRef = useRef<HTMLDivElement>(null);
-  const lastSpokenMessageRef = useRef<string | null>(null);
+  const lastSpokenMessageRef = useRef<string>('');
   const pendingSaveQueue = useRef<Array<{
     foundationId: number;
     role: 'user' | 'assistant';
@@ -63,6 +68,14 @@ const FoundationChatInterfaceNew: React.FC<FoundationChatInterfaceProps> = ({
   const processSaveQueueRef = useRef<NodeJS.Timeout | null>(null);
   const initialLoadComplete = useRef<boolean>(false);
   const requestIdRef = useRef<string>('');
+  
+  // Expose methods to parent via ref
+  useImperativeHandle(ref, () => ({
+    setCurrentStage: (stage: string) => {
+      console.log(`Setting current stage to: ${stage}`);
+      setCurrentStage(stage);
+    }
+  }));
   
   // Speech recognition
   const {
@@ -470,200 +483,183 @@ const FoundationChatInterfaceNew: React.FC<FoundationChatInterfaceProps> = ({
     };
   }, [stopSpeaking]);
   
+  // Helper function to get assistant name based on stage
+  const getAssistantName = (stage: string) => {
+    switch (stage.toLowerCase()) {
+      case 'genre':
+        return 'Genre Creator';
+      case 'environment':
+        return 'Environment Builder';
+      case 'world':
+        return 'World Builder';
+      case 'character':
+        return 'Character Creator';
+      default:
+        return 'Foundation Assistant';
+    }
+  };
+
   return (
     <div className="flex flex-col h-[70vh]">
+      {/* Stage indicator */}
+      <div className="flex justify-between items-center mb-2 px-1">
+        <span className="text-sm font-medium text-neutral-500">Foundation Builder</span>
+        <div className="flex items-center">
+          <span className="text-xs px-2 py-1 bg-primary-100 text-primary-800 rounded-full capitalize">
+            {currentStage} Stage • {getAssistantName(currentStage)}
+          </span>
+        </div>
+      </div>
       <div 
         ref={messageContainerRef}
-        className="flex-1 overflow-y-auto mb-4 p-4 bg-neutral-50 rounded-lg border border-neutral-200"
+        className="flex-1 overflow-y-auto mb-4 p-4 bg-neutral-50 rounded-lg border"
       >
+        {/* Messages */}
         {messages.map((message, index) => (
-          <div 
-            key={index} 
-            className={`mb-4 ${message.role === 'user' ? 'text-right' : 'text-left'}`}
-          >
+          <div key={index} className={`mb-4 ${message.role === 'assistant' ? 'pr-8' : 'pl-8'}`}>
             <div 
-              className={`inline-block max-w-[80%] rounded-lg py-2 px-3 ${
-                message.role === 'user' 
-                  ? 'bg-primary-100 text-primary-900' 
-                  : 'bg-white border border-neutral-200 shadow-sm'
+              className={`p-3 rounded-lg ${
+                message.role === 'assistant' 
+                  ? 'bg-primary-50 text-primary-900 border border-primary-200' 
+                  : 'bg-neutral-100 text-neutral-900 border border-neutral-200 ml-auto'
               }`}
             >
-              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {message.content}
             </div>
           </div>
         ))}
         
-        {/* Loading indicator while waiting for assistant response */}
+        {/* Loading indicator */}
         {isProcessing && (
-          <div className="mb-4 text-left">
-            <div className="inline-block max-w-[80%] rounded-lg py-2 px-3 bg-white border border-neutral-200 shadow-sm">
+          <div className="mb-4 pr-8">
+            <div className="p-3 rounded-lg bg-primary-50 text-primary-900 border border-primary-200">
               <div className="flex items-center space-x-2">
-                <div className="flex space-x-1">
-                  <div className="h-2 w-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="h-2 w-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                  <div className="h-2 w-2 bg-primary-400 rounded-full animate-bounce" style={{ animationDelay: '600ms' }}></div>
-                </div>
-                <span className="text-sm text-neutral-500">Thinking...</span>
+                <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full"></div>
+                <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.2s' }}></div>
+                <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.4s' }}></div>
               </div>
             </div>
           </div>
         )}
         
+        {/* Error message */}
+        {persistenceError && (
+          <div className="mb-4 mx-auto max-w-md">
+            <div className="p-2 rounded-lg bg-red-50 text-red-800 border border-red-200 text-xs">
+              {persistenceError}
+            </div>
+          </div>
+        )}
+        
+        {/* Api key error */}
+        {apiKeyError && (
+          <div className="mb-4 mx-auto max-w-md">
+            <div className="p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200">
+              <h4 className="font-medium">Text-to-Speech API Key Error</h4>
+              <p className="text-sm mt-1">{apiKeyError}</p>
+              <div className="mt-2 flex gap-2">
+                <button 
+                  onClick={clearApiKeyError}
+                  className="text-xs px-2 py-1 bg-yellow-100 hover:bg-yellow-200 rounded"
+                >
+                  Dismiss
+                </button>
+                <button 
+                  onClick={() => {
+                    const newKey = prompt('Enter your ElevenLabs API key:');
+                    if (newKey) {
+                      updateApiKey('elevenLabsApiKey', newKey);
+                      clearApiKeyError();
+                      toast({
+                        title: 'API Key Updated',
+                        description: 'Your ElevenLabs API key has been updated.',
+                      });
+                    }
+                  }}
+                  className="text-xs px-2 py-1 bg-yellow-200 hover:bg-yellow-300 rounded"
+                >
+                  Update API Key
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Bottom marker for auto-scroll */}
         <div ref={messagesEndRef} />
       </div>
       
-      {currentAudioUrl && (
-        <AudioPlayer 
-          audioUrl={currentAudioUrl}
-          className="mb-4"
-          playbackSpeed={playbackSpeed}
-          onPlaybackSpeedChange={changePlaybackSpeed}
-        />
-      )}
-      
-      {/* Persistence error message display */}
-      {persistenceError && (
-        <div className="bg-amber-50 border border-amber-200 rounded-md p-3 mb-3">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-amber-800">Persistence Warning</h3>
-              <div className="mt-1 text-sm text-amber-700">
-                <p>{persistenceError}</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* API key error message display */}
-      {apiKeyError && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-3 mb-3">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">API Key Error - Voice Generation</h3>
-              <div className="mt-1 text-sm text-red-700">
-                <p>{apiKeyError.message}</p>
-                <p className="mt-1">Provider: {apiKeyError.provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'}</p>
-                <div className="mt-2 flex gap-2">
-                  <button 
-                    onClick={clearApiKeyError}
-                    className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 rounded-md text-xs font-medium transition-colors"
-                  >
-                    Dismiss
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const apiKey = prompt(`Enter your ${apiKeyError.provider === 'elevenlabs' ? 'ElevenLabs' : 'OpenAI'} API key:`);
-                      if (apiKey) {
-                        updateApiKey(apiKeyError.provider, apiKey)
-                          .then(() => {
-                            clearApiKeyError();
-                            window.location.reload();
-                          })
-                          .catch(error => {
-                            console.error('Error updating API key:', error);
-                          });
-                      }
-                    }}
-                    className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 rounded-md text-xs font-medium transition-colors"
-                  >
-                    Update API Key
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Loading messages indicator */}
-      {isLoadingMessages && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-3 mb-3">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-blue-400 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-blue-800">Loading your conversation</h3>
-              <div className="mt-1 text-sm text-blue-700">
-                <p>Please wait while we retrieve your previous messages...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Suggestions display */}
-      {showSuggestions && suggestions.length > 0 && (
-        <div className="mt-2 mb-4">
-          <h4 className="text-sm font-medium mb-2 text-neutral-600">Suggestions:</h4>
-          <div className="flex flex-wrap gap-2">
-            {suggestions.map((suggestion, index) => (
-              <Button 
-                key={index} 
-                variant="outline" 
-                size="sm" 
+      {/* Input area */}
+      <div>
+        {/* Message suggestions */}
+        {showSuggestions && suggestions.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-2">
+            {suggestions.slice(0, 3).map((suggestion, index) => (
+              <button
+                key={index}
                 onClick={() => handleSuggestionClick(suggestion)}
-                className="text-xs"
+                className="text-xs px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-full border border-primary-200"
               >
                 {suggestion}
-              </Button>
+              </button>
             ))}
           </div>
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit} className="flex items-end gap-2">
-        <div className="flex-1 relative">
-          <Textarea
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Type your message..."
-            className="min-h-[80px] resize-none"
-            disabled={isProcessing}
-          />
-          {isListening && (
-            <div className="absolute bottom-2 left-2 text-xs text-red-500 animate-pulse">
-              Listening...
-            </div>
-          )}
-        </div>
-        
-        {browserSupportsSpeechRecognition && (
-          <Button 
-            type="button" 
-            variant={isListening ? "destructive" : "outline"}
-            onClick={toggleListening}
-            className="h-10 w-10 p-0"
-            disabled={isProcessing}
-          >
-            {isListening ? <Pause className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-          </Button>
         )}
         
-        <Button 
-          type="submit" 
-          disabled={!inputValue.trim() || isProcessing || !messageHandler}
-          className="h-10 w-10 p-0"
-        >
-          <Send className="h-4 w-4" />
-        </Button>
-      </form>
+        {/* Audio player for TTS */}
+        {currentAudioUrl && (
+          <div className="mb-2">
+            <AudioPlayer 
+              url={currentAudioUrl} 
+              isPlaying={isPlaying}
+              onPause={stopSpeaking}
+              playbackSpeed={playbackSpeed}
+              onChangePlaybackSpeed={changePlaybackSpeed}
+            />
+          </div>
+        )}
+        
+        {/* Input form */}
+        <form onSubmit={handleSubmit} className="flex items-start space-x-2">
+          <div className="relative flex-1">
+            <Textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder="Type your message..."
+              className="min-h-[80px] resize-none pr-12"
+              disabled={isProcessing || !messageHandler}
+            />
+            {browserSupportsSpeechRecognition && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={toggleListening}
+                className="absolute bottom-2 right-2"
+                disabled={isProcessing || !messageHandler}
+              >
+                {isListening ? (
+                  <Pause className="h-4 w-4 text-red-500" />
+                ) : (
+                  <Mic className={`h-4 w-4 ${isListening ? 'text-red-500' : ''}`} />
+                )}
+              </Button>
+            )}
+          </div>
+          <Button 
+            type="submit" 
+            disabled={!inputValue.trim() || isProcessing || !messageHandler}
+            className="h-10 w-10 p-0"
+          >
+            <Send className="h-4 w-4" />
+          </Button>
+        </form>
+      </div>
     </div>
   );
-};
+});
+
+// Add display name for debugging purposes
+FoundationChatInterfaceNew.displayName = 'FoundationChatInterfaceNew';
 
 export default FoundationChatInterfaceNew;
