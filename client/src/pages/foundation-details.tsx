@@ -363,7 +363,21 @@ const FoundationDetails: React.FC = () => {
         currentAssistantType = 'genre';
       }
       
+      // Additional logging to debug stage determination
+      console.log(`Foundation stage determination details:`, {
+        hasCharacterDetails,
+        hasWorldDetails,
+        hasEnvironmentDetails,
+        hasDefinedGenre,
+        foundationGenre: foundation.genre,
+        foundationDescription: foundation.description?.substring(0, 50),
+        result: currentAssistantType
+      });
+      
       console.log(`Processing chat message with dynamic assistant. Foundation genre: "${foundation.genre || 'none'}", Current stage: ${currentAssistantType}`);
+      
+      // Add extra log for debugging thread ID usage
+      console.log(`Using thread ID: ${chatThreadId || 'none'} for foundation ${foundation.id}`);
         
       const payload = {
         message,

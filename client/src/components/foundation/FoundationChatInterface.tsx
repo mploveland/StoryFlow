@@ -154,9 +154,13 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       const apiUrl = `/api/foundations/${foundationId}/messages`;
       console.log(`[FoundationChatInterface] Fetching from: ${apiUrl}`);
       
+      // Add a delay to ensure server has time to process and return messages
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
+        console.error(`[FoundationChatInterface] API error loading messages: ${response.status} ${response.statusText}`);
         throw new Error(`Failed to load messages: ${response.status} ${response.statusText}`);
       }
       
@@ -383,6 +387,13 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       loadMessages(foundation.id).then(hasMessages => {
         console.log(`[FoundationChatInterface] loadMessages for foundation ${foundation.id} returned hasMessages: ${hasMessages}`);
         
+        // If no existing messages but we have a threadId, something might be wrong
+        // We should have messages if there's a threadId
+        if (!hasMessages && foundation.threadId) {
+          console.warn(`[FoundationChatInterface] Foundation ${foundation.id} has threadId ${foundation.threadId} but no messages, possible sync issue`);
+          // We'll still show the welcome message but note this discrepancy
+        }
+        
         // If no existing messages, show the welcome message
         if (!hasMessages) {
           console.log(`[FoundationChatInterface] No messages found for foundation ${foundation.id}, displaying welcome message`);
@@ -470,6 +481,12 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     if (foundation?.threadId && foundation.threadId !== threadId) {
       console.log(`FoundationChatInterface - Updating threadId from foundation prop: ${threadId || 'undefined'} -> ${foundation.threadId}`);
       setThreadId(foundation.threadId);
+      
+      // If we're updating the threadId from a foundation with a non-null threadId,
+      // log this as we may need to load messages
+      if (foundation.threadId) {
+        console.log(`FoundationChatInterface - Foundation has existing threadId: ${foundation.threadId}`);
+      }
     }
   }, [foundation?.threadId, threadId]);
   

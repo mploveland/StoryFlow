@@ -479,12 +479,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Process the message with the selected assistant
       let conversationThreadId = threadId;
+      let isNewThread = false;
       
       // Create a new thread if none exists
       if (!conversationThreadId) {
         console.log("No thread ID provided, creating a new thread");
         const thread = await openai.beta.threads.create();
         conversationThreadId = thread.id;
+        isNewThread = true;
         console.log(`Created new thread: ${conversationThreadId}`);
       }
       
@@ -534,6 +536,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
           } catch (contextError) {
             console.error("Error retrieving context for world transition:", contextError);
           }
+        }
+      }
+      
+      // If this is a new thread but we're working with an existing foundation,
+      // we need to load the previous conversation history to initialize the thread
+      if (isNewThread && foundation.threadId === null && foundationId) {
+        try {
+          console.log(`Initializing new thread with previous conversation for foundation ${foundationId}`);
+          
+          // Get all previous messages for this foundation
+          const previousMessages = await storage.getFoundationMessages(foundationId);
+          
+          if (previousMessages && previousMessages.length > 0) {
+            console.log(`Found ${previousMessages.length} previous messages to add to new thread`);
+            
+            // Add all previous messages to the thread in chronological order
+            for (const prevMsg of previousMessages) {
+              await openai.beta.threads.messages.create(conversationThreadId, {
+                role: prevMsg.role === 'assistant' ? 'assistant' : 'user',
+                content: prevMsg.content
+              });
+              console.log(`Added ${prevMsg.role} message to thread: ${prevMsg.content.substring(0, 50)}...`);
+            }
+          }
+        } catch (historyError) {
+          console.error(`Error adding conversation history to new thread:`, historyError);
+          // Continue with the current message even if history loading fails
         }
       }
       
