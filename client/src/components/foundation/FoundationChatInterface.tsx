@@ -220,9 +220,16 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           if (validMessages.length > 0) {
             setMessages(validMessages);
             
-            // Fetch AI suggestions based on the last assistant message
+            // Store the most recent assistant message to prevent duplicate TTS
             const messagesReversed = [...data].reverse();
             const lastAssistantMessage = messagesReversed.find(msg => msg.role === 'assistant');
+            
+            // Mark the last assistant message as already spoken
+            if (lastAssistantMessage) {
+              lastSpokenMessageRef.current = lastAssistantMessage.content;
+              console.log(`[FoundationChatInterface] Marked last assistant message as already spoken to prevent duplicate audio`);
+            }
+            
             const lastUserMessage = messagesReversed.find(msg => msg.role === 'user');
             
             if (lastAssistantMessage) {
@@ -256,6 +263,14 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           
           if (backupMessages.length > 0) {
             setMessages(backupMessages);
+            
+            // Mark the last assistant message as already spoken to prevent duplicates
+            const lastAssistantMessage = [...backupMessages].reverse().find(msg => msg.role === 'assistant');
+            if (lastAssistantMessage) {
+              lastSpokenMessageRef.current = lastAssistantMessage.content;
+              console.log(`[FoundationChatInterface] Marked last backup assistant message as already spoken to prevent duplicate audio`);
+            }
+            
             return true;
           } else {
             setMessages([]);
@@ -398,6 +413,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         if (!hasMessages) {
           console.log(`[FoundationChatInterface] No messages found for foundation ${foundation.id}, displaying welcome message`);
           
+          // Important: Clear the last spoken message ref to avoid duplicate audio issues
+          lastSpokenMessageRef.current = null;
+          
           // Set welcome message for foundation with stages explanation
           // IMPORTANT: This exact phrasing triggers the genre suggestions in the StoryFlow_ChatResponseSuggestions assistant
           const welcomeMessage = {
@@ -411,6 +429,8 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
           // Save welcome message to the database for persistence
           if (foundation.id) {
             console.log(`[FoundationChatInterface] Saving welcome message to database for foundation ${foundation.id}`);
+            // Mark as already spoken to prevent duplicates
+            lastSpokenMessageRef.current = welcomeMessage.content;
             saveMessage(foundation.id, 'assistant', welcomeMessage.content)
               .then(success => {
                 console.log(`[FoundationChatInterface] Welcome message saved for foundation ${foundation.id}: ${success ? 'success' : 'failed'}`);
@@ -430,10 +450,15 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       .catch(error => {
         console.error(`[FoundationChatInterface] Error during initial message loading for foundation ${foundation.id}:`, error);
         // Always show something even if message loading fails
-        setMessages([{
-          role: 'assistant',
+        const errorMessage = {
+          role: 'assistant' as const,
           content: 'Welcome back to this foundation. (There was an issue loading previous messages.)'
-        }]);
+        };
+        setMessages([errorMessage]);
+        
+        // Mark this as already spoken to prevent duplicate audio
+        lastSpokenMessageRef.current = errorMessage.content;
+        
         setIsLoadingMessages(false);
       });
     } else if (title && initialMessages && initialMessages.length > 0) {
@@ -448,6 +473,13 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
       
       console.log(`[FoundationChatInterface] Setting ${convertedMessages.length} converted messages from initialMessages`);
       setMessages(convertedMessages);
+      
+      // Mark the last assistant message as already spoken to prevent duplicate audio
+      const lastAssistantMessage = [...convertedMessages].reverse().find(msg => msg.role === 'assistant');
+      if (lastAssistantMessage) {
+        lastSpokenMessageRef.current = lastAssistantMessage.content;
+        console.log(`[FoundationChatInterface] Marked last initialMessages assistant message as already spoken to prevent duplicate audio`);
+      }
       
       // If initialMessages exist but we still want suggestions, use the last message
       const lastMessage = initialMessages[initialMessages.length - 1];
@@ -514,11 +546,24 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
     }
   }, [isLoadingMessages]);
   
+  // Keep track of the last spoken message to avoid duplicates
+  const lastSpokenMessageRef = useRef<string | null>(null);
+  
   // TTS for assistant messages - only triggered by new messages after initial load
   useEffect(() => {
     const lastMessage = messages[messages.length - 1];
-    if (shouldPlayAudio && lastMessage && lastMessage.role === 'assistant') {
+    
+    // Only speak if:
+    // 1. Audio should be played (not initial load)
+    // 2. It's an assistant message
+    // 3. We haven't spoken this exact message before
+    if (shouldPlayAudio && 
+        lastMessage && 
+        lastMessage.role === 'assistant' && 
+        lastMessage.content !== lastSpokenMessageRef.current) {
+      
       console.log('Speaking new assistant message');
+      lastSpokenMessageRef.current = lastMessage.content;
       speak(lastMessage.content);
     }
   }, [messages, speak, shouldPlayAudio]);
@@ -565,7 +610,12 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         role: 'assistant' as const, 
         content: response.content 
       };
+      
+      // Update the messages array with the new assistant message
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Mark this message as already spoken to prevent duplicates
+      lastSpokenMessageRef.current = assistantMessage.content;
       
       // Save assistant message to database if we have a foundation ID
       if (foundation?.id) {
@@ -594,6 +644,9 @@ const FoundationChatInterface: React.FC<FoundationChatInterfaceProps> = ({
         content: 'Sorry, I had trouble processing your request. Please try again.' 
       };
       setMessages(prev => [...prev, errorMessage]);
+      
+      // Mark this error message as already spoken to prevent duplicates
+      lastSpokenMessageRef.current = errorMessage.content;
       
       // Also save error message to database
       if (foundation?.id) {
