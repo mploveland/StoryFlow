@@ -153,7 +153,7 @@ const FoundationChatInterfaceNew: React.FC<FoundationChatInterfaceProps> = ({
         // Show welcome message for new foundations
         const welcomeMessage = {
           role: 'assistant' as const,
-          content: 'Welcome to Foundation Builder! What type of genre would you like to explore for your story world?'
+          content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
         };
         
         setMessages([welcomeMessage]);
