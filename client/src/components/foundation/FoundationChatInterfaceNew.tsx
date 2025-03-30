@@ -3,11 +3,48 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Foundation } from '@shared/schema';
-import { Mic, Send, Pause } from 'lucide-react';
+import { Mic, Send, Pause, Volume2, VolumeX } from 'lucide-react';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { updateApiKey } from '@/lib/settings';
+
+// Create a test sound function
+function playTestSound() {
+  console.log("Playing test sound");
+  
+  // Create oscillator for simple beep
+  try {
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContext) {
+      console.error("AudioContext not supported");
+      return;
+    }
+    
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.type = 'sine';
+    oscillator.frequency.value = 440; // 440 Hz = A4 note
+    gainNode.gain.value = 0.5; // Half volume
+    
+    oscillator.start();
+    
+    // Stop after 1 second
+    setTimeout(() => {
+      oscillator.stop();
+      audioContext.close();
+    }, 1000);
+    
+    console.log("Test sound started");
+  } catch (error) {
+    console.error("Error playing test sound:", error);
+  }
+}
 
 // Define message interface
 interface Message {
@@ -550,6 +587,16 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
               }`}
             >
               {message.content}
+              {message.role === 'assistant' && (
+                <div className="mt-2 flex justify-end">
+                  <button
+                    onClick={() => speak(message.content)}
+                    className="text-xs flex items-center gap-1 px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded"
+                  >
+                    <Volume2 className="h-3 w-3" /> Play message
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         ))}
@@ -631,8 +678,50 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           </div>
         )}
         
-        {/* Audio player for TTS */}
-        <div className="mb-2">
+        {/* Audio controls for TTS */}
+        <div className="mb-4">
+          <div className="mb-2 flex flex-col md:flex-row gap-2">
+            {/* Audio testing buttons */}
+            <div className="flex gap-2">
+              <button
+                onClick={playTestSound}
+                className="text-sm flex items-center gap-1 px-3 py-1.5 bg-green-100 hover:bg-green-200 text-green-700 rounded border border-green-300"
+              >
+                <Volume2 className="h-4 w-4" /> Test Basic Audio
+              </button>
+              
+              <button
+                onClick={() => speak("This is a test of the text-to-speech system using OpenAI voices.")}
+                className="text-sm flex items-center gap-1 px-3 py-1.5 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded border border-blue-300"
+              >
+                <Volume2 className="h-4 w-4" /> Test TTS Voice
+              </button>
+            </div>
+            
+            {/* Voice selector */}
+            {voices.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-neutral-600">Voice:</span>
+                <select 
+                  value={selectedVoice?.id || ''}
+                  onChange={(e) => {
+                    const voiceId = e.target.value;
+                    const provider = voices.find(v => v.id === voiceId)?.provider || 'openai';
+                    changeVoice(voiceId, provider);
+                  }}
+                  className="text-sm p-1 border rounded"
+                >
+                  {voices.map(voice => (
+                    <option key={`${voice.provider}-${voice.id}`} value={voice.id}>
+                      {voice.name} ({voice.provider})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+          
+          {/* Audio player */}
           {currentAudioUrl ? (
             <AudioPlayer 
               audioUrl={currentAudioUrl} 
@@ -644,7 +733,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
               onPlaybackSpeedChange={changePlaybackSpeed}
             />
           ) : (
-            <div className="flex items-center space-x-2 p-1 text-sm text-neutral-500 border rounded">
+            <div className="flex items-center p-2 text-sm text-neutral-500 border rounded">
               <span>Audio controls will appear here when speaking</span>
             </div>
           )}
