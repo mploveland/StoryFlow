@@ -7,6 +7,7 @@ import { Mic, Send, Pause } from 'lucide-react';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
+import { generateSpeechCached } from '@/lib/tts';
 
 // Define message interface
 interface Message {
@@ -561,13 +562,40 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
               {message.role === 'assistant' && (
                 <div className="mt-2 flex justify-end">
                   <button
-                    onClick={() => {
-                      // Always stop any current playback before starting a new one
+                    onClick={async () => {
+                      // First, completely stop any current audio playback
                       stopSpeaking();
-                      // Use a small timeout to ensure audio is fully stopped before starting new
-                      setTimeout(() => {
-                        speak(message.content);
-                      }, 100);
+                      
+                      try {
+                        // Use a longer timeout to ensure everything is completely stopped
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                        
+                        // Get the current voice settings but process independently
+                        const url = await generateSpeechCached(
+                          message.content,
+                          selectedVoice?.id || 'nova',
+                          selectedVoice?.provider || 'openai'
+                        );
+                        
+                        // Create a completely independent audio element not connected to any shared state
+                        const independentAudio = new Audio();
+                        
+                        // Configure audio properties
+                        independentAudio.volume = 1.0;
+                        independentAudio.playbackRate = playbackSpeed;
+                        independentAudio.preload = 'auto';
+                        
+                        // Set up logging events
+                        independentAudio.onplay = () => console.log('Message playback: Started');
+                        independentAudio.onended = () => console.log('Message playback: Ended');
+                        independentAudio.onerror = (e) => console.error('Message playback: Error', e);
+                        
+                        // Set source and play
+                        independentAudio.src = url;
+                        await independentAudio.play();
+                      } catch (error) {
+                        console.error('Error playing message audio:', error);
+                      }
                     }}
                     className="text-xs flex items-center gap-1 px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded"
                   >
