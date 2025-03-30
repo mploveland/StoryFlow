@@ -561,7 +561,14 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
               {message.role === 'assistant' && (
                 <div className="mt-2 flex justify-end">
                   <button
-                    onClick={() => speak(message.content)}
+                    onClick={() => {
+                      // Always stop any current playback before starting a new one
+                      stopSpeaking();
+                      // Use a small timeout to ensure audio is fully stopped before starting new
+                      setTimeout(() => {
+                        speak(message.content);
+                      }, 100);
+                    }}
                     className="text-xs flex items-center gap-1 px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded"
                   >
                     Play message

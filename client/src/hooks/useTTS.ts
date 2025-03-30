@@ -247,25 +247,43 @@ export function useTTS(options: UseTTSOptions = {}) {
     }
   }, [playbackSpeed]);
   
-  // Stop playback
+  // Stop playback and completely clean up audio element
   const stop = useCallback(() => {
     if (audioRef.current) {
-      console.log("Stopping audio playback");
+      console.log("useTTS: Completely stopping audio playback");
+      
+      // Get a reference to the current audio before nullifying it
+      const audio = audioRef.current;
       
       // Thoroughly stop the audio to prevent any potential echo
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+      audio.pause();
+      audio.currentTime = 0;
+      
+      // Remove all event listeners to prevent memory leaks
+      audio.onplay = null;
+      audio.onpause = null;
+      audio.onended = null;
+      audio.onerror = null;
+      audio.oncanplaythrough = null;
+      audio.onloadeddata = null;
+      
+      // Remove the src attribute to ensure it's completely stopped
+      try {
+        audio.src = '';
+        audio.removeAttribute('src');
+      } catch (e) {
+        // Some browsers might not support this, but that's okay
+        console.log("useTTS: Could not remove src attribute:", e);
+      }
       
       // Reset playback state
       setIsPlaying(false);
       
-      // Remove the src attribute to ensure it's completely stopped
-      try {
-        audioRef.current.removeAttribute('src');
-      } catch (e) {
-        // Some browsers might not support this, but that's okay
-        console.log("Could not remove src attribute:", e);
-      }
+      // Clear the audio reference immediately
+      audioRef.current = null;
+      
+      // Also clear the current audio URL to ensure the AudioPlayer component resets
+      setCurrentAudioUrl(null);
     }
   }, []);
   
@@ -294,21 +312,31 @@ export function useTTS(options: UseTTSOptions = {}) {
     console.log(`useTTS: Generating speech for "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}" with voice ${selectedVoice.name}`);
     
     try {
-      // Stop any current playback
-      // Make sure to completely stop the current audio element to avoid echo
+      // Immediately stop any current playback to prevent echo
       if (audioRef.current) {
         console.log("useTTS: Stopping previous audio playback");
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
         
-        // Remove src attribute to completely clean up the audio element
+        // Make a local reference to the current audio element before we null it out
+        const currentAudio = audioRef.current;
+        
+        // Immediately pause the current audio
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        
+        // Remove all event listeners to prevent memory leaks
+        currentAudio.onplay = null;
+        currentAudio.onpause = null;
+        currentAudio.onended = null;
+        currentAudio.onerror = null;
+        
+        // Remove the src attribute to free memory
         try {
-          audioRef.current.removeAttribute('src');
+          currentAudio.removeAttribute('src');
         } catch (e) {
           console.log("useTTS: Could not remove src attribute");
         }
         
-        // Set the reference to null to ensure we create a fresh element
+        // Set audio reference to null first to break any potential loops
         audioRef.current = null;
       }
       
@@ -321,47 +349,65 @@ export function useTTS(options: UseTTSOptions = {}) {
       
       console.log(`useTTS: Received audio data URL (length: ${audioDataUrl.length})`);
       
-      // Create a completely fresh Audio element to avoid issues with reused elements and prevent echo
-      const tempAudio = new Audio();
+      // Create a completely fresh Audio element each time to prevent echo
+      const newAudio = new Audio();
       
       // Set up the audio element before setting the source
-      tempAudio.volume = 1.0;
-      tempAudio.muted = false;
-      tempAudio.playbackRate = playbackSpeed;
+      newAudio.volume = 1.0;
+      newAudio.muted = false;
+      newAudio.playbackRate = playbackSpeed;
+      newAudio.preload = 'auto'; // Ensure preloading
       
-      // Log when audio starts playing
-      tempAudio.addEventListener('play', () => {
-        console.log("useTTS: Temp audio started playing");
+      // Set up all event listeners before setting the src
+      newAudio.addEventListener('play', () => {
+        console.log("useTTS: New audio started playing");
         setIsPlaying(true);
       });
       
-      // Log when audio ends
-      tempAudio.addEventListener('ended', () => {
-        console.log("useTTS: Temp audio ended");
+      newAudio.addEventListener('pause', () => {
+        console.log("useTTS: New audio paused");
         setIsPlaying(false);
       });
       
-      // Now set the source
-      tempAudio.src = audioDataUrl;
+      newAudio.addEventListener('ended', () => {
+        console.log("useTTS: New audio ended");
+        setIsPlaying(false);
+      });
+      
+      newAudio.addEventListener('error', (e) => {
+        console.error("useTTS: Audio error event:", e);
+        setIsPlaying(false);
+      });
+      
+      // Only set the source after all event listeners are registered
+      newAudio.src = audioDataUrl;
       
       // Update the audio reference
-      audioRef.current = tempAudio;
+      audioRef.current = newAudio;
       
-      // Finally, update the state with the URL after all setup is complete
+      // Update the state with the URL (needed for the AudioPlayer component)
       setCurrentAudioUrl(audioDataUrl);
       
       // Play immediately if autoPlay is enabled
       if (autoPlay) {
+        console.log("useTTS: Auto-play is enabled, attempting to play audio");
+        
         try {
-          await tempAudio.play();
+          // Wait a tiny bit to ensure the audio is ready to play
+          await new Promise(resolve => setTimeout(resolve, 50));
+          
+          const playPromise = newAudio.play();
+          
+          // play() returns a Promise
+          await playPromise;
           console.log("useTTS: Successfully started audio playback");
         } catch (playError) {
           console.error("useTTS: Error playing audio directly:", playError);
           
           // Fallback to auto-play by user interaction
           const playOnInteraction = () => {
-            if (tempAudio) {
-              tempAudio.play()
+            if (newAudio) {
+              newAudio.play()
                 .then(() => console.log("useTTS: Audio started after user interaction"))
                 .catch(err => console.error("useTTS: Failed to play even after user interaction:", err));
             }
@@ -380,21 +426,21 @@ export function useTTS(options: UseTTSOptions = {}) {
       // Return a promise that resolves when playback finishes
       return new Promise((resolve) => {
         const onEnded = () => {
-          tempAudio.removeEventListener('ended', onEnded);
+          newAudio.removeEventListener('ended', onEnded);
           resolve();
         };
         
-        tempAudio.addEventListener('ended', onEnded);
+        newAudio.addEventListener('ended', onEnded);
         
         // Safety timeout (30 seconds max)
         const safetyTimeout = setTimeout(() => {
           console.log("useTTS: Safety timeout reached, resolving promise");
-          tempAudio.removeEventListener('ended', onEnded);
+          newAudio.removeEventListener('ended', onEnded);
           resolve();
         }, 30000);
         
         // Clean up timeout when audio ends
-        tempAudio.addEventListener('ended', () => {
+        newAudio.addEventListener('ended', () => {
           clearTimeout(safetyTimeout);
         }, { once: true });
       });
