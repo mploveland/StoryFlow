@@ -1811,9 +1811,13 @@ export async function generateChatSuggestions(
         suggestions = jsonObj.filter((item: any) => typeof item === "string");
       }
       
-      // Check if this is for genre selection (we want 10 items) or regular suggestions (limit to 5)
-      const isGenreSelection = assistantReply.includes("What type of genre would you like to explore for your story world?");
-      const maxSuggestions = isGenreSelection ? 10 : 6; // Allow 6 for normal suggestions to include the additional option
+      // Check if this is for genre selection or regular suggestions
+      const isGenreSelection = assistantReply.includes("What type of genre would you like to explore for your story world?") || 
+                              (assistantReply.includes("Welcome to Foundation Builder") && !userMessage);
+      
+      // For welcome/genre selection, use ALL the suggestions from the assistant (up to 15)
+      // For other dialog, still limit to 6 suggestions to not overwhelm the user
+      const maxSuggestions = isGenreSelection ? 15 : 6;
       
       // Limit to appropriate number of suggestions
       const validSuggestions = suggestions.slice(0, maxSuggestions);
