@@ -230,7 +230,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           lastSpokenMessageRef.current = lastMessage.content;
         }
         
-        // Update state
+        // Update state without re-saving the messages to the database
+        // This is important to prevent duplicating messages when loading an existing foundation
         setMessages(formattedMessages);
         
         // Fetch suggestions for the last message pair
