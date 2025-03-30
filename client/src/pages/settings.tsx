@@ -4,6 +4,7 @@ import { useTTS } from '@/hooks/useTTS';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { updateApiKey } from '@/lib/settings';
 import { useToast } from '@/hooks/use-toast';
+import { useSettings } from '@/contexts/SettingsContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -105,9 +106,8 @@ const Settings = () => {
   // STT test state
   const [transcriptResult, setTranscriptResult] = useState('');
   
-  // Audio settings
-  const [preferOpenAI, setPreferOpenAI] = useState(true);
-  const [autoPlay, setAutoPlay] = useState(true);
+  // Get audio settings from context
+  const { autoPlayMessages, setAutoPlayMessages, preferOpenAIVoices, setPreferOpenAIVoices } = useSettings();
   
   // Save API key handler
   const saveApiKey = async (provider: 'openai' | 'elevenlabs', key: string) => {
@@ -187,12 +187,12 @@ const Settings = () => {
                   <Label htmlFor="prefer-openai">Prefer OpenAI voices</Label>
                   <Switch 
                     id="prefer-openai" 
-                    checked={preferOpenAI} 
-                    onCheckedChange={setPreferOpenAI} 
+                    checked={preferOpenAIVoices} 
+                    onCheckedChange={setPreferOpenAIVoices} 
                   />
                 </div>
                 <p className="text-sm text-neutral-500">
-                  {preferOpenAI 
+                  {preferOpenAIVoices 
                     ? "OpenAI voices will be used by default when available" 
                     : "ElevenLabs voices will be used by default when available"}
                 </p>
@@ -206,8 +206,8 @@ const Settings = () => {
                   <Label htmlFor="auto-play">Auto-play assistant messages</Label>
                   <Switch 
                     id="auto-play" 
-                    checked={autoPlay} 
-                    onCheckedChange={setAutoPlay} 
+                    checked={autoPlayMessages} 
+                    onCheckedChange={setAutoPlayMessages} 
                   />
                 </div>
                 <p className="text-sm text-neutral-500">

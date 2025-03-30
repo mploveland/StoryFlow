@@ -8,6 +8,7 @@ import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
 import { generateSpeechCached } from '@/lib/tts';
+import { useSettings } from '@/contexts/SettingsContext';
 
 // Define message interface
 interface Message {
@@ -451,9 +452,12 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   };
   
   // Speak assistant messages
+  // Get settings from context
+  const { autoPlayMessages } = useSettings();
+  
   useEffect(() => {
-    // Skip if still loading or no messages
-    if (isLoadingMessages || messages.length === 0) return;
+    // Skip if still loading, no messages, or auto-play is disabled
+    if (isLoadingMessages || messages.length === 0 || !autoPlayMessages) return;
     
     // Get the last message
     const lastMessage = messages[messages.length - 1];
@@ -467,6 +471,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         !isProcessing) {
       
       console.log('Speaking new assistant message');
+      console.log('Auto-play is enabled:', autoPlayMessages);
       console.log('Last spoken message:', lastSpokenMessageRef.current ? lastSpokenMessageRef.current.substring(0, 50) : 'none');
       console.log('Current message:', lastMessage.content.substring(0, 50));
       
@@ -521,7 +526,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         }
       }, 300); // Delay to ensure UI is updated
     }
-  }, [messages, speak, stopSpeaking, isLoadingMessages, isProcessing, selectedVoice, playbackSpeed]);
+  }, [messages, speak, stopSpeaking, isLoadingMessages, isProcessing, selectedVoice, playbackSpeed, autoPlayMessages]);
   
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {
