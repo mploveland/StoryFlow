@@ -41,8 +41,17 @@ export function AudioPlayer({
     
     // Always stop any existing audio first
     if (audioRef.current) {
+      // Pause the audio
+      console.log('AudioPlayer: Stopping previous audio playback');
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+      
+      // Try to remove the source attribute to ensure complete cleanup
+      try {
+        audioRef.current.removeAttribute('src');
+      } catch (e) {
+        console.log('AudioPlayer: Could not remove src attribute');
+      }
       
       // Remove event listeners to prevent memory leaks
       audioRef.current.onplay = null;
@@ -51,6 +60,9 @@ export function AudioPlayer({
       audioRef.current.onerror = null;
       audioRef.current.oncanplaythrough = null;
       audioRef.current.onloadeddata = null;
+      
+      // Set to null to ensure garbage collection
+      audioRef.current = null;
     }
     
     // Create a completely new audio element
@@ -125,9 +137,27 @@ export function AudioPlayer({
     return () => {
       // Clean up on unmount or URL change
       if (newAudio) {
-        console.log('AudioPlayer: Cleaning up audio element');
+        console.log('AudioPlayer: Cleaning up audio element on unmount');
         newAudio.pause();
-        newAudio.src = '';
+        
+        // Reset to beginning
+        newAudio.currentTime = 0;
+        
+        // Remove source
+        try {
+          newAudio.src = '';
+          newAudio.removeAttribute('src');
+        } catch (e) {
+          console.log('AudioPlayer: Could not remove src on cleanup');
+        }
+        
+        // Remove event listeners
+        newAudio.onplay = null;
+        newAudio.onended = null;
+        newAudio.onpause = null;
+        newAudio.onerror = null;
+        newAudio.oncanplaythrough = null;
+        newAudio.onloadeddata = null;
       }
     };
   }, [audioUrl, autoPlay, onPlayStateChange, playbackSpeed, volume]);
@@ -178,9 +208,19 @@ export function AudioPlayer({
   
   const pauseAudio = () => {
     if (audioRef.current) {
+      console.log('AudioPlayer: Pausing audio completely');
+      
       // Thoroughly stop the audio
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+      
+      // Try to remove the source to prevent any lingering audio
+      try {
+        audioRef.current.src = '';
+        audioRef.current.removeAttribute('src');
+      } catch (e) {
+        console.log('AudioPlayer: Could not remove src on pause');
+      }
       
       // Make sure the UI reflects the stopped state
       setIsPlaying(false);

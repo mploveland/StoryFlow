@@ -443,34 +443,42 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     // Skip if still loading or no messages
     if (isLoadingMessages || messages.length === 0) return;
     
+    // Get the last message
     const lastMessage = messages[messages.length - 1];
     
     // Only speak if:
     // 1. It's an assistant message
-    // 2. We haven't spoken this message before
+    // 2. We haven't spoken this message before (using a reference to avoid re-renders)
     // 3. We're not loading messages
     if (lastMessage.role === 'assistant' && 
-        lastMessage.content !== lastSpokenMessageRef.current) {
+        lastMessage.content !== lastSpokenMessageRef.current &&
+        !isProcessing) {
       
       console.log('Speaking new assistant message');
+      console.log('Last spoken message:', lastSpokenMessageRef.current ? lastSpokenMessageRef.current.substring(0, 50) : 'none');
+      console.log('Current message:', lastMessage.content.substring(0, 50));
+      
+      // Update our reference immediately to prevent duplicate speech attempts
       lastSpokenMessageRef.current = lastMessage.content;
       
       // Add a small delay to ensure the UI has updated
       setTimeout(() => {
-        console.log('currentAudioUrl before speak:', currentAudioUrl);
         console.log('Starting TTS for message:', lastMessage.content.substring(0, 100));
         
+        // Stop any currently playing audio first
+        stopSpeaking();
+        
+        // Then generate and play the new audio
         speak(lastMessage.content)
           .then(() => {
             console.log('Speech generation completed successfully');
-            console.log('currentAudioUrl after speak:', currentAudioUrl);
           })
           .catch(error => {
             console.error('Error in speech generation:', error);
           });
-      }, 100);
+      }, 300); // Increased delay to ensure UI is updated and previous audio is stopped
     }
-  }, [messages, speak, isLoadingMessages, currentAudioUrl]);
+  }, [messages, speak, stopSpeaking, isLoadingMessages, isProcessing]);
   
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {

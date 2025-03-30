@@ -295,7 +295,22 @@ export function useTTS(options: UseTTSOptions = {}) {
     
     try {
       // Stop any current playback
-      stop();
+      // Make sure to completely stop the current audio element to avoid echo
+      if (audioRef.current) {
+        console.log("useTTS: Stopping previous audio playback");
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        
+        // Remove src attribute to completely clean up the audio element
+        try {
+          audioRef.current.removeAttribute('src');
+        } catch (e) {
+          console.log("useTTS: Could not remove src attribute");
+        }
+        
+        // Set the reference to null to ensure we create a fresh element
+        audioRef.current = null;
+      }
       
       // Generate speech data
       const audioDataUrl = await generateSpeechCached(
@@ -306,13 +321,12 @@ export function useTTS(options: UseTTSOptions = {}) {
       
       console.log(`useTTS: Received audio data URL (length: ${audioDataUrl.length})`);
       
-      // Set the audio URL to state
-      setCurrentAudioUrl(audioDataUrl);
+      // Create a completely fresh Audio element to avoid issues with reused elements and prevent echo
+      const tempAudio = new Audio();
       
-      // Force browser audio playback
-      // Create a completely fresh Audio element to avoid issues with reused elements
-      const tempAudio = new Audio(audioDataUrl);
+      // Set up the audio element before setting the source
       tempAudio.volume = 1.0;
+      tempAudio.muted = false;
       tempAudio.playbackRate = playbackSpeed;
       
       // Log when audio starts playing
@@ -327,8 +341,14 @@ export function useTTS(options: UseTTSOptions = {}) {
         setIsPlaying(false);
       });
       
-      // Explicitly set the audio src to make sure it's set
+      // Now set the source
       tempAudio.src = audioDataUrl;
+      
+      // Update the audio reference
+      audioRef.current = tempAudio;
+      
+      // Finally, update the state with the URL after all setup is complete
+      setCurrentAudioUrl(audioDataUrl);
       
       // Play immediately if autoPlay is enabled
       if (autoPlay) {
@@ -340,9 +360,11 @@ export function useTTS(options: UseTTSOptions = {}) {
           
           // Fallback to auto-play by user interaction
           const playOnInteraction = () => {
-            tempAudio.play()
-              .then(() => console.log("useTTS: Audio started after user interaction"))
-              .catch(err => console.error("useTTS: Failed to play even after user interaction:", err));
+            if (tempAudio) {
+              tempAudio.play()
+                .then(() => console.log("useTTS: Audio started after user interaction"))
+                .catch(err => console.error("useTTS: Failed to play even after user interaction:", err));
+            }
               
             // Remove listeners
             document.removeEventListener('click', playOnInteraction);
@@ -352,23 +374,7 @@ export function useTTS(options: UseTTSOptions = {}) {
           // Add event listeners for user interaction
           document.addEventListener('click', playOnInteraction, { once: true });
           document.addEventListener('keydown', playOnInteraction, { once: true });
-          
-          // Dispatch synthetic events to trigger audio playback
-          try {
-            document.dispatchEvent(new MouseEvent('click', {
-              view: window,
-              bubbles: true,
-              cancelable: true
-            }));
-          } catch (e) {
-            console.warn("useTTS: Failed to dispatch synthetic click:", e);
-          }
         }
-      }
-      
-      // Store temp audio in the audioRef
-      if (!audioRef.current) {
-        audioRef.current = tempAudio;
       }
       
       // Return a promise that resolves when playback finishes
