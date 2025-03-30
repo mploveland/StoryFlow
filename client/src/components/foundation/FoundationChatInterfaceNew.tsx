@@ -458,10 +458,18 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       
       // Add a small delay to ensure the UI has updated
       setTimeout(() => {
-        speak(lastMessage.content);
+        console.log('currentAudioUrl before speak:', currentAudioUrl);
+        speak(lastMessage.content)
+          .then(() => {
+            console.log('Speech generation completed successfully');
+            console.log('currentAudioUrl after speak:', currentAudioUrl);
+          })
+          .catch(error => {
+            console.error('Error in speech generation:', error);
+          });
       }, 100);
     }
-  }, [messages, speak, isLoadingMessages]);
+  }, [messages, speak, isLoadingMessages, currentAudioUrl]);
   
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {
@@ -614,8 +622,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         )}
         
         {/* Audio player for TTS */}
-        {currentAudioUrl && (
-          <div className="mb-2">
+        <div className="mb-2">
+          {currentAudioUrl ? (
             <AudioPlayer 
               audioUrl={currentAudioUrl} 
               autoPlay={isPlaying}
@@ -625,8 +633,12 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
               playbackSpeed={playbackSpeed}
               onPlaybackSpeedChange={changePlaybackSpeed}
             />
-          </div>
-        )}
+          ) : (
+            <div className="flex items-center space-x-2 p-1 text-sm text-neutral-500 border rounded">
+              <span>Audio controls will appear here when speaking</span>
+            </div>
+          )}
+        </div>
         
         {/* Input form */}
         <form onSubmit={handleSubmit} className="flex items-start space-x-2">
