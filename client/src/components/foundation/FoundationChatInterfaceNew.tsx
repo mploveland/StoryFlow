@@ -464,23 +464,54 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       lastSpokenMessageRef.current = lastMessage.content;
       
       // Add a small delay to ensure the UI has updated
-      setTimeout(() => {
-        console.log('Starting TTS for message:', lastMessage.content.substring(0, 100));
+      setTimeout(async () => {
+        console.log('Starting independent TTS for new assistant message:', lastMessage.content.substring(0, 100));
         
         // Stop any currently playing audio first
         stopSpeaking();
         
-        // Then generate and play the new audio
-        speak(lastMessage.content)
-          .then(() => {
-            console.log('Speech generation completed successfully');
-          })
-          .catch(error => {
-            console.error('Error in speech generation:', error);
-          });
-      }, 300); // Increased delay to ensure UI is updated and previous audio is stopped
+        try {
+          // Use a longer timeout to ensure everything is completely stopped
+          await new Promise(resolve => setTimeout(resolve, 300));
+          
+          // Get the current voice settings but process independently
+          const url = await generateSpeechCached(
+            lastMessage.content,
+            selectedVoice?.id || 'nova',
+            selectedVoice?.provider || 'openai'
+          );
+          
+          // Create a completely independent audio element not connected to shared state
+          const autoplayAudio = new Audio();
+          
+          // Configure audio properties
+          autoplayAudio.volume = 1.0;
+          autoplayAudio.playbackRate = playbackSpeed;
+          autoplayAudio.preload = 'auto';
+          
+          // Set up logging events
+          autoplayAudio.onplay = () => console.log('Auto-play: Started');
+          autoplayAudio.onended = () => console.log('Auto-play: Ended');
+          autoplayAudio.onerror = (e) => console.error('Auto-play: Error', e);
+          
+          // Set source and play
+          autoplayAudio.src = url;
+          await autoplayAudio.play();
+          console.log('Auto-play started successfully');
+        } catch (error) {
+          console.error('Error in auto-play speech generation:', error);
+          
+          // Fallback to the standard speak method if the independent approach fails
+          try {
+            await speak(lastMessage.content);
+            console.log('Fallback speech generation completed successfully');
+          } catch (fallbackError) {
+            console.error('Fallback speech generation also failed:', fallbackError);
+          }
+        }
+      }, 300); // Delay to ensure UI is updated
     }
-  }, [messages, speak, stopSpeaking, isLoadingMessages, isProcessing]);
+  }, [messages, speak, stopSpeaking, isLoadingMessages, isProcessing, selectedVoice, playbackSpeed]);
   
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {
