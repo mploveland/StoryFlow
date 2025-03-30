@@ -14,6 +14,7 @@ export interface Foundation {
   description: string | null;
   genre: string | null;
   threadId: string | null;
+  currentStage: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
 }

@@ -50,11 +50,11 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
-  const [threadId, setThreadId] = useState<string | undefined>(() => initialThreadId || foundation?.threadId);
+  const [threadId, setThreadId] = useState<string | undefined>(initialThreadId ?? foundation?.threadId ?? undefined);
   const [persistenceError, setPersistenceError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [currentStage, setCurrentStage] = useState<string>('genre');  // Default to genre stage
+  const [currentStage, setCurrentStage] = useState<string>(foundation?.currentStage ?? 'genre');  // Use foundation stage or default to genre
   
   // Refs for managing the chat
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -111,12 +111,15 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     }
   }, [transcript]);
   
-  // Auto-scroll to the bottom when messages change
+  // Auto-scroll to the bottom when messages or suggestions change
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      // Use a small timeout to ensure DOM has fully updated with suggestions
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
-  }, [messages, isProcessing]);
+  }, [messages, isProcessing, suggestions]);
   
   // Load saved messages when foundation changes
   useEffect(() => {
@@ -560,7 +563,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           <div className="mb-4 mx-auto max-w-md">
             <div className="p-3 rounded-lg bg-yellow-50 text-yellow-800 border border-yellow-200">
               <h4 className="font-medium">Text-to-Speech API Key Error</h4>
-              <p className="text-sm mt-1">{apiKeyError}</p>
+              <p className="text-sm mt-1">{apiKeyError.message}</p>
               <div className="mt-2 flex gap-2">
                 <button 
                   onClick={clearApiKeyError}
@@ -572,7 +575,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                   onClick={() => {
                     const newKey = prompt('Enter your ElevenLabs API key:');
                     if (newKey) {
-                      updateApiKey('elevenLabsApiKey', newKey);
+                      updateApiKey('elevenlabs', newKey);
                       clearApiKeyError();
                       toast({
                         title: 'API Key Updated',
@@ -614,11 +617,13 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         {currentAudioUrl && (
           <div className="mb-2">
             <AudioPlayer 
-              url={currentAudioUrl} 
-              isPlaying={isPlaying}
-              onPause={stopSpeaking}
+              audioUrl={currentAudioUrl} 
+              autoPlay={isPlaying}
+              onPlayStateChange={(playing) => {
+                if (!playing) stopSpeaking();
+              }}
               playbackSpeed={playbackSpeed}
-              onChangePlaybackSpeed={changePlaybackSpeed}
+              onPlaybackSpeedChange={changePlaybackSpeed}
             />
           </div>
         )}

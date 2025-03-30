@@ -279,11 +279,12 @@ const FoundationDetails: React.FC = () => {
   
   // Update Foundation mutation for various properties
   const updateFoundationMutation = useMutation({
-    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string }) => {
+    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string, currentStage?: string }) => {
       // Only include properties that are defined
       const updatePayload: any = {};
       if (updateData.threadId !== undefined) updatePayload.threadId = updateData.threadId;
       if (updateData.genre !== undefined) updatePayload.genre = updateData.genre;
+      if (updateData.currentStage !== undefined) updatePayload.currentStage = updateData.currentStage;
       
       const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, updatePayload);
       return response.json();
