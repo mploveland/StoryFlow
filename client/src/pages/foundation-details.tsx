@@ -9,7 +9,7 @@ import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation, Story, Character } from '../types';
 import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
-import FoundationChatInterface from '@/components/foundation/FoundationChatInterface';
+import FoundationChatInterfaceNew from '@/components/foundation/FoundationChatInterfaceNew';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -635,12 +635,12 @@ const FoundationDetails: React.FC = () => {
           {/* Center: Chat window - always show */}
           <div className="lg:col-span-6">
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
-              <FoundationChatInterface 
+              <FoundationChatInterfaceNew 
                 foundation={foundation}
                 title={`Building ${foundation.name}`}
                 description="Discuss and develop your story foundation through natural conversation"
                 foundationId={foundation.id}
-                sendMessage={sendFoundationChatMessage}
+                messageHandler={sendFoundationChatMessage}
                 initialThreadId={foundation.threadId || undefined}
               />
             </div>
