@@ -598,7 +598,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         {/* Message suggestions */}
         {showSuggestions && suggestions.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-2">
-            {suggestions.slice(0, 3).map((suggestion, index) => (
+            {suggestions.map((suggestion, index) => (
               <button
                 key={index}
                 onClick={() => handleSuggestionClick(suggestion)}
