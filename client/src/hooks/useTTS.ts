@@ -14,7 +14,7 @@ export function useTTS(options: UseTTSOptions = {}) {
   // Default to the first ElevenLabs voice (Rachel)
   const defaultVoiceId = options.defaultVoiceId || '21m00Tcm4TlvDq8ikWAM';
   const defaultProvider = options.defaultProvider || 'elevenlabs';
-  const defaultPlaybackSpeed = options.defaultPlaybackSpeed || 1.0;
+  const defaultPlaybackSpeed = options.defaultPlaybackSpeed || 1.1; // Updated default to 1.1 as requested
   
   // State
   const [isPlaying, setIsPlaying] = useState(false);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 // Type definitions for Web Speech API
 interface SpeechRecognitionEvent extends Event {
@@ -45,9 +45,9 @@ export function useSpeechRecognition({
 }: UseSpeechRecognitionProps = {}) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
+  const recognitionRef = useRef<SpeechRecognition | null>(null); // Use ref for consistent access across renders
 
   // Initialize speech recognition
   useEffect(() => {
@@ -67,14 +67,22 @@ export function useSpeechRecognition({
 
     console.log("Speech Recognition: API is available");
     
-    const recognition = new SpeechRecognition();
-    recognition.continuous = continuous;
-    recognition.interimResults = true;
-    recognition.lang = language;
+    // Create a new recognition instance
+    const recognitionInstance = new SpeechRecognition();
+    recognitionInstance.continuous = continuous;
+    recognitionInstance.interimResults = true;
+    recognitionInstance.lang = language;
+    
+    // Store in ref for reliable access across component lifecycle
+    recognitionRef.current = recognitionInstance;
 
     console.log(`Speech Recognition: Configured with continuous=${continuous}, language=${language}`);
 
-    recognition.onresult = (event: SpeechRecognitionEvent) => {
+    // Using a ref allows us to maintain consistent access to the recognition instance
+    // across renders and avoids issues with stale closures
+
+    // Set up event handlers for the recognition instance
+    recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -112,13 +120,14 @@ export function useSpeechRecognition({
       }
     };
 
-    recognition.onerror = (event: SpeechRecognitionError) => {
+    recognitionInstance.onerror = (event: SpeechRecognitionError) => {
       console.error(`Speech Recognition: Error - ${event.error}`, event);
       setError(event.error);
-      stop();
+      // Don't call stop here as it can cause circular references
+      setIsListening(false);
     };
 
-    recognition.onend = () => {
+    recognitionInstance.onend = () => {
       console.log("Speech Recognition: Recognition ended");
       setIsListening(false);
       
@@ -128,8 +137,8 @@ export function useSpeechRecognition({
         try {
           // Small delay to avoid race conditions
           setTimeout(() => {
-            if (recognition) {
-              recognition.start();
+            if (recognitionRef.current) {
+              recognitionRef.current.start();
               console.log("Speech Recognition: Auto-restarted successfully");
               setIsListening(true);
             }
@@ -144,20 +153,24 @@ export function useSpeechRecognition({
       }
     };
 
-    setRecognition(recognition);
-
+    // Return cleanup function
     return () => {
-      if (recognition) {
-        recognition.onresult = null;
-        recognition.onerror = null;
-        recognition.onend = null;
-        stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {
+          console.log("Error stopping recognition on cleanup:", e);
+        }
       }
     };
   }, [continuous, language, onEnd, onResult]);
 
   const start = useCallback(() => {
-    if (!recognition) {
+    // Use the ref for more reliable access
+    if (!recognitionRef.current) {
       console.error("Speech Recognition: Cannot start - recognition not initialized");
       return;
     }
@@ -165,7 +178,7 @@ export function useSpeechRecognition({
     console.log("Speech Recognition: Starting...");
     setError(null);
     try {
-      recognition.start();
+      recognitionRef.current.start();
       console.log("Speech Recognition: Started successfully");
       setIsListening(true);
     } catch (err) {
@@ -173,24 +186,25 @@ export function useSpeechRecognition({
       setError('Failed to start speech recognition.');
       setIsListening(false);
     }
-  }, [recognition]);
+  }, []);
 
   const stop = useCallback(() => {
-    if (!recognition) {
+    // Use the ref for more reliable access
+    if (!recognitionRef.current) {
       console.log("Speech Recognition: Cannot stop - recognition not initialized");
       return;
     }
     
     console.log("Speech Recognition: Stopping...");
     try {
-      recognition.stop();
+      recognitionRef.current.stop();
       console.log("Speech Recognition: Stopped successfully");
       setIsListening(false);
     } catch (err) {
       console.error("Speech Recognition: Error stopping recognition", err);
       setError('Failed to stop speech recognition.');
     }
-  }, [recognition]);
+  }, []);
 
   const clear = useCallback(() => {
     setTranscript('');
