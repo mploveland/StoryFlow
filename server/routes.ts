@@ -2663,13 +2663,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userMessage, assistantReply } = req.body;
       
-      // Special case - allow empty userMessage for initial welcome message with genre selection
-      const isGenreSelectionTrigger = assistantReply && assistantReply.includes("What type of genre would you like to explore for your story world?");
-      
-      // For all other cases, require both parameters
-      if ((!userMessage && !isGenreSelectionTrigger) || !assistantReply) {
+      if (!assistantReply) {
         return res.status(400).json({ 
-          message: "Both userMessage and assistantReply are required" 
+          message: "Assistant reply is required" 
         });
       }
       
@@ -2677,27 +2673,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`User message: "${userMessage?.substring(0, 50)}${userMessage?.length > 50 ? '...' : ''}"`);
       console.log(`Assistant reply: "${assistantReply?.substring(0, 50)}${assistantReply?.length > 50 ? '...' : ''}"`);
       
-      // For initial genre selection, provide helpful genre options if we detect the welcome message
-      if (isGenreSelectionTrigger) {
-        console.log("Detected initial genre selection prompt, providing genre suggestions");
-        // These suggestions are specifically for the welcome message about genre selection
-        const genreSuggestions = [
-          "Fantasy",
-          "Science Fiction",
-          "Mystery",
-          "Romance",
-          "Historical Fiction",
-          "Horror",
-          "Adventure",
-          "Dystopian",
-          "Cyberpunk"
-        ];
-        return res.status(200).json({ suggestions: genreSuggestions });
-      }
-      
-      // For all other cases, use the AI assistant to generate contextual suggestions
+      // The generateChatSuggestions function now handles the genre selection case internally
       const suggestions = await generateChatSuggestions(
-        userMessage,
+        userMessage || '', // Pass empty string if userMessage is null/undefined
         assistantReply
       );
       

@@ -1671,11 +1671,27 @@ export async function generateChatSuggestions(
   assistantReply: string
 ): Promise<string[]> {
   try {
-    // Check if this is the special genre selection trigger
+    // Check if this is the special genre selection trigger (welcome message)
     const isGenreSelectionTrigger = assistantReply && assistantReply.includes("What type of genre would you like to explore for your story world?");
     
-    // Only require userMessage for non-genre-selection cases
-    if ((!isGenreSelectionTrigger && (!userMessage || userMessage.trim() === '')) || !assistantReply || assistantReply.trim() === '') {
+    // For welcome message (genre selection), return predefined genre options
+    if (isGenreSelectionTrigger) {
+      console.log("Detected welcome message with genre selection prompt, providing genre suggestions");
+      return [
+        "Fantasy",
+        "Science Fiction", 
+        "Mystery", 
+        "Romance", 
+        "Historical Fiction",
+        "Horror", 
+        "Adventure", 
+        "Dystopian", 
+        "Cyberpunk"
+      ];
+    }
+    
+    // For other cases, require both parameters
+    if (!userMessage || userMessage.trim() === '' || !assistantReply || assistantReply.trim() === '') {
       console.log("Missing required inputs for chat suggestions");
       return []; // Return empty array - no fallback suggestions
     }

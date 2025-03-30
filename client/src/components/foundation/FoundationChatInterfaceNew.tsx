@@ -175,6 +175,10 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         // Save welcome message if foundation ID is available
         if (id) {
           saveMessage(id, 'assistant', welcomeMessage.content);
+          
+          // Get initial suggestions for the welcome message
+          console.log('Fetching initial suggestions for welcome message');
+          fetchSuggestions('', welcomeMessage.content);
         }
         
         setIsLoadingMessages(false);
