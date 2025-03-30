@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
 import { useAuth } from '@/contexts/AuthContext';
 import { Foundation, Story, Character } from '../types';
-import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BookOpen, Edit, Globe, Users, Sparkles, Palette, Mountain, Plus, MessageSquare, Trash2, AlertTriangle, Pencil } from 'lucide-react';
 import FoundationChatInterfaceNew, { FoundationChatInterfaceRef } from '@/components/foundation/FoundationChatInterfaceNew';
 import {
   AlertDialog,
@@ -20,6 +20,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 const FoundationDetails: React.FC = () => {
   const [location, navigate] = useLocation();
@@ -87,6 +98,10 @@ const FoundationDetails: React.FC = () => {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
   const [storyCount, setStoryCount] = useState(0);
+  
+  // State for rename dialog
+  const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
+  const [newFoundationName, setNewFoundationName] = useState('');
   
   // State to track if foundation components should be shown (overrides isFoundationComplete)
   const [showFoundationComponents, setShowFoundationComponents] = useState(false);
@@ -279,23 +294,51 @@ const FoundationDetails: React.FC = () => {
   
   // Update Foundation mutation for various properties
   const updateFoundationMutation = useMutation({
-    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string, currentStage?: string }) => {
+    mutationFn: async (updateData: { id: number, threadId?: string, genre?: string, currentStage?: string, name?: string }) => {
       // Only include properties that are defined
       const updatePayload: any = {};
       if (updateData.threadId !== undefined) updatePayload.threadId = updateData.threadId;
       if (updateData.genre !== undefined) updatePayload.genre = updateData.genre;
       if (updateData.currentStage !== undefined) updatePayload.currentStage = updateData.currentStage;
+      if (updateData.name !== undefined) updatePayload.name = updateData.name;
       
       const response = await apiRequest('PUT', `/api/foundations/${updateData.id}`, updatePayload);
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/foundations/${foundationId}`] });
+      // Also invalidate the list of foundations on the dashboard
+      queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
     },
     onError: (error) => {
       console.error('Error updating foundation:', error);
     }
   });
+  
+  // Handle opening the rename dialog
+  const handleRenameFoundation = () => {
+    if (foundation) {
+      setNewFoundationName(foundation.name);
+      setIsRenameDialogOpen(true);
+    }
+  };
+  
+  // Handle submitting the new foundation name
+  const handleRenameSubmit = () => {
+    if (!foundation || !newFoundationName.trim()) return;
+    
+    updateFoundationMutation.mutate({
+      id: foundation.id,
+      name: newFoundationName.trim()
+    });
+    
+    toast({
+      title: 'Foundation renamed',
+      description: 'Your foundation has been successfully renamed.'
+    });
+    
+    setIsRenameDialogOpen(false);
+  };
   
   // Function to send messages to the foundation chat
   const sendFoundationChatMessage = async (message: string, threadId?: string, chatInterface?: any): Promise<{
@@ -566,6 +609,9 @@ const FoundationDetails: React.FC = () => {
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>
             <h1 className="text-2xl font-bold">{foundation.name}</h1>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 ml-2" onClick={handleRenameFoundation}>
+              <Pencil className="h-4 w-4 text-neutral-500" />
+            </Button>
           </div>
           
           <div className="flex space-x-2 mt-4 md:mt-0">
@@ -822,6 +868,36 @@ const FoundationDetails: React.FC = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+      {/* Rename Foundation Dialog */}
+      <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Rename Foundation</DialogTitle>
+            <DialogDescription>
+              Enter a new name for your foundation
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="name" className="text-right">
+                Name
+              </Label>
+              <Input 
+                id="name" 
+                value={newFoundationName} 
+                onChange={(e) => setNewFoundationName(e.target.value)}
+                className="col-span-3"
+                autoFocus
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRenameDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleRenameSubmit} disabled={!newFoundationName.trim() || newFoundationName.trim() === foundation?.name}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
