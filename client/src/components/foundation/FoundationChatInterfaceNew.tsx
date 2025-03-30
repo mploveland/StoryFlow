@@ -477,10 +477,18 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     setTimeout(() => handleSubmit(), 100);
   };
   
+  // Effect to update input when transcript changes
+  useEffect(() => {
+    if (transcript) {
+      setInputValue(transcript);
+    }
+  }, [transcript]);
+  
   // Toggle speech recognition
   const toggleListening = () => {
     if (isListening) {
       stopListening();
+      // Keep the final transcript in the input field
     } else {
       resetTranscript();
       startListening();

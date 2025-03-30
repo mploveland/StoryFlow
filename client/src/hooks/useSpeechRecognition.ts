@@ -88,35 +88,31 @@ export function useSpeechRecognition({
 
       console.log(`Speech Recognition: Result received with ${event.results.length} results`);
 
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-          console.log(`Speech Recognition: Final transcript: "${transcript}"`);
-          
-          // Immediately call onResult with final transcript for faster response
-          if (onResult && finalTranscript.trim()) {
-            console.log(`Speech Recognition: Immediately calling onResult with final transcript: "${finalTranscript}"`);
-            onResult(finalTranscript);
-            
-            // Reset transcript after processing
-            setTranscript('');
-            return;
-          }
-        } else {
-          interimTranscript += transcript;
-          console.log(`Speech Recognition: Interim transcript: "${transcript}"`);
-        }
-      }
-
-      // Only use interim transcript for UI feedback, not for triggering callbacks
-      const currentTranscript = finalTranscript || interimTranscript;
-      setTranscript(currentTranscript);
+      // Get the latest result only
+      const latestResultIndex = event.results.length - 1;
+      const latestTranscript = event.results[latestResultIndex][0].transcript;
+      const isFinal = event.results[latestResultIndex].isFinal;
       
-      // Only call onResult with finalized speech
-      if (onResult && finalTranscript && finalTranscript.trim() !== '') {
-        console.log(`Speech Recognition: Calling onResult with transcript: "${finalTranscript}"`);
-        onResult(finalTranscript);
+      if (isFinal) {
+        // This is a final result - use it
+        finalTranscript = latestTranscript;
+        console.log(`Speech Recognition: Final transcript: "${finalTranscript}"`);
+        
+        // Set the final transcript in state
+        setTranscript(finalTranscript);
+        
+        // Call onResult with the final transcript
+        if (onResult && finalTranscript.trim()) {
+          console.log(`Speech Recognition: Calling onResult with final transcript: "${finalTranscript}"`);
+          onResult(finalTranscript);
+        }
+      } else {
+        // This is an interim result - just update the UI
+        interimTranscript = latestTranscript;
+        console.log(`Speech Recognition: Interim transcript: "${interimTranscript}"`);
+        
+        // Only update the state for user feedback
+        setTranscript(interimTranscript);
       }
     };
 
