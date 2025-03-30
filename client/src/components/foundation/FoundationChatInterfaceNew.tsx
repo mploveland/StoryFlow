@@ -459,6 +459,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       // Add a small delay to ensure the UI has updated
       setTimeout(() => {
         console.log('currentAudioUrl before speak:', currentAudioUrl);
+        console.log('Starting TTS for message:', lastMessage.content.substring(0, 100));
+        
         speak(lastMessage.content)
           .then(() => {
             console.log('Speech generation completed successfully');

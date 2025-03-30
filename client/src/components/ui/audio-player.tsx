@@ -26,6 +26,7 @@ export function AudioPlayer({
 }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolume] = useState(1.0); // Default to maximum volume
   const [playbackSpeed, setPlaybackSpeed] = useState(externalPlaybackSpeed || 1.0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -54,6 +55,12 @@ export function AudioPlayer({
     
     // Create a completely new audio element
     const newAudio = new Audio();
+    
+    // Set volume from state
+    newAudio.volume = volume;
+    
+    // Make sure audio is not muted
+    newAudio.muted = false;
     
     // Set initial playback speed
     newAudio.playbackRate = playbackSpeed;
@@ -123,7 +130,7 @@ export function AudioPlayer({
         newAudio.src = '';
       }
     };
-  }, [audioUrl, autoPlay, onPlayStateChange, playbackSpeed]);
+  }, [audioUrl, autoPlay, onPlayStateChange, playbackSpeed, volume]);
   
   // Update internal playback speed when external prop changes
   useEffect(() => {
@@ -139,6 +146,14 @@ export function AudioPlayer({
       audioRef.current.playbackRate = playbackSpeed;
     }
   }, [playbackSpeed]);
+  
+  // Update volume when it changes
+  useEffect(() => {
+    if (audioRef.current) {
+      console.log(`AudioPlayer: Setting volume to ${volume}`);
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
   
   const playAudio = () => {
     if (!audioRef.current || !audioUrl) return;
@@ -194,6 +209,29 @@ export function AudioPlayer({
     onPlaybackSpeedChange?.(newSpeed);
   };
   
+  const handleVolumeChange = (value: number[]) => {
+    if (value.length > 0) {
+      const newVolume = value[0];
+      setVolume(newVolume);
+      
+      if (audioRef.current) {
+        audioRef.current.volume = newVolume;
+        
+        // If volume is changed from zero, unmute
+        if (newVolume > 0 && isMuted) {
+          audioRef.current.muted = false;
+          setIsMuted(false);
+        }
+        
+        // If volume is set to zero, mute
+        if (newVolume === 0 && !isMuted) {
+          audioRef.current.muted = true;
+          setIsMuted(true);
+        }
+      }
+    }
+  };
+
   return (
     <div className={`flex items-center space-x-2 ${className}`}>
       {/* Play/Pause Button */}
@@ -209,15 +247,25 @@ export function AudioPlayer({
         }
       </Button>
       
-      {/* Mute Button */}
-      <Button
-        variant="ghost" 
-        size="sm"
-        onClick={toggleMute}
-        className="p-1 h-8 w-8"
-      >
-        {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
-      </Button>
+      {/* Volume Control */}
+      <div className="flex items-center space-x-1">
+        <Button
+          variant="ghost" 
+          size="sm"
+          onClick={toggleMute}
+          className="p-1 h-8 w-8"
+        >
+          {isMuted ? <VolumeX size={16} /> : <Volume2 size={16} />}
+        </Button>
+        <Slider
+          value={[isMuted ? 0 : volume]}
+          min={0}
+          max={1}
+          step={0.1}
+          onValueChange={handleVolumeChange}
+          className="w-16"
+        />
+      </div>
       
       {/* Playback Speed Selector */}
       <div className="flex items-center ml-2">
