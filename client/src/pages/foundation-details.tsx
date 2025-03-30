@@ -356,15 +356,52 @@ const FoundationDetails: React.FC = () => {
       // For the purpose of thread state tracking, check if we have a defined genre
       const hasDefinedGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
       
-      // Determine stage based on what data exists
+      // Check the current stage stored in the foundation (if any)
+      const currentStoredStage = foundation.currentStage || 'genre';
+      
+      // Get the previous stage stored in the foundation if available
+      const previousAssistantType = currentStoredStage;
+      
+      // First, get the most advanced stage the foundation has reached based on content
+      let advancedStage = 'genre';
       if (hasCharacterDetails) {
-        currentAssistantType = 'character';
+        advancedStage = 'character';
       } else if (hasWorldDetails) {
-        currentAssistantType = 'world';
-      } else if (hasEnvironmentDetails || hasDefinedGenre) {
-        currentAssistantType = 'environment';
-      } else {
-        currentAssistantType = 'genre';
+        advancedStage = 'world';
+      } else if (hasEnvironmentDetails) {
+        advancedStage = 'environment';
+      } else if (hasDefinedGenre) {
+        advancedStage = 'environment';
+      }
+      
+      // Determine stage based on sequential completion
+      // Start with what's stored, but don't jump ahead too quickly
+      currentAssistantType = previousAssistantType;
+      
+      // Only advance stage when explicitly requested or when adequate content exists
+      // and the message specifically indicates completion of the current stage
+      if (lowerCaseMessage.includes('next stage') || 
+          lowerCaseMessage.includes('move on') ||
+          lowerCaseMessage.includes('continue to') ||
+          lowerCaseMessage.includes('proceed to')) {
+        
+        // Determine the next sequential stage based on current stage
+        if (previousAssistantType === 'genre' && hasDefinedGenre) {
+          currentAssistantType = 'environment';
+        } else if (previousAssistantType === 'environment' && hasEnvironmentDetails) {
+          currentAssistantType = 'world';
+        } else if (previousAssistantType === 'world' && hasWorldDetails) {
+          currentAssistantType = 'character';
+        }
+        
+        // Check if we need to update the foundation with the new stage
+        if (currentAssistantType !== previousAssistantType) {
+          console.log(`Updating foundation with new current stage: ${currentAssistantType}`);
+          updateFoundationMutation.mutate({
+            id: foundation.id,
+            currentStage: currentAssistantType
+          });
+        }
       }
       
       // Set the current stage in the chat interface if it's provided
