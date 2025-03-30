@@ -11,9 +11,9 @@ interface UseTTSOptions {
 export function useTTS(options: UseTTSOptions = {}) {
   console.log("useTTS hook initialized with options:", options);
   
-  // Default to the first ElevenLabs voice (Rachel)
-  const defaultVoiceId = options.defaultVoiceId || '21m00Tcm4TlvDq8ikWAM';
-  const defaultProvider = options.defaultProvider || 'elevenlabs';
+  // Default to OpenAI Nova voice instead of ElevenLabs
+  const defaultVoiceId = options.defaultVoiceId || 'nova';
+  const defaultProvider = options.defaultProvider || 'openai';
   const defaultPlaybackSpeed = options.defaultPlaybackSpeed || 1.1; // Updated default to 1.1 as requested
   
   // State

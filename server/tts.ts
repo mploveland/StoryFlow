@@ -101,10 +101,10 @@ export const OPENAI_VOICES: VoiceOption[] = [
   }
 ];
 
-// All available voices
+// All available voices - prioritize OpenAI voices
 export const ALL_VOICES: VoiceOption[] = [
-  ...ELEVENLABS_VOICES,
-  ...OPENAI_VOICES
+  ...OPENAI_VOICES,
+  ...ELEVENLABS_VOICES
 ];
 
 // Convert text to speech using ElevenLabs
