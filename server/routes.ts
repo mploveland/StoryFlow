@@ -1354,6 +1354,228 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Foundation stage transitions
+  apiRouter.post("/foundations/:id/transition", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { stage } = req.body;
+      
+      if (!id || !stage) {
+        return res.status(400).json({ error: 'Foundation ID and stage are required' });
+      }
+      
+      // Update the foundation's current stage
+      await storage.updateFoundation(parseInt(id), { currentStage: stage });
+      
+      return res.status(200).json({ success: true });
+    } catch (error) {
+      console.error('Error transitioning foundation stage:', error);
+      return res.status(500).json({ error: 'Failed to transition stage' });
+    }
+  });
+
+  // Genre to Environment transition with foundation rename suggestion
+  apiRouter.post("/foundations/:id/genre-to-environment", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { 
+        genreSummary, 
+        mainGenre,
+        genreDetails = {},
+        suggestedNames = []
+      } = req.body;
+      
+      if (!id || !genreSummary) {
+        return res.status(400).json({ 
+          error: 'Foundation ID and genre summary are required' 
+        });
+      }
+      
+      console.log(`Transitioning foundation ${id} from genre to environment stage`);
+      const foundationId = parseInt(id);
+      const effectiveMainGenre = mainGenre || 'Fantasy'; // Fallback to Fantasy if not provided
+      
+      // 1. Update the foundation with genre info and change stage
+      await storage.updateFoundation(foundationId, { 
+        genre: effectiveMainGenre, 
+        currentStage: 'environment'  // Advance to environment stage
+      });
+      
+      console.log('Foundation updated to environment stage');
+      
+      // 2. Add genre details to the database
+      const genreData = {
+        foundationId,
+        name: genreDetails.name || `${effectiveMainGenre} Genre`, // Default name is required
+        mainGenre: effectiveMainGenre,
+        description: genreDetails.description || genreSummary,
+        themes: genreDetails.themes || [],
+        subgenres: genreDetails.subgenres || '',
+        mood: genreDetails.mood || '',
+        tone: genreDetails.tone || '',
+        inspirations: genreDetails.inspirations || '',
+        threadId: genreDetails.threadId || null
+      };
+      
+      // Check if genre details already exist for this foundation
+      const existingDetails = await storage.getGenreDetailsByFoundation(foundationId);
+      
+      if (!existingDetails) {
+        // Insert new genre details
+        console.log('Creating new genre details');
+        await storage.createGenreDetails(genreData);
+      } else {
+        // Update existing genre details
+        console.log('Updating existing genre details');
+        await storage.updateGenreDetails(existingDetails.id, genreData);
+      }
+      
+      // 3. Generate a customized environment introduction based on the genre
+      const environmentIntroMessage = getEnvironmentIntroMessage(effectiveMainGenre, genreSummary);
+      
+      return res.status(200).json({ 
+        success: true, 
+        suggestedNames,
+        message: "Genre details saved and ready for environment stage",
+        environmentIntroMessage,
+        mainGenre: effectiveMainGenre
+      });
+    } catch (error) {
+      console.error('Error in genre to environment transition:', error);
+      return res.status(500).json({ error: 'Failed to process genre to environment transition' });
+    }
+  });
+  
+  // Helper function to generate environment introduction message
+  function getEnvironmentIntroMessage(mainGenre: string, genreSummary: string): string {
+    // Base message template
+    let baseMessage = `Welcome to the Environment Stage! Now that we've established the ${mainGenre} genre for your story world, let's explore the physical settings where your stories will take place.`;
+    
+    // Add genre-specific extensions
+    switch (mainGenre.toLowerCase()) {
+      case 'fantasy':
+        baseMessage += ' Consider magical landscapes, ancient forests, mystical mountains, or enchanted cities. What environments do you envision for your fantasy world?';
+        break;
+      case 'sci-fi':
+      case 'science fiction':
+        baseMessage += ' Think about futuristic cities, space stations, distant planets, or post-apocalyptic landscapes. What settings would you like to explore in your sci-fi universe?';
+        break;
+      case 'horror':
+        baseMessage += ' Imagine eerie mansions, foggy towns, abandoned facilities, or supernatural locations. What kind of unsettling environments would you like to include?';
+        break;
+      case 'romance':
+        baseMessage += ' Consider picturesque towns, beautiful natural settings, cozy cafes, or exotic destinations. What romantic settings would you like to include in your world?';
+        break;
+      case 'mystery':
+      case 'detective':
+      case 'thriller':
+        baseMessage += ' Think about atmospheric cities, secluded towns, or locations with hidden secrets. What intriguing settings would best serve your mystery world?';
+        break;
+      case 'historical':
+      case 'historical fiction':
+        baseMessage += ' Consider authentic period locations, notable historical sites, or settings during significant events. In which historical environments would you like to set your stories?';
+        break;
+      default:
+        baseMessage += ' What types of physical settings would you like to include in your story world?';
+    }
+    
+    return baseMessage;
+  }
+
+  // Update foundation name
+  apiRouter.post("/foundations/:id/rename", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { name } = req.body;
+      
+      if (!id || !name) {
+        return res.status(400).json({ error: 'Foundation ID and new name are required' });
+      }
+      
+      // Update the foundation name
+      await storage.updateFoundation(parseInt(id), { name });
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "Foundation renamed successfully"
+      });
+    } catch (error) {
+      console.error('Error renaming foundation:', error);
+      return res.status(500).json({ error: 'Failed to rename foundation' });
+    }
+  });
+  
+  // Generate foundation name suggestions
+  apiRouter.post("/foundations/:id/name-suggestions", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { genreSummary, mainGenre } = req.body;
+      
+      if (!id || !genreSummary) {
+        return res.status(400).json({ error: 'Foundation ID and genre summary are required' });
+      }
+      
+      // Use OpenAI to generate foundation name suggestions based on the genre
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user
+        messages: [
+          {
+            role: "system",
+            content: "You are a creative naming assistant for a storytelling application. Generate 5 creative and thematically appropriate names for a story foundation based on the provided genre information. The names should be evocative and capture the essence of the genre, while being original and memorable. Return ONLY the list of names in JSON format with a 'names' array field."
+          },
+          {
+            role: "user",
+            content: `Generate 5 creative and evocative foundation names based on this genre summary:\n\nGenre: ${mainGenre}\n\nSummary: ${genreSummary}\n\nFormat your response as a JSON object with a 'names' array field.`
+          }
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 500
+      });
+      
+      // Extract the suggested names
+      const responseContent = response.choices[0].message.content || '';
+      let suggestedNames: string[] = [];
+      
+      try {
+        const parsedResponse = JSON.parse(responseContent);
+        if (Array.isArray(parsedResponse.names)) {
+          suggestedNames = parsedResponse.names.slice(0, 5);
+        } else if (parsedResponse.names && typeof parsedResponse.names === 'string') {
+          // Handle case where it's a comma-separated string
+          suggestedNames = parsedResponse.names.split(',').map((name: string) => name.trim()).slice(0, 5);
+        }
+      } catch (parseError) {
+        console.error('Error parsing name suggestions:', parseError);
+        // Try to extract names using regex if JSON parsing fails
+        const nameMatches = responseContent.match(/["']([^"']+)["']/g);
+        if (nameMatches) {
+          suggestedNames = nameMatches
+            .map((match: string) => match.replace(/["']/g, ''))
+            .slice(0, 5);
+        }
+      }
+      
+      // Ensure we have at least some names, even if parsing failed
+      if (suggestedNames.length === 0) {
+        suggestedNames = [
+          `${mainGenre} Chronicles`,
+          `Tales of ${mainGenre}`,
+          `${mainGenre} World`,
+          `${mainGenre} Realms`,
+          `${mainGenre} Foundation`
+        ];
+      }
+      
+      return res.status(200).json({ 
+        success: true, 
+        suggestedNames 
+      });
+    } catch (error) {
+      console.error('Error generating name suggestions:', error);
+      return res.status(500).json({ error: 'Failed to generate name suggestions' });
+    }
+  });
+
   // AI routes
   apiRouter.post("/ai/suggestions", async (req: Request, res: Response) => {
     try {

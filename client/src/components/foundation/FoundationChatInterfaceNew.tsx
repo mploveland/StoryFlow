@@ -47,6 +47,11 @@ export interface FoundationChatInterfaceRef {
 declare global {
   interface Window {
     [key: string]: any;
+    pendingGenreTransition?: {
+      mainGenre: string;
+      genreSummary: string;
+      suggestedNames: string[];
+    };
   }
 }
 
@@ -401,7 +406,18 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     setShowSuggestions(false);
     
     try {
-      // Send message to AI
+      // First check if the user is responding to name suggestions
+      if (window.pendingGenreTransition && isRespondingToNameSuggestions(userMessage.content)) {
+        // Handle name selection first
+        console.log('Detected response to name suggestions', userMessage.content);
+        const processed = await processNameSelection(userMessage.content);
+        if (processed) {
+          console.log('Name selection processed successfully');
+          return; // Skip the regular message handling flow
+        }
+      }
+      
+      // Regular message handling flow
       const response = await messageHandler(userMessage.content, threadId);
       
       // Add AI response to chat
@@ -426,8 +442,14 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       // Mark as already spoken to prevent duplication
       lastSpokenMessageRef.current = assistantMessage.content;
       
-      // Fetch suggestions
-      fetchSuggestions(userMessage.content, assistantMessage.content);
+      // Check if this is a genre summary that should trigger a transition
+      if (isGenreSummaryComplete(assistantMessage.content)) {
+        console.log('Detected completed genre summary');
+        await processGenreSummary(assistantMessage.content);
+      } else {
+        // Only fetch suggestions if not transitioning
+        fetchSuggestions(userMessage.content, assistantMessage.content);
+      }
     } catch (error) {
       console.error('Error processing message:', error);
       
@@ -527,6 +549,283 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       }, 300); // Delay to ensure UI is updated
     }
   }, [messages, speak, stopSpeaking, isLoadingMessages, isProcessing, selectedVoice, playbackSpeed, autoPlayMessages]);
+  
+  // Process genre summary for transition to environment stage
+  const processGenreSummary = async (genreSummary: string) => {
+    try {
+      console.log('Processing genre summary for stage transition');
+      const effectiveFoundationId = foundationId || foundation?.id;
+      
+      if (!effectiveFoundationId) {
+        console.error('No foundation ID available for genre transition');
+        return;
+      }
+      
+      // Extract the main genre from the summary text
+      // This is a simple extraction - in a real app, you might want to use AI to extract this more reliably
+      let mainGenre = 'Unknown';
+      const genreMatch = genreSummary.match(/Genre:\s*([^\n\.]+)/i);
+      if (genreMatch && genreMatch[1]) {
+        mainGenre = genreMatch[1].trim();
+      }
+      
+      console.log('Extracted main genre:', mainGenre);
+      
+      // Generate name suggestions based on the genre summary
+      const nameResponse = await fetch(`/api/foundations/${effectiveFoundationId}/name-suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          genreSummary,
+          mainGenre
+        })
+      });
+      
+      if (!nameResponse.ok) {
+        console.error('Failed to generate name suggestions:', nameResponse.status);
+        return;
+      }
+      
+      const nameData = await nameResponse.json();
+      const suggestedNames = nameData.suggestedNames || [];
+      
+      console.log('Generated name suggestions:', suggestedNames);
+      
+      if (suggestedNames.length === 0) {
+        // If no name suggestions were generated, skip to environment stage directly
+        console.log('No name suggestions available - transitioning directly');
+        triggerEnvironmentStage(mainGenre, genreSummary, []);
+        return;
+      }
+      
+      // Add message with name suggestions
+      const nameMessage = {
+        role: 'assistant' as const,
+        content: `Based on the ${mainGenre} genre, I've generated some possible names for your story foundation. Would you like to rename it to any of these?\n\n${suggestedNames.map((name: string, index: number) => `${index + 1}. ${name}`).join('\n')}\n\nOr you can keep the current name "${foundation?.name}". What would you prefer?`
+      };
+      
+      setMessages(prev => [...prev, nameMessage]);
+      lastSpokenMessageRef.current = nameMessage.content;
+      
+      // Save assistant message
+      if (effectiveFoundationId) {
+        saveMessage(effectiveFoundationId, 'assistant', nameMessage.content);
+      }
+      
+      // Store the genre info for later use
+      window.pendingGenreTransition = {
+        mainGenre,
+        genreSummary,
+        suggestedNames
+      };
+    } catch (error) {
+      console.error('Error processing genre summary:', error);
+    }
+  };
+  
+  // Process user response to name suggestions and transition to environment stage
+  const processNameSelection = async (userInput: string) => {
+    try {
+      if (!window.pendingGenreTransition) {
+        console.error('No pending genre transition data available');
+        return false;
+      }
+      
+      const { mainGenre, genreSummary, suggestedNames } = window.pendingGenreTransition;
+      const effectiveFoundationId = foundationId || foundation?.id;
+      
+      if (!effectiveFoundationId) {
+        console.error('No foundation ID available for name selection');
+        return false;
+      }
+      
+      // Try to determine if the user selected a name
+      let selectedName = '';
+      
+      // Check for numeric selection (e.g., "1", "number 2")
+      const numberMatch = userInput.match(/(\d+)|number\s+(\d+)|option\s+(\d+)/i);
+      if (numberMatch) {
+        const selection = parseInt(numberMatch[1] || numberMatch[2] || numberMatch[3], 10);
+        if (selection >= 1 && selection <= suggestedNames.length) {
+          selectedName = suggestedNames[selection - 1];
+        }
+      } 
+      // Check for name mention (e.g., "I like Tales of Magic")
+      else {
+        for (const name of suggestedNames) {
+          if (userInput.toLowerCase().includes(name.toLowerCase())) {
+            selectedName = name;
+            break;
+          }
+        }
+      }
+      
+      // If a name was selected, update the foundation name
+      if (selectedName) {
+        console.log('User selected name:', selectedName);
+        
+        try {
+          const renameResponse = await fetch(`/api/foundations/${effectiveFoundationId}/rename`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: selectedName })
+          });
+          
+          if (renameResponse.ok) {
+            console.log('Foundation renamed successfully');
+            
+            // Add confirmation message
+            const confirmMessage = {
+              role: 'assistant' as const,
+              content: `Great choice! I've renamed your foundation to "${selectedName}".`
+            };
+            
+            setMessages(prev => [...prev, confirmMessage]);
+            lastSpokenMessageRef.current = confirmMessage.content;
+            
+            // Save assistant message
+            if (effectiveFoundationId) {
+              saveMessage(effectiveFoundationId, 'assistant', confirmMessage.content);
+            }
+          } else {
+            console.error('Failed to rename foundation:', renameResponse.status);
+          }
+        } catch (error) {
+          console.error('Error renaming foundation:', error);
+        }
+      } else {
+        console.log('User declined to rename foundation or selection unclear');
+      }
+      
+      // Trigger transition to environment stage
+      triggerEnvironmentStage(mainGenre, genreSummary, suggestedNames);
+      
+      // Clear pending transition data
+      delete window.pendingGenreTransition;
+      
+      return true;
+    } catch (error) {
+      console.error('Error processing name selection:', error);
+      return false;
+    }
+  };
+  
+  // Trigger the transition to environment stage
+  const triggerEnvironmentStage = async (mainGenre: string, genreSummary: string, suggestedNames: string[]) => {
+    try {
+      console.log('Transitioning to environment stage');
+      const effectiveFoundationId = foundationId || foundation?.id;
+      
+      if (!effectiveFoundationId) {
+        console.error('No foundation ID available for environment stage transition');
+        return;
+      }
+      
+      // Call the API to perform the genre-to-environment transition
+      const transitionResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre-to-environment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          genreSummary,
+          mainGenre,
+          suggestedNames,
+          genreDetails: {
+            // Add detailed genre information if available
+          }
+        })
+      });
+      
+      if (!transitionResponse.ok) {
+        console.error('Failed to transition to environment stage:', transitionResponse.status);
+        return;
+      }
+      
+      const transitionData = await transitionResponse.json();
+      console.log('Transition data:', transitionData);
+      
+      // Add the environment introduction message
+      const envIntroMessage = {
+        role: 'assistant' as const,
+        content: transitionData.environmentIntroMessage || 'You are now ready to transition to the Environments Stage of the Foundation creation process.'
+      };
+      
+      setMessages(prev => [...prev, envIntroMessage]);
+      lastSpokenMessageRef.current = envIntroMessage.content;
+      
+      // Save assistant message
+      if (effectiveFoundationId) {
+        saveMessage(effectiveFoundationId, 'assistant', envIntroMessage.content);
+      }
+      
+      // Fetch suggestions for the environment stage introduction
+      fetchSuggestions('', envIntroMessage.content);
+      
+      // Update the current stage
+      setCurrentStage('environment');
+    } catch (error) {
+      console.error('Error transitioning to environment stage:', error);
+    }
+  };
+  
+  // Check if a message is a genre summary that should trigger transition
+  const isGenreSummaryComplete = (content: string): boolean => {
+    // This is a simple heuristic - in a real app, you'd want to use more sophisticated detection
+    const hasGenre = content.includes('Genre:') || content.includes('Main Genre:');
+    const hasDescription = content.length > 500; // Assuming a good summary is reasonably detailed
+    
+    // Look for specific transition indicators in the message
+    const transitionIndicators = [
+      'genre summary',
+      'genre profile is complete',
+      'genre foundation is complete',
+      'foundation genre',
+      'ready to move to the next stage',
+      'ready to move to environments',
+      'ready for the environment stage'
+    ];
+    
+    const hasTransitionIndicator = transitionIndicators.some(indicator => 
+      content.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    return currentStage === 'genre' && hasGenre && hasDescription && hasTransitionIndicator;
+  };
+  
+  // Check if a message is responding to name suggestions
+  const isRespondingToNameSuggestions = (userContent: string): boolean => {
+    if (!window.pendingGenreTransition) return false;
+    
+    const { suggestedNames } = window.pendingGenreTransition;
+    
+    // Check for common response patterns to name suggestions
+    const selectionIndicators = [
+      /I (like|choose|prefer|want|pick) (option|number|choice)?\s*\d+/i,
+      /option\s*\d+/i,
+      /number\s*\d+/i,
+      /^\d+$/,
+      /the first one/i,
+      /the second one/i,
+      /the third one/i,
+      /the \w+ option/i,
+      /use that name/i,
+      /rename (it|the foundation)/i,
+      /sounds good/i,
+      /(keep|current) name/i,
+      /don't rename/i,
+      /don't change/i,
+      /stay with/i
+    ];
+    
+    const isSelectionResponse = selectionIndicators.some(pattern => 
+      pattern.test(userContent)
+    );
+    
+    const namesMentioned = suggestedNames.some((name: string) => 
+      userContent.toLowerCase().includes(name.toLowerCase())
+    );
+    
+    return isSelectionResponse || namesMentioned;
+  };
   
   // Handle suggestion click
   const handleSuggestionClick = (suggestion: string) => {

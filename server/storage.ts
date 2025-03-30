@@ -181,8 +181,34 @@ export class DatabaseStorage implements IStorage {
   }
   
   async deleteFoundation(id: number): Promise<boolean> {
-    const [deleted] = await db.delete(foundations).where(eq(foundations.id, id)).returning();
-    return !!deleted;
+    try {
+      // Start a transaction to ensure all deletions are atomic
+      await db.transaction(async (tx) => {
+        // Delete dependent records first - starting with foundation messages
+        await tx.delete(foundationMessages).where(eq(foundationMessages.foundationId, id));
+        
+        // Delete genre details
+        await tx.delete(genreDetails).where(eq(genreDetails.foundationId, id));
+        
+        // Delete environment details
+        await tx.delete(environmentDetails).where(eq(environmentDetails.foundationId, id));
+        
+        // Delete world details
+        await tx.delete(worldDetails).where(eq(worldDetails.foundationId, id));
+        
+        // Delete characters and their details
+        await tx.delete(characterDetails).where(eq(characterDetails.foundationId, id));
+        await tx.delete(characters).where(eq(characters.foundationId, id));
+        
+        // Finally delete the foundation itself
+        await tx.delete(foundations).where(eq(foundations.id, id));
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error in deleteFoundation transaction:', error);
+      throw error;
+    }
   }
   
   // Story operations
