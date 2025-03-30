@@ -215,6 +215,20 @@ const Dashboard: React.FC = () => {
       setFoundationToDelete(null);
       setIsDeleteDialogOpen(false);
       setIsForceDeleteDialogOpen(false);
+      
+      // Explicitly refetch foundations to ensure the UI is updated
+      const refetchFoundations = async () => {
+        try {
+          await queryClient.fetchQuery({ 
+            queryKey: [`/api/foundations?userId=${user?.id}`]
+          });
+          console.log('Foundations refetched after deletion');
+        } catch (error) {
+          console.error('Error refetching foundations:', error);
+        }
+      };
+      
+      refetchFoundations();
     },
     onError: (error: any) => {
       toast({
@@ -415,14 +429,33 @@ const Dashboard: React.FC = () => {
                           )}
                           {foundation.updatedAt && (
                             <p className="text-xs text-neutral-400">
-                              Updated: {new Date(foundation.updatedAt).toLocaleDateString()}
+                              Updated: {new Date(foundation.updatedAt).toLocaleString(undefined, {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </p>
                           )}
                         </div>
                         <Globe className="h-5 w-5 text-primary-500" />
                       </div>
                       
-                      {/* Delete button removed as requested */}
+                      <div className="mt-3 flex justify-end">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent card click
+                            handleDeleteFoundation(foundation);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -543,7 +576,13 @@ const Dashboard: React.FC = () => {
                                 )}
                                 {story.updatedAt && (
                                   <p className="text-xs text-neutral-400">
-                                    Updated: {new Date(story.updatedAt).toLocaleDateString()}
+                                    Updated: {new Date(story.updatedAt).toLocaleString(undefined, {
+                                      year: 'numeric',
+                                      month: 'short',
+                                      day: 'numeric',
+                                      hour: '2-digit',
+                                      minute: '2-digit'
+                                    })}
                                   </p>
                                 )}
                               </div>
