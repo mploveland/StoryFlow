@@ -172,6 +172,15 @@ const FoundationDetails: React.FC = () => {
     enabled: !!foundationId,
   });
   
+  // Query messages for this foundation
+  const { 
+    data: messages = [], 
+    isLoading: isLoadingMessages 
+  } = useQuery<{id: number, role: 'user' | 'assistant', content: string}[]>({
+    queryKey: [`/api/foundations/${foundationId}/messages`],
+    enabled: !!foundationId,
+  });
+  
   // Function to check if foundation is complete (has genre, world details, and at least one character)
   // Currently always returning false to hide stage cards until explicitly requested
   const isFoundationComplete = (foundation?: Foundation, characters?: Character[]) => {
@@ -899,31 +908,67 @@ const FoundationDetails: React.FC = () => {
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center">
                   <MessageSquare className="mr-2 h-5 w-5 text-blue-500" />
-                  How To Use
+                  Chat Interface Guide
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                <p>Welcome to your story foundation! Here's how to build your world:</p>
-                <div className="space-y-2">
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">1</div>
-                    <p><span className="font-semibold">Choose a genre</span> - Start by telling me what genre interests you for your story.</p>
+                <div className="space-y-4">
+                  {/* First section - Messages & Suggestions */}
+                  <div>
+                    <h3 className="font-semibold text-blue-700 mb-2">Using the Chat Interface</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-start">
+                        <div className="bg-blue-100 text-blue-600 rounded w-8 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0 text-xs font-semibold">CHAT</div>
+                        <p>Type freely in the message box - you can be as brief or as detailed as you like. Longer, descriptive responses will create more personalized results.</p>
+                      </div>
+                      
+                      <div className="flex items-start">
+                        <div className="bg-blue-100 text-blue-600 rounded w-8 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0 text-xs font-semibold">TIPS</div>
+                        <p>Blue suggestion bubbles offer quick responses. Click one to use it, or ignore them and type your own message.</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">2</div>
-                    <p><span className="font-semibold">Create environments</span> - Describe the key locations where your story will unfold.</p>
+                  
+                  {/* Second section - Current Stage */}
+                  <div>
+                    <h3 className="font-semibold text-blue-700 mb-2">Current Stage: {foundation.currentStage === 'genre' ? 'Genre Selection' : 
+                                                                     foundation.currentStage === 'environment' ? 'Environment Creation' :
+                                                                     foundation.currentStage === 'world' ? 'World Building' :
+                                                                     foundation.currentStage === 'character' ? 'Character Creation' : 'Foundation Setup'}</h3>
+                    <div className="p-2 bg-white rounded border border-blue-100">
+                      {foundation.currentStage === 'genre' && (
+                        <p>Tell me what genre you'd like for your story. You can name a specific genre or describe the kind of story you want to create.</p>
+                      )}
+                      {foundation.currentStage === 'environment' && (
+                        <p>Describe the key locations in your story. What places are important? What makes them unique? Be as detailed as you wish.</p>
+                      )}
+                      {foundation.currentStage === 'world' && (
+                        <p>Now we're building the broader world that contains your environments. What's the history, culture, and unique aspects of this world?</p>
+                      )}
+                      {foundation.currentStage === 'character' && (
+                        <p>Create interesting characters for your story. Describe their appearance, personality, motivations, and relationships.</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">3</div>
-                    <p><span className="font-semibold">Build your world</span> - We'll shape the broader world that contains these environments.</p>
+                  
+                  {/* Third section - Voice/Audio */}
+                  <div>
+                    <h3 className="font-semibold text-blue-700 mb-2">Voice Interaction</h3>
+                    <div className="flex items-start">
+                      <div className="bg-blue-100 text-blue-600 rounded w-8 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0 text-xs font-semibold">AUDIO</div>
+                      <p>Click the microphone icon to speak your responses. Click the audio icon to hear the assistant's responses read aloud.</p>
+                    </div>
                   </div>
-                  <div className="flex items-start">
-                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">4</div>
-                    <p><span className="font-semibold">Create characters</span> - Populate your world with interesting characters.</p>
-                  </div>
-                </div>
-                <div className="pt-2 border-t border-blue-100">
-                  <p className="text-blue-700">Type <span className="font-mono bg-blue-100 px-1 rounded">show cards</span> at any time to view your progress.</p>
+                  
+                  {/* Conditional command tip based on message count */}
+                  {messages && messages.filter((m: {role: string}) => m.role === 'user').length >= 2 && (
+                    <div className="pt-2 border-t border-blue-100">
+                      <p className="text-blue-700 flex items-center">
+                        <span className="bg-blue-100 text-blue-600 rounded-full w-5 h-5 flex items-center justify-center mr-2 flex-shrink-0 text-xs">✓</span>
+                        Type <span className="font-mono bg-blue-100 px-1 rounded mx-1">Finish it</span> to let AI complete this stage for you.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
