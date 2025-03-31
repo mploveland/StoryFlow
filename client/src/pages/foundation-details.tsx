@@ -392,15 +392,10 @@ const FoundationDetails: React.FC = () => {
   const navigateToGenreDetails = () => {
     if (!foundation) return;
     
-    // Use absolute URL to ensure correct navigation
-    const url = `${window.location.origin}/genre-details?foundationId=${foundation.id}`;
-    console.log('Navigating to genre details with absolute URL:', url);
+    console.log('Navigating to genre details page for foundation:', foundation.id);
     
-    // Add debug alert to verify navigation is happening
-    alert(`Navigating to: ${url}`);
-    
-    // Use direct window location for more reliable navigation
-    window.location.href = url;
+    // Use wouter's navigate function instead of direct window.location change
+    navigate(`/genre-details?foundationId=${foundation.id}`);
   };
   
   // Function to send messages to the foundation chat
@@ -652,7 +647,7 @@ const FoundationDetails: React.FC = () => {
                 onClick={() => {
                   const specificUrl = `/foundation-details?foundationId=35`;
                   console.log('Trying hardcoded URL:', specificUrl);
-                  window.location.href = specificUrl;
+                  navigate(specificUrl);
                 }}
                 className="mb-2"
               >
@@ -809,7 +804,7 @@ const FoundationDetails: React.FC = () => {
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => window.location.href = `/world-details?foundationId=${foundation.id}`}
+                      onClick={() => navigate(`/world-details?foundationId=${foundation.id}`)}
                     >
                       View Details
                     </Button>
@@ -839,7 +834,7 @@ const FoundationDetails: React.FC = () => {
                       variant="ghost" 
                       size="sm" 
                       className="w-full text-primary-600"
-                      onClick={() => window.location.href = `/character-details?foundationId=${foundation.id}`}
+                      onClick={() => navigate(`/character-details?foundationId=${foundation.id}`)}
                     >
                       View All Characters
                     </Button>
@@ -863,7 +858,7 @@ const FoundationDetails: React.FC = () => {
                     variant="ghost" 
                     size="sm"
                     className="w-full text-primary-600" 
-                    onClick={() => window.location.href = `/environment-details?foundationId=${foundation.id}`}
+                    onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
                   >
                     View Details
                   </Button>
