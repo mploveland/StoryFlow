@@ -553,17 +553,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Get both genre and environment details to pass as context to world stage
           try {
             const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+            
+            // Get all environment details for this foundation - may have multiple environments
             const environmentDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
             
             if (genreDetails && environmentDetails) {
-              // Create a transition message with combined context
-              currentMessage = `I'd like to create the overall world that contains my environments. Here's the context:
-                Genre: ${genreDetails.mainGenre}
-                Environment: ${environmentDetails.environment_name || 'Custom Environment'}
+              // Create a detailed transition message with complete context for the world builder
+              currentMessage = `Welcome to the World Builder stage!
+In this phase, we'll design the broader world where your narratives unfold—drawing from the genre and environment details you've already established. The World Builder will place your environments into meaningful locations within the world, while also laying a rich, interconnected foundation for future settings. By the end, you'll have enough world detail to generate a map and set the stage for immersive storytelling.
+
+Here's the context from previous stages:
+Genre: ${genreDetails.mainGenre}
+Environment: ${environmentDetails.environment_name || 'Custom Environment'}
+
+To begin, do you have an existing map in mind for reference—or should I start by building around the environments we've already established? ${message}`;
                 
-                Let's develop the broader world that contains this environment. ${message}`;
-                
-              console.log("Added genre and environment context to world transition message");
+              console.log("Added comprehensive genre and environment context to world transition message");
+              
+              // Update the foundation to mark the new stage
+              await storage.updateFoundation(foundationId, {
+                currentStage: 'world'
+              });
             }
           } catch (contextError) {
             console.error("Error retrieving context for world transition:", contextError);
@@ -1384,6 +1394,151 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error transitioning foundation stage:', error);
       return res.status(500).json({ error: 'Failed to transition stage' });
+    }
+  });
+
+  // Environment to World transition
+  apiRouter.post("/foundations/:id/environment-to-world", async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { 
+        environmentDetails = {},
+        createAnother = false // Flag to determine if user wants to create another environment
+      } = req.body;
+      
+      if (!id) {
+        return res.status(400).json({ 
+          error: 'Foundation ID is required' 
+        });
+      }
+      
+      console.log(`Processing environment-to-world transition for foundation ${id}`);
+      const foundationId = parseInt(id);
+      
+      // 1. Save environment details if they're provided and not already saved
+      if (Object.keys(environmentDetails).length > 0) {
+        try {
+          console.log(`Saving final environment details for foundation ID: ${foundationId}`);
+          
+          // Check if environment details already exist for this foundation
+          const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+          
+          // Prepare the environment data - handle both camelCase and snake_case formats
+          const environmentData = {
+            environment_name: environmentDetails.name || environmentDetails.environment_name || 'Custom Environment',
+            narrative_significance: environmentDetails.worldContext || environmentDetails.narrative_significance || '',
+            geography: typeof environmentDetails.physicalAttributes === 'object' ? 
+              JSON.stringify(environmentDetails.physicalAttributes) : 
+              (environmentDetails.geography || ''),
+            architecture: typeof environmentDetails.structuralFeatures === 'object' ? 
+              JSON.stringify(environmentDetails.structuralFeatures) : 
+              (environmentDetails.architecture || ''),
+            climate_weather: environmentDetails.physicalAttributes?.climate || environmentDetails.climate_weather || '',
+            sensory_atmosphere: typeof environmentDetails.sensoryDetails === 'object' ? 
+              JSON.stringify(environmentDetails.sensoryDetails) : 
+              (environmentDetails.sensory_atmosphere || ''),
+            cultural_influence: typeof environmentDetails.culture === 'object' ? 
+              JSON.stringify(environmentDetails.culture) : 
+              (environmentDetails.cultural_influence || ''),
+            societal_norms: environmentDetails.culture?.attitudes || environmentDetails.societal_norms || '',
+            historical_relevance: typeof environmentDetails.history === 'object' ? 
+              JSON.stringify(environmentDetails.history) : 
+              (environmentDetails.historical_relevance || ''),
+            economic_significance: environmentDetails.economic_significance || '',
+            speculative_features: environmentDetails.speculative_features || '',
+            associated_characters_factions: typeof environmentDetails.inhabitants === 'object' ? 
+              JSON.stringify(environmentDetails.inhabitants) : 
+              (environmentDetails.associated_characters_factions || ''),
+            inspirations_references: environmentDetails.inspirations_references || '',
+            threadId: environmentDetails.threadId
+          };
+          
+          if (existingDetails) {
+            // Update existing environment details
+            console.log(`Updating existing environment details ID: ${existingDetails.id}`);
+            await storage.updateEnvironmentDetails(existingDetails.id, {
+              ...environmentData,
+              foundationId
+            });
+          } else {
+            // Create new environment details
+            console.log(`Creating new environment details for foundation ID: ${foundationId}`);
+            await storage.createEnvironmentDetails({
+              ...environmentData,
+              foundationId
+            });
+          }
+          
+          console.log(`Successfully saved environment details for foundation ${foundationId}`);
+        } catch (saveError) {
+          console.error('Error saving environment details to database:', saveError);
+          // Continue despite the error - don't block the transition
+        }
+      }
+      
+      // 2. Decide next steps based on user choice:
+      if (createAnother) {
+        // User wants to create another environment for this world
+        console.log(`User requested to create another environment for foundation ${foundationId}`);
+        
+        // Get genre details to provide context for the next environment
+        const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+        
+        return res.status(200).json({
+          success: true,
+          nextAction: "createAnotherEnvironment",
+          message: "Ready to create another environment",
+          genreContext: genreDetails ? {
+            mainGenre: genreDetails.mainGenre,
+            description: genreDetails.description
+          } : null
+        });
+      } else {
+        // User wants to move to the world building stage
+        console.log(`Transitioning foundation ${foundationId} from environment to world stage`);
+        
+        // Update the foundation's current stage
+        await storage.updateFoundation(foundationId, { currentStage: 'world' });
+        
+        // Collect context from previous stages to pass to world building
+        const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+        
+        // Get all environment details to provide comprehensive context for world building
+        const allEnvironmentDetails = await storage.getAllEnvironmentDetailsByFoundation(foundationId);
+        const environmentDetails = allEnvironmentDetails.length > 0 ? allEnvironmentDetails[0] : undefined;
+        
+        // Transform all environment details into a simplified format for the client
+        const environmentContexts = allEnvironmentDetails.map(env => ({
+          id: env.id,
+          name: env.environment_name,
+          description: env.narrative_significance,
+          geography: env.geography,
+          climate: env.climate_weather,
+          culture: env.cultural_influence
+        }));
+        
+        return res.status(200).json({
+          success: true,
+          nextAction: "proceedToWorld",
+          currentStage: "world",
+          contextData: {
+            genreContext: genreDetails ? {
+              mainGenre: genreDetails.mainGenre,
+              description: genreDetails.description
+            } : null,
+            // Primary environment (first one created)
+            environmentContext: environmentDetails ? {
+              name: environmentDetails.environment_name,
+              description: environmentDetails.narrative_significance
+            } : null,
+            // All environments (for more comprehensive world building)
+            allEnvironments: environmentContexts.length > 0 ? environmentContexts : null
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error in environment to world transition:', error);
+      return res.status(500).json({ error: 'Failed to process environment to world transition' });
     }
   });
 

@@ -52,6 +52,14 @@ declare global {
       genreSummary: string;
       suggestedNames: string[];
     };
+    pendingEnvironmentToWorldTransition?: {
+      environmentSummary: string;
+      allEnvironments: any[];
+      genreContext?: {
+        mainGenre: string;
+        description: string;
+      };
+    };
   }
 }
 
@@ -446,6 +454,11 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       if (isGenreSummaryComplete(assistantMessage.content)) {
         console.log('Detected completed genre summary');
         await processGenreSummary(assistantMessage.content);
+      } 
+      // Check if this is an environment summary that should trigger a transition
+      else if (isEnvironmentSummaryComplete(assistantMessage.content)) {
+        console.log('Detected completed environment summary');
+        await processEnvironmentSummary(assistantMessage.content);
       } else {
         // Only fetch suggestions if not transitioning
         fetchSuggestions(userMessage.content, assistantMessage.content);
@@ -733,6 +746,138 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     }
   };
   
+  // Process environment summary for transition to world stage
+  const processEnvironmentSummary = async (environmentSummary: string) => {
+    try {
+      console.log('Processing environment summary for stage transition');
+      const effectiveFoundationId = foundationId || foundation?.id;
+      
+      if (!effectiveFoundationId) {
+        console.error('No foundation ID available for environment-to-world transition');
+        return;
+      }
+      
+      // First try to extract JSON content from the response
+      let structuredData = null;
+      
+      // Try to parse any JSON block in the content
+      try {
+        const jsonMatch = environmentSummary.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          structuredData = JSON.parse(jsonString);
+          console.log('Found structured JSON data in environment summary:', structuredData);
+        }
+      } catch (jsonError) {
+        console.log('No valid JSON found in response, falling back to text extraction');
+      }
+      
+      // Get genre details to provide context for the world building
+      const genreResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre`);
+      let genreContext = null;
+      
+      if (genreResponse.ok) {
+        const genreData = await genreResponse.json();
+        if (genreData) {
+          genreContext = {
+            mainGenre: genreData.mainGenre || genreData.main_genre || 'Unknown',
+            description: genreData.description || ''
+          };
+          console.log('Retrieved genre context for world transition:', genreContext);
+        }
+      } else {
+        console.error('Failed to get genre details:', genreResponse.status);
+      }
+      
+      // Get all environment details for this foundation
+      const environmentResponse = await fetch(`/api/foundations/${effectiveFoundationId}/environment`);
+      let allEnvironments = [];
+      
+      if (environmentResponse.ok) {
+        const environmentData = await environmentResponse.json();
+        if (Array.isArray(environmentData)) {
+          allEnvironments = environmentData;
+          console.log(`Retrieved ${environmentData.length} environments for world transition`);
+        }
+      } else {
+        console.error('Failed to get all environment details:', environmentResponse.status);
+      }
+      
+      // Store the environment info for later world transition
+      window.pendingEnvironmentToWorldTransition = {
+        environmentSummary,
+        allEnvironments,
+        genreContext
+      };
+      
+      // Trigger the transition to the world building stage
+      triggerWorldStage(environmentSummary, allEnvironments, genreContext);
+    } catch (error) {
+      console.error('Error processing environment summary:', error);
+    }
+  };
+  
+  // Trigger the transition to world stage
+  const triggerWorldStage = async (
+    environmentSummary: string, 
+    allEnvironments: any[], 
+    genreContext?: {mainGenre: string, description: string}
+  ) => {
+    try {
+      console.log('Transitioning to world stage');
+      const effectiveFoundationId = foundationId || foundation?.id;
+      
+      if (!effectiveFoundationId) {
+        console.error('No foundation ID available for world stage transition');
+        return;
+      }
+      
+      // Call the API to perform the environment-to-world transition
+      const transitionResponse = await fetch(`/api/foundations/${effectiveFoundationId}/environment-to-world`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          environmentSummary,
+          allEnvironments,
+          genreContext
+        })
+      });
+      
+      if (!transitionResponse.ok) {
+        console.error('Failed to transition to world stage:', transitionResponse.status);
+        return;
+      }
+      
+      const transitionData = await transitionResponse.json();
+      console.log('World transition data:', transitionData);
+      
+      // Add the world introduction message
+      const worldIntroMessage = {
+        role: 'assistant' as const,
+        content: transitionData.worldIntroMessage || 'You are now ready to transition to the World Building Stage of the Foundation creation process.'
+      };
+      
+      setMessages(prev => [...prev, worldIntroMessage]);
+      lastSpokenMessageRef.current = worldIntroMessage.content;
+      
+      // Save assistant message
+      if (effectiveFoundationId) {
+        saveMessage(effectiveFoundationId, 'assistant', worldIntroMessage.content);
+      }
+      
+      // Fetch suggestions for the world stage introduction
+      fetchSuggestions('', worldIntroMessage.content);
+      
+      // Update the current stage
+      setCurrentStage('world');
+      
+      // Clear pending transition data
+      delete window.pendingEnvironmentToWorldTransition;
+    } catch (error) {
+      console.error('Error transitioning to world stage:', error);
+    }
+  };
+  
   // Trigger the transition to environment stage
   const triggerEnvironmentStage = async (mainGenre: string, genreSummary: string, suggestedNames: string[]) => {
     try {
@@ -845,6 +990,49 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     );
     
     return currentStage === 'genre' && hasGenre && hasDescription && hasTransitionIndicator;
+  };
+  
+  // Check if an environment summary is complete and should trigger transition to world stage
+  const isEnvironmentSummaryComplete = (content: string): boolean => {
+    // First, check for structured JSON data which is the most reliable indicator
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const jsonString = jsonMatch[0];
+        const parsedData = JSON.parse(jsonString);
+        
+        // If we have valid JSON with environment or environments field, consider it a complete environment summary
+        if (parsedData && (parsedData.environment || parsedData.environment_details || parsedData.environmentDetails)) {
+          console.log(`Found structured JSON with environment field - triggering transition`);
+          return currentStage === 'environment';
+        }
+      }
+    } catch (error) {
+      console.log('No valid JSON found in environment check, using text-based detection');
+    }
+    
+    // Fallback to text-based heuristics if JSON not found
+    const hasEnvironment = content.includes('Environment:') || content.includes('Location:');
+    const hasDescription = content.length > 500; // Assuming a good summary is reasonably detailed
+    
+    // Look for specific transition indicators in the message
+    const transitionIndicators = [
+      'environment summary',
+      'environment profile is complete',
+      'environment details are complete',
+      'ready to move to the next stage',
+      'ready to move to world building',
+      'ready for the world stage',
+      'world building can now begin',
+      'world development phase',
+      'world creation stage'
+    ];
+    
+    const hasTransitionIndicator = transitionIndicators.some(indicator => 
+      content.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    return currentStage === 'environment' && hasEnvironment && hasDescription && hasTransitionIndicator;
   };
   
   // Check if a message is responding to name suggestions

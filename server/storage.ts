@@ -112,6 +112,7 @@ export interface IStorage {
   
   // Environment details operations (kept for backward compatibility)
   getEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails | undefined>;
+  getAllEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails[]>;
   createEnvironmentDetails(environmentDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails>;
   updateEnvironmentDetails(id: number, environmentDetails: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined>;
   
@@ -625,6 +626,21 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error('Error fetching environment details:', error);
       return undefined;
+    }
+  }
+  
+  // Get all environment details for a foundation (since we may have multiple environments)
+  async getAllEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails[]> {
+    try {
+      console.log(`Getting all environment details for foundation ${foundationId}`);
+      const details = await db
+        .select()
+        .from(environmentDetails)
+        .where(eq(environmentDetails.foundationId, foundationId));
+      return details;
+    } catch (error) {
+      console.error('Error fetching all environment details:', error);
+      return [];
     }
   }
   
