@@ -1461,6 +1461,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (genreDetails.emotional_impact && !genreDetails.emotionalImpact) {
         genreDetails.emotionalImpact = genreDetails.emotional_impact;
       }
+      // Add missing snake_case to camelCase conversions for the problematic fields
+      if (genreDetails.subgenre_rationale && !genreDetails.subgenreRationale) {
+        genreDetails.subgenreRationale = genreDetails.subgenre_rationale;
+      }
+      if (genreDetails.subgenre_interaction && !genreDetails.subgenreInteraction) {
+        genreDetails.subgenreInteraction = genreDetails.subgenre_interaction;
+      }
+      if (genreDetails.subgenre_tropes && !genreDetails.subgenreTropes) {
+        genreDetails.subgenreTropes = genreDetails.subgenre_tropes;
+      }
+      if (genreDetails.societal_structures && !genreDetails.societalStructures) {
+        genreDetails.societalStructures = genreDetails.societal_structures;
+      }
+      if (genreDetails.cultural_norms && !genreDetails.culturalNorms) {
+        genreDetails.culturalNorms = genreDetails.cultural_norms;
+      }
+      if (genreDetails.sensory_details && !genreDetails.sensoryDetails) {
+        genreDetails.sensoryDetails = genreDetails.sensory_details;
+      }
+      if (genreDetails.atmospheric_style && !genreDetails.atmosphericStyle) {
+        genreDetails.atmosphericStyle = genreDetails.atmospheric_style;
+      }
+      if (genreDetails.thematic_environment_tieins && !genreDetails.thematicEnvironmentTieins) {
+        genreDetails.thematicEnvironmentTieins = genreDetails.thematic_environment_tieins;
+      }
+      if (genreDetails.inspiration_details && !genreDetails.inspirationDetails) {
+        genreDetails.inspirationDetails = genreDetails.inspiration_details;
+      }
+      if (genreDetails.divergence_from_inspirations && !genreDetails.divergenceFromInspirations) {
+        genreDetails.divergenceFromInspirations = genreDetails.divergence_from_inspirations;
+      }
       
       const genreData = {
         foundationId,
