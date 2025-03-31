@@ -698,7 +698,12 @@ const FoundationDetails: React.FC = () => {
             <div className="lg:col-span-3 lg:block mb-6">
               <Card 
                 className="hover:shadow-md transition-shadow border-primary-200 bg-primary-50/50 hover:bg-primary-100/50 cursor-pointer"
-                onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
+                onClick={() => {
+                  const url = `/genre-details?foundationId=${foundation.id}`;
+                  console.log('Navigating to genre details with URL:', url);
+                  // Use direct window location for more reliable navigation
+                  window.location.href = url;
+                }}
               >
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center text-lg">
@@ -758,7 +763,11 @@ const FoundationDetails: React.FC = () => {
                       variant="ghost" 
                       size="sm"
                       className="w-full text-primary-600" 
-                      onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
+                      onClick={() => {
+                        const url = `/genre-details?foundationId=${foundation.id}`;
+                        console.log('Clicking view details button, navigating to:', url);
+                        window.location.href = url;
+                      }}
                     >
                       View Details
                     </Button>

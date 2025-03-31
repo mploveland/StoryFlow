@@ -80,15 +80,18 @@ const GenreDetailsPage: React.FC = () => {
   const params = new URLSearchParams(location.split('?')[1] || '');
   const foundationIdParam = params.get('foundationId');
   
+  console.log('Genre details - raw params:', { location, queryParams: location.split('?')[1], foundationIdParam });
+  
   // Check if parameter exists and is numeric
   const isValidId = foundationIdParam && /^\d+$/.test(foundationIdParam);
   const foundationId = isValidId ? parseInt(foundationIdParam, 10) : 0;
   
-  console.log('Genre details - params:', { foundationIdParam, foundationId, isValidId });
+  console.log('Genre details - processed params:', { foundationIdParam, foundationId, isValidId });
   
-  // Redirect to dashboard if ID is invalid
+  // Redirect to dashboard if ID is invalid - but be less aggressive with the validation
   useEffect(() => {
-    if (!isValidId || foundationId === 0) {
+    // Only redirect if there's definitely no valid ID (undefined, null, NaN, etc)
+    if (foundationIdParam === null || !isValidId) {
       console.log('Invalid foundation ID detected, redirecting to dashboard');
       toast({
         title: 'Foundation not found',
@@ -98,7 +101,7 @@ const GenreDetailsPage: React.FC = () => {
     } else {
       console.log('Genre details - foundation ID is valid:', foundationId);
     }
-  }, [foundationId, isValidId, navigate, toast]);
+  }, [foundationId, foundationIdParam, isValidId, navigate, toast]);
   
   // State to track if genre is being generated
   const [isGenerating, setIsGenerating] = useState(false);
