@@ -893,8 +893,41 @@ const FoundationDetails: React.FC = () => {
             </div>
           </div>
           
-          {/* Empty space on the right when items are hidden - for centering */}
-          <div className={`lg:col-span-3 ${(showFoundationComponents || showGenreDetails) ? 'hidden' : 'lg:block'}`}></div>
+          {/* Helper text on the right - shown when other components are hidden */}
+          <div className={`lg:col-span-3 ${(showFoundationComponents || showGenreDetails) ? 'hidden' : 'lg:block'}`}>
+            <Card className="bg-blue-50/50 border-blue-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <MessageSquare className="mr-2 h-5 w-5 text-blue-500" />
+                  How To Use
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p>Welcome to your story foundation! Here's how to build your world:</p>
+                <div className="space-y-2">
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">1</div>
+                    <p><span className="font-semibold">Choose a genre</span> - Start by telling me what genre interests you for your story.</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">2</div>
+                    <p><span className="font-semibold">Create environments</span> - Describe the key locations where your story will unfold.</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">3</div>
+                    <p><span className="font-semibold">Build your world</span> - We'll shape the broader world that contains these environments.</p>
+                  </div>
+                  <div className="flex items-start">
+                    <div className="bg-blue-100 text-blue-600 rounded-full w-6 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0">4</div>
+                    <p><span className="font-semibold">Create characters</span> - Populate your world with interesting characters.</p>
+                  </div>
+                </div>
+                <div className="pt-2 border-t border-blue-100">
+                  <p className="text-blue-700">Type <span className="font-mono bg-blue-100 px-1 rounded">show cards</span> at any time to view your progress.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
           
           {/* Right side: Stories list and create button - only shown when foundation is complete */}
           <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : ''}`}>
