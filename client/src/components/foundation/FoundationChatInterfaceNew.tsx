@@ -774,7 +774,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       
       // Get genre details to provide context for the world building
       const genreResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre`);
-      let genreContext = null;
+      let genreContext: {mainGenre: string; description: string} | undefined = undefined;
       
       if (genreResponse.ok) {
         const genreData = await genreResponse.json();
@@ -807,7 +807,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       window.pendingEnvironmentToWorldTransition = {
         environmentSummary,
         allEnvironments,
-        genreContext
+        genreContext: genreContext || undefined
       };
       
       // Trigger the transition to the world building stage
@@ -1404,17 +1404,17 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                   className="text-xs px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded-md border border-primary-300 transition-colors flex items-center gap-1"
                 >
                   <CheckCircle className="h-3 w-3" /> 
-                  Use {selectedSuggestions.length} selected
+                  Use selected ({selectedSuggestions.length})
                 </button>
               )}
             </div>
-            <div className="max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
-              <div className="flex flex-col gap-1.5">
+            <div className="flex overflow-x-auto pb-2 custom-scrollbar">
+              <div className="flex flex-nowrap gap-2">
                 {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(suggestion)}
-                    className={`text-xs px-3 py-1.5 text-primary-800 text-left rounded-md border transition-colors ${
+                    className={`text-xs px-3 py-1.5 text-primary-800 text-left rounded-md border transition-colors whitespace-nowrap ${
                       selectedSuggestions.includes(suggestion) 
                         ? 'suggestion-selected' 
                         : 'bg-primary-100/60 hover:bg-primary-200/70 border-primary-200/50'
