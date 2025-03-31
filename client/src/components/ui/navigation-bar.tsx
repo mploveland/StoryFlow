@@ -40,28 +40,6 @@ const NavigationBar = () => {
           </Button>
         </Link>
         
-        <Link href="/voice-story-creation">
-          <Button
-            variant={location.includes('/voice-story') ? 'default' : 'ghost'}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <Mic className="h-4 w-4" />
-            <span>Create Story</span>
-          </Button>
-        </Link>
-        
-        <Link href="/foundation-details">
-          <Button
-            variant={location.includes('/foundation-details') ? 'default' : 'ghost'}
-            size="sm"
-            className="flex items-center gap-2"
-          >
-            <PanelLeft className="h-4 w-4" />
-            <span>New Foundation</span>
-          </Button>
-        </Link>
-        
         <Link href="/settings">
           <Button
             variant={location === '/settings' ? 'default' : 'ghost'}
@@ -88,20 +66,6 @@ const NavigationBar = () => {
               <DropdownMenuItem className="cursor-pointer">
                 <Home className="h-4 w-4 mr-2" />
                 <span>Dashboard</span>
-              </DropdownMenuItem>
-            </Link>
-            
-            <Link href="/voice-story-creation">
-              <DropdownMenuItem className="cursor-pointer">
-                <Mic className="h-4 w-4 mr-2" />
-                <span>Create Story</span>
-              </DropdownMenuItem>
-            </Link>
-            
-            <Link href="/foundation-details">
-              <DropdownMenuItem className="cursor-pointer">
-                <PanelLeft className="h-4 w-4 mr-2" />
-                <span>New Foundation</span>
               </DropdownMenuItem>
             </Link>
             

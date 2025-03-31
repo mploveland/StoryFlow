@@ -118,7 +118,7 @@ const FoundationDetails: React.FC = () => {
   const [showFoundationComponents, setShowFoundationComponents] = useState(false);
   
   // State to track if genre details should be shown
-  const [showGenreDetails, setShowGenreDetails] = useState(false);
+  // Genre details are now always hidden from main view
   
   // Chat interface ref for accessing the component's methods
   const chatInterfaceRef = useRef<FoundationChatInterfaceRef>(null);
@@ -233,11 +233,10 @@ const FoundationDetails: React.FC = () => {
     }
   });
   
-  // Auto-reveal genre details card when genre details are available
+  // Auto-transition to environment stage when genre details are available
   useEffect(() => {
     if (genreDetails && genreDetails.mainGenre) {
-      console.log('Genre details available, showing genre details card', genreDetails);
-      setShowGenreDetails(true);
+      console.log('Genre details available', genreDetails);
       
       // If the foundation is in the genre stage, auto-update it to environment stage
       // when genre details are entered
@@ -455,10 +454,11 @@ const FoundationDetails: React.FC = () => {
           lowerCaseMessage === 'reveal genre details' || 
           lowerCaseMessage === 'show genre card' ||
           lowerCaseMessage === 'open genre details') {
-        setShowGenreDetails(true);
         if (genreDetails && genreDetails.mainGenre) {
+          // Navigate directly to the genre details page
+          navigate(`/genre-details?foundationId=${foundation.id}`);
           return {
-            content: "I've revealed your genre details card. You can now see detailed information about your genre.",
+            content: "I'll take you to your genre details page where you can see all the information.",
             suggestions: ['Thanks!', 'Can you tell me more about this genre?', 'Let\'s work on the environment now']
           };
         } else {
@@ -708,17 +708,6 @@ const FoundationDetails: React.FC = () => {
           </div>
           
           <div className="flex space-x-2 mt-4 md:mt-0">
-            {foundation.genre && (
-              <Button 
-                variant={showGenreDetails ? "outline" : "ghost"} 
-                size="sm" 
-                className={`flex items-center mr-2 ${showGenreDetails ? 'border-primary-300 bg-primary-50/80 text-primary-800' : 'hover:text-primary-700'}`}
-                onClick={() => setShowGenreDetails(!showGenreDetails)}
-              >
-                <Sparkles className={`mr-1 h-4 w-4 ${showGenreDetails ? 'text-primary-700' : 'text-primary-500'}`} /> 
-                {showGenreDetails ? 'Hide Genre Details' : 'Show Genre Details'}
-              </Button>
-            )}
             <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={handleDeleteFoundation}>
               <Trash2 className="h-4 w-4 text-neutral-500" />
             </Button>
@@ -727,60 +716,16 @@ const FoundationDetails: React.FC = () => {
         
         {/* Main content with 3-column layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Genre Details Card - shown separately when visible */}
-          {showGenreDetails && genreDetails && (
-            <div className="lg:col-span-3 lg:block">
-              <Card 
-                className="hover:shadow-md transition-shadow border-primary-200 bg-primary-50/50 hover:bg-primary-100/50 cursor-pointer mb-4"
-                onClick={navigateToGenreDetails}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center text-lg">
-                    <Sparkles className="mr-2 h-5 w-5 text-primary-500" /> 
-                    Genre Details
-                  </CardTitle>
-                  <CardDescription>
-                    Detailed genre information
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pb-2">
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-semibold text-sm">Main Genre:</span>
-                      <p className="text-sm text-neutral-600">{genreDetails.mainGenre}</p>
-                    </div>
-                    {genreDetails.description && (
-                      <div>
-                        <span className="font-semibold text-sm">Description:</span>
-                        <p className="text-sm text-neutral-600">{genreDetails.description}</p>
-                      </div>
-                    )}
-                    {genreDetails.themes && genreDetails.themes.length > 0 && (
-                      <div>
-                        <span className="font-semibold text-sm">Themes:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {genreDetails.themes.map((theme, i) => (
-                            <Badge key={i} variant="outline" className="bg-primary-100/50">
-                              {theme}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          )}
+          {/* Genre Details Card - now removed in favor of direct navigation to genre details page */}
           
           {/* Empty space on the left when items are hidden - for centering */}
-          <div className={`lg:col-span-3 ${(showFoundationComponents || showGenreDetails) ? 'hidden' : 'lg:block'}`}></div>
+          <div className={`lg:col-span-3 ${showFoundationComponents ? 'hidden' : 'lg:block'}`}></div>
           
           {/* Left side: Genre/World/Character cards - only show if foundation is complete or explicitly requested */}
           <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : 'lg:block'}`}>
             <div className="space-y-4">
               {/* Simple Genre Card */}
-              {foundation.genre && !showGenreDetails && (
+              {foundation.genre && (
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-lg">
@@ -903,7 +848,7 @@ const FoundationDetails: React.FC = () => {
           </div>
           
           {/* Helper text on the right - shown when other components are hidden */}
-          <div className={`lg:col-span-3 ${(showFoundationComponents || showGenreDetails) ? 'hidden' : 'lg:block'}`}>
+          <div className={`lg:col-span-3 ${showFoundationComponents ? 'hidden' : 'lg:block'}`}>
             <Card className="bg-blue-50/50 border-blue-200">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center">
