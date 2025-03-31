@@ -11,23 +11,63 @@ import { ArrowLeft, Palette, RefreshCw } from 'lucide-react';
 
 // Define the GenreDetails type locally
 interface GenreDetails {
-  name: string;
-  description: string;
-  themes: string[];
-  tropes: string[];
-  commonSettings: string[];
-  typicalCharacters: string[];
-  plotStructures: string[];
-  styleGuide: {
-    tone: string;
-    pacing: string;
-    perspective: string;
-    dialogueStyle: string;
-  };
-  recommendedReading: string[];
-  popularExamples: string[];
-  worldbuildingElements: string[];
+  id: number;
+  foundationId: number;
+  // Basic genre information
+  mainGenre: string;
+  genreRationale?: string;
+  audienceExpectations?: string;
+  // Subgenre information
+  subgenres?: string;
+  subgenreRationale?: string;
+  subgenreInteraction?: string;
+  subgenreTropes?: string;
+  // Mood and tone
+  tone?: string;
+  mood?: string;
+  emotionalImpact?: string;
+  // Setting elements
+  timePeriod?: string;
+  technologyLevel?: string;
+  physicalEnvironment?: string;
+  geography?: string;
+  // Social elements
+  societalStructures?: string;
+  culturalNorms?: string;
+  // Tropes and speculative elements
+  keyTropes?: string;
+  tropeStrategy?: string;
+  speculativeElements?: string;
+  speculativeRules?: string;
+  // Atmosphere and style
+  atmosphere?: string;
+  sensoryDetails?: string;
+  atmosphericStyle?: string;
+  thematicEnvironmentTieins?: string;
+  // Inspirations
+  inspirations?: string;
+  inspirationDetails?: string;
+  divergenceFromInspirations?: string;
+  // Metadata fields
+  name?: string;
+  description?: string;
   threadId?: string;
+  
+  // Legacy fields (maintained for compatibility)
+  themes?: string[];
+  tropes?: string[];
+  commonSettings?: string[];
+  typicalCharacters?: string[];
+  plotStructures?: string[];
+  styleGuide?: {
+    tone?: string;
+    pacing?: string;
+    perspective?: string;
+    dialogueStyle?: string;
+  };
+  recommendedReading?: string[];
+  popularExamples?: string[];
+  worldbuildingElements?: string[];
 };
 
 const GenreDetailsPage: React.FC = () => {
@@ -229,123 +269,424 @@ const GenreDetailsPage: React.FC = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left sidebar - Basic info */}
             <div className="lg:col-span-1 space-y-6">
               <Card>
                 <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">{genreDetails.name}</h2>
-                  <p className="text-neutral-600 mb-6">{genreDetails.description}</p>
+                  <h2 className="text-xl font-bold mb-4">{genreDetails.name || genreDetails.mainGenre}</h2>
+                  {genreDetails.description && (
+                    <p className="text-neutral-600 mb-6">{genreDetails.description}</p>
+                  )}
                   
-                  <h3 className="font-semibold text-lg mb-2">Popular Examples</h3>
-                  <ul className="list-disc list-inside mb-4 text-neutral-600">
-                    {genreDetails.popularExamples.map((example, index) => (
-                      <li key={index}>{example}</li>
-                    ))}
-                  </ul>
+                  {/* Basic genre information */}
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2">Main Genre</h3>
+                      <p className="text-neutral-600">{genreDetails.mainGenre}</p>
+                    </div>
+
+                    {genreDetails.genreRationale && (
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Genre Rationale</h3>
+                        <p className="text-neutral-600">{genreDetails.genreRationale}</p>
+                      </div>
+                    )}
+
+                    {genreDetails.audienceExpectations && (
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Audience Expectations</h3>
+                        <p className="text-neutral-600">{genreDetails.audienceExpectations}</p>
+                      </div>
+                    )}
+                  </div>
                   
-                  <h3 className="font-semibold text-lg mb-2">Recommended Reading</h3>
-                  <ul className="list-disc list-inside mb-4 text-neutral-600">
-                    {genreDetails.recommendedReading.map((book, index) => (
-                      <li key={index}>{book}</li>
-                    ))}
-                  </ul>
+                  {/* Inspirations Section */}
+                  {(genreDetails.inspirations || genreDetails.inspirationDetails || genreDetails.divergenceFromInspirations) && (
+                    <div className="mb-6">
+                      <h2 className="text-xl font-bold mb-4">Inspirations</h2>
+                      
+                      {genreDetails.inspirations && (
+                        <div className="mb-4">
+                          <h3 className="font-semibold text-lg mb-2">Key Inspirations</h3>
+                          <p className="text-neutral-600">{genreDetails.inspirations}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.inspirationDetails && (
+                        <div className="mb-4">
+                          <h3 className="font-semibold text-lg mb-2">Inspiration Details</h3>
+                          <p className="text-neutral-600">{genreDetails.inspirationDetails}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.divergenceFromInspirations && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Divergence From Inspirations</h3>
+                          <p className="text-neutral-600">{genreDetails.divergenceFromInspirations}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Legacy fields for backward compatibility */}
+                  {genreDetails.popularExamples && Array.isArray(genreDetails.popularExamples) && genreDetails.popularExamples.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2">Popular Examples</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {genreDetails.popularExamples.map((example, index) => (
+                          <li key={index}>{example}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {genreDetails.recommendedReading && Array.isArray(genreDetails.recommendedReading) && genreDetails.recommendedReading.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2">Recommended Reading</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {genreDetails.recommendedReading.map((book, index) => (
+                          <li key={index}>{book}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
             
+            {/* Main content area */}
             <div className="lg:col-span-2 space-y-6">
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Genre Elements</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Themes</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {genreDetails.themes.map((theme, index) => (
-                          <li key={index}>{theme}</li>
-                        ))}
-                      </ul>
-                    </div>
+              {/* Subgenre Details Card */}
+              {(genreDetails.subgenres || genreDetails.subgenreRationale || genreDetails.subgenreInteraction || genreDetails.subgenreTropes) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Subgenre Details</h2>
                     
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Tropes</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {genreDetails.tropes.map((trope, index) => (
-                          <li key={index}>{trope}</li>
-                        ))}
-                      </ul>
+                    <div className="grid grid-cols-1 gap-6">
+                      {genreDetails.subgenres && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Subgenres</h3>
+                          <p className="text-neutral-600">{genreDetails.subgenres}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.subgenreRationale && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Subgenre Rationale</h3>
+                          <p className="text-neutral-600">{genreDetails.subgenreRationale}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.subgenreInteraction && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Subgenre Interaction</h3>
+                          <p className="text-neutral-600">{genreDetails.subgenreInteraction}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.subgenreTropes && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Subgenre Tropes</h3>
+                          <p className="text-neutral-600">{genreDetails.subgenreTropes}</p>
+                        </div>
+                      )}
                     </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Common Settings</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {genreDetails.commonSettings.map((setting, index) => (
-                          <li key={index}>{setting}</li>
-                        ))}
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Typical Characters</h3>
-                      <ul className="list-disc list-inside mb-4 text-neutral-600">
-                        {genreDetails.typicalCharacters.map((character, index) => (
-                          <li key={index}>{character}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
               
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Story Structure</h2>
-                  
-                  <div className="mb-6">
-                    <h3 className="font-semibold text-lg mb-2">Plot Structures</h3>
-                    <ul className="list-disc list-inside mb-4 text-neutral-600">
-                      {genreDetails.plotStructures.map((structure, index) => (
-                        <li key={index}>{structure}</li>
+              {/* Mood and Tone Card */}
+              {(genreDetails.tone || genreDetails.mood || genreDetails.emotionalImpact) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Mood and Tone</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {genreDetails.tone && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Tone</h3>
+                          <p className="text-neutral-600">{genreDetails.tone}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.mood && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Mood</h3>
+                          <p className="text-neutral-600">{genreDetails.mood}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.emotionalImpact && (
+                        <div className="md:col-span-2">
+                          <h3 className="font-semibold text-lg mb-2">Emotional Impact</h3>
+                          <p className="text-neutral-600">{genreDetails.emotionalImpact}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Setting Elements Card */}
+              {(genreDetails.timePeriod || genreDetails.technologyLevel || genreDetails.physicalEnvironment || genreDetails.geography) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Setting Elements</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {genreDetails.timePeriod && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Time Period</h3>
+                          <p className="text-neutral-600">{genreDetails.timePeriod}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.technologyLevel && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Technology Level</h3>
+                          <p className="text-neutral-600">{genreDetails.technologyLevel}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.physicalEnvironment && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Physical Environment</h3>
+                          <p className="text-neutral-600">{genreDetails.physicalEnvironment}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.geography && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Geography</h3>
+                          <p className="text-neutral-600">{genreDetails.geography}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Social Elements Card */}
+              {(genreDetails.societalStructures || genreDetails.culturalNorms) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Social Elements</h2>
+                    
+                    <div className="grid grid-cols-1 gap-6">
+                      {genreDetails.societalStructures && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Societal Structures</h3>
+                          <p className="text-neutral-600">{genreDetails.societalStructures}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.culturalNorms && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Cultural Norms</h3>
+                          <p className="text-neutral-600">{genreDetails.culturalNorms}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Tropes and Speculative Elements Card */}
+              {(genreDetails.keyTropes || genreDetails.tropeStrategy || genreDetails.speculativeElements || genreDetails.speculativeRules) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Tropes and Speculative Elements</h2>
+                    
+                    <div className="grid grid-cols-1 gap-6">
+                      {genreDetails.keyTropes && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Key Tropes</h3>
+                          <p className="text-neutral-600">{genreDetails.keyTropes}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.tropeStrategy && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Trope Strategy</h3>
+                          <p className="text-neutral-600">{genreDetails.tropeStrategy}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.speculativeElements && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Speculative Elements</h3>
+                          <p className="text-neutral-600">{genreDetails.speculativeElements}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.speculativeRules && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Speculative Rules</h3>
+                          <p className="text-neutral-600">{genreDetails.speculativeRules}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Atmosphere and Style Card */}
+              {(genreDetails.atmosphere || genreDetails.sensoryDetails || genreDetails.atmosphericStyle || genreDetails.thematicEnvironmentTieins) && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Atmosphere and Style</h2>
+                    
+                    <div className="grid grid-cols-1 gap-6">
+                      {genreDetails.atmosphere && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Atmosphere</h3>
+                          <p className="text-neutral-600">{genreDetails.atmosphere}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.sensoryDetails && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Sensory Details</h3>
+                          <p className="text-neutral-600">{genreDetails.sensoryDetails}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.atmosphericStyle && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Atmospheric Style</h3>
+                          <p className="text-neutral-600">{genreDetails.atmosphericStyle}</p>
+                        </div>
+                      )}
+                      
+                      {genreDetails.thematicEnvironmentTieins && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Thematic Environment Tie-ins</h3>
+                          <p className="text-neutral-600">{genreDetails.thematicEnvironmentTieins}</p>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Legacy Elements - Show only if available */}
+              {genreDetails.themes && Array.isArray(genreDetails.themes) && genreDetails.themes.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Genre Elements</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="font-semibold text-lg mb-2">Themes</h3>
+                        <ul className="list-disc list-inside mb-4 text-neutral-600">
+                          {genreDetails.themes.map((theme, index) => (
+                            <li key={index}>{theme}</li>
+                          ))}
+                        </ul>
+                      </div>
+                      
+                      {genreDetails.tropes && Array.isArray(genreDetails.tropes) && genreDetails.tropes.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Tropes</h3>
+                          <ul className="list-disc list-inside mb-4 text-neutral-600">
+                            {genreDetails.tropes.map((trope, index) => (
+                              <li key={index}>{trope}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {genreDetails.commonSettings && Array.isArray(genreDetails.commonSettings) && genreDetails.commonSettings.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Common Settings</h3>
+                          <ul className="list-disc list-inside mb-4 text-neutral-600">
+                            {genreDetails.commonSettings.map((setting, index) => (
+                              <li key={index}>{setting}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {genreDetails.typicalCharacters && Array.isArray(genreDetails.typicalCharacters) && genreDetails.typicalCharacters.length > 0 && (
+                        <div>
+                          <h3 className="font-semibold text-lg mb-2">Typical Characters</h3>
+                          <ul className="list-disc list-inside mb-4 text-neutral-600">
+                            {genreDetails.typicalCharacters.map((character, index) => (
+                              <li key={index}>{character}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+              
+              {genreDetails.plotStructures && Array.isArray(genreDetails.plotStructures) && genreDetails.plotStructures.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Story Structure</h2>
+                    
+                    <div className="mb-6">
+                      <h3 className="font-semibold text-lg mb-2">Plot Structures</h3>
+                      <ul className="list-disc list-inside mb-4 text-neutral-600">
+                        {genreDetails.plotStructures.map((structure, index) => (
+                          <li key={index}>{structure}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    {genreDetails.styleGuide && (
+                      <>
+                        <h2 className="text-xl font-bold mb-4">Style Guide</h2>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {genreDetails.styleGuide.tone && (
+                            <div>
+                              <h3 className="font-semibold text-lg mb-2">Tone</h3>
+                              <p className="text-neutral-600">{genreDetails.styleGuide.tone}</p>
+                            </div>
+                          )}
+                          
+                          {genreDetails.styleGuide.pacing && (
+                            <div>
+                              <h3 className="font-semibold text-lg mb-2">Pacing</h3>
+                              <p className="text-neutral-600">{genreDetails.styleGuide.pacing}</p>
+                            </div>
+                          )}
+                          
+                          {genreDetails.styleGuide.perspective && (
+                            <div>
+                              <h3 className="font-semibold text-lg mb-2">Perspective</h3>
+                              <p className="text-neutral-600">{genreDetails.styleGuide.perspective}</p>
+                            </div>
+                          )}
+                          
+                          {genreDetails.styleGuide.dialogueStyle && (
+                            <div>
+                              <h3 className="font-semibold text-lg mb-2">Dialogue Style</h3>
+                              <p className="text-neutral-600">{genreDetails.styleGuide.dialogueStyle}</p>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {genreDetails.worldbuildingElements && Array.isArray(genreDetails.worldbuildingElements) && genreDetails.worldbuildingElements.length > 0 && (
+                <Card>
+                  <CardContent className="p-6">
+                    <h2 className="text-xl font-bold mb-4">Worldbuilding Elements</h2>
+                    <ul className="list-disc list-inside text-neutral-600">
+                      {genreDetails.worldbuildingElements.map((element, index) => (
+                        <li key={index}>{element}</li>
                       ))}
                     </ul>
-                  </div>
-                  
-                  <h2 className="text-xl font-bold mb-4">Style Guide</h2>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Tone</h3>
-                      <p className="text-neutral-600">{genreDetails.styleGuide.tone}</p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Pacing</h3>
-                      <p className="text-neutral-600">{genreDetails.styleGuide.pacing}</p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Perspective</h3>
-                      <p className="text-neutral-600">{genreDetails.styleGuide.perspective}</p>
-                    </div>
-                    
-                    <div>
-                      <h3 className="font-semibold text-lg mb-2">Dialogue Style</h3>
-                      <p className="text-neutral-600">{genreDetails.styleGuide.dialogueStyle}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-bold mb-4">Worldbuilding Elements</h2>
-                  <ul className="list-disc list-inside text-neutral-600">
-                    {genreDetails.worldbuildingElements.map((element, index) => (
-                      <li key={index}>{element}</li>
-                    ))}
-                  </ul>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
             </div>
           </div>
         )}

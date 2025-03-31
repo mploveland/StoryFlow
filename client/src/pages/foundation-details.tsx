@@ -696,7 +696,10 @@ const FoundationDetails: React.FC = () => {
           {/* Genre details card - always visible when available regardless of other components */}
           {showGenreDetails && genreDetails && (
             <div className="lg:col-span-3 lg:block mb-6">
-              <Card className="hover:shadow-md transition-shadow border-primary-200 bg-primary-50/50">
+              <Card 
+                className="hover:shadow-md transition-shadow border-primary-200 bg-primary-50/50 hover:bg-primary-100/50 cursor-pointer"
+                onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
+              >
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center text-lg">
                     <Sparkles className="mr-2 h-5 w-5 text-primary-500" /> 
@@ -732,16 +735,6 @@ const FoundationDetails: React.FC = () => {
                     )}
                   </div>
                 </CardContent>
-                <CardFooter className="pt-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="w-full text-primary-600" 
-                    onClick={() => navigate(`/genre-details?foundationId=${foundation.id}`)}
-                  >
-                    Edit Details
-                  </Button>
-                </CardFooter>
               </Card>
             </div>
           )}
