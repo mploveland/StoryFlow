@@ -707,28 +707,82 @@ export class DatabaseStorage implements IStorage {
   
   // Environment details operations (now using separate environment_details table)
   async getEnvironmentDetailsByFoundation(foundationId: number): Promise<EnvironmentDetails | undefined> {
-    const [details] = await db
-      .select()
-      .from(environmentDetails)
-      .where(eq(environmentDetails.foundationId, foundationId));
-    return details;
+    try {
+      console.log(`Getting environment details for foundation ${foundationId}`);
+      const [details] = await db
+        .select()
+        .from(environmentDetails)
+        .where(eq(environmentDetails.foundationId, foundationId));
+      return details;
+    } catch (error) {
+      console.error('Error fetching environment details:', error);
+      return undefined;
+    }
   }
   
   async createEnvironmentDetails(insertEnvironmentDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails> {
-    const [details] = await db
-      .insert(environmentDetails)
-      .values(insertEnvironmentDetails)
-      .returning();
-    return details;
+    try {
+      console.log(`Creating environment details with data:`, JSON.stringify(insertEnvironmentDetails, null, 2));
+      // Ensure we're only including fields that exist in the table
+      // Based on our SQL query, the actual columns are:
+      // world_details_id, foundation_id, technology, history, magic_system, embedding_json, 
+      // created_at, updated_at, id, culture, politics, economy, name, description, 
+      // era, geography, locations, conflicts, thread_id
+      
+      const filteredInsert: any = { 
+        foundation_id: insertEnvironmentDetails.foundationId,
+        name: insertEnvironmentDetails.name || 'Environment',
+        description: insertEnvironmentDetails.description || '',
+        // Map fields that exist in schema to database columns
+        geography: insertEnvironmentDetails.geography || '',
+        // Other columns that exist in the actual database table
+        thread_id: insertEnvironmentDetails.threadId || null,
+      };
+      
+      const [details] = await db
+        .insert(environmentDetails)
+        .values(filteredInsert)
+        .returning();
+      return details;
+    } catch (error) {
+      console.error('Error creating environment details:', error);
+      throw error;
+    }
   }
   
   async updateEnvironmentDetails(id: number, environmentDetailsUpdate: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined> {
-    const [details] = await db
-      .update(environmentDetails)
-      .set({ ...environmentDetailsUpdate, updatedAt: new Date() })
-      .where(eq(environmentDetails.id, id))
-      .returning();
-    return details;
+    try {
+      console.log(`Updating environment details with ID ${id} with data:`, JSON.stringify(environmentDetailsUpdate, null, 2));
+      // Filter the update to only include fields that exist in the database
+      const filteredUpdate: any = {};
+      
+      // Based on our SQL query, the actual columns are:
+      // world_details_id, foundation_id, technology, history, magic_system, embedding_json, 
+      // created_at, updated_at, id, culture, politics, economy, name, description, 
+      // era, geography, locations, conflicts, thread_id
+      
+      // Map fields that exist in the schema to database columns
+      // Environment name field mapping
+      if (environmentDetailsUpdate.name) filteredUpdate.name = environmentDetailsUpdate.name;
+      // Handle description
+      if (environmentDetailsUpdate.description) filteredUpdate.description = environmentDetailsUpdate.description;
+      // Geography and geographical features
+      if (environmentDetailsUpdate.geography) filteredUpdate.geography = environmentDetailsUpdate.geography;
+      // Thread ID for conversation continuity
+      if (environmentDetailsUpdate.threadId) filteredUpdate.thread_id = environmentDetailsUpdate.threadId;
+      // Updated timestamp
+      filteredUpdate.updated_at = new Date();
+      
+      const [details] = await db
+        .update(environmentDetails)
+        .set(filteredUpdate)
+        .where(eq(environmentDetails.id, id))
+        .returning();
+      return details;
+    } catch (error) {
+      console.error(`Error updating environment details with ID ${id}:`, error);
+      return undefined;
+    }
   }
   
   // Narrative vector operations
