@@ -1136,7 +1136,12 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                     <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.2s' }}></div>
                     <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.4s' }}></div>
                   </div>
-                  <span className="text-sm font-medium">Thinking...</span>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium">Thinking</span>
+                    <span className="thinking-dot">.</span>
+                    <span className="thinking-dot">.</span>
+                    <span className="thinking-dot">.</span>
+                  </div>
                 </div>
                 <div className="w-full bg-primary-100 rounded-full h-2.5">
                   <div className="bg-primary-600 h-2.5 rounded-full animate-progress"></div>
