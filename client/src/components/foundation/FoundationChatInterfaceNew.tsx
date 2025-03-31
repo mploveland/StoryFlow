@@ -90,7 +90,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     content: string;
   }>>([]);
   const processSaveQueueRef = useRef<NodeJS.Timeout | null>(null);
-  const initialLoadComplete = useRef<boolean>(false);
+  // Store loaded foundation IDs instead of a simple boolean
+  const loadedFoundationIds = useRef<Set<number>>(new Set());
   const requestIdRef = useRef<string>('');
   
   // Expose methods to parent via ref
@@ -155,14 +156,14 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       return;
     }
     
-    // Skip if we've already loaded for this foundation
-    if (initialLoadComplete.current) {
-      console.log(`Initial load already completed for foundation ${effectiveFoundationId}`);
+    // Skip if we've already loaded for this specific foundation
+    if (loadedFoundationIds.current.has(effectiveFoundationId)) {
+      console.log(`Messages already loaded for foundation ${effectiveFoundationId}`);
       return;
     }
     
-    // Mark as loaded
-    initialLoadComplete.current = true;
+    // Mark this specific foundation ID as loaded
+    loadedFoundationIds.current.add(effectiveFoundationId);
     console.log(`Loading messages for foundation ${effectiveFoundationId}`);
     
     // Set thread ID from foundation if available
