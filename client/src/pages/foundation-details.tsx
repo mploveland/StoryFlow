@@ -913,7 +913,17 @@ const FoundationDetails: React.FC = () => {
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
                 <div className="space-y-4">
-                  {/* First section - Messages & Suggestions */}
+                  {/* First section - Current Stage */}
+                  <div>
+                    <h3 className="font-semibold text-blue-700 mb-2 text-center bg-blue-50 py-2 rounded-full border border-blue-100">
+                      Current Stage: {foundation.currentStage === 'genre' ? 'Genre Selection' : 
+                                     foundation.currentStage === 'environment' ? 'Environment Creation' :
+                                     foundation.currentStage === 'world' ? 'World Building' :
+                                     foundation.currentStage === 'character' ? 'Character Creation' : 'Foundation Setup'}
+                    </h3>
+                  </div>
+                  
+                  {/* Second section - Messages & Suggestions */}
                   <div>
                     <h3 className="font-semibold text-blue-700 mb-2">Using the Chat Interface</h3>
                     <div className="space-y-2">
@@ -924,30 +934,8 @@ const FoundationDetails: React.FC = () => {
                       
                       <div className="flex items-start">
                         <div className="bg-blue-100 text-blue-600 rounded w-8 h-6 flex items-center justify-center mr-2 mt-0.5 flex-shrink-0 text-xs font-semibold">TIPS</div>
-                        <p>Blue suggestion bubbles offer quick responses. Click one to use it, or ignore them and type your own message.</p>
+                        <p>Suggestion bubbles appear below your messages. <strong>Click multiple suggestions</strong> to combine them, then add your own text for personalized responses.</p>
                       </div>
-                    </div>
-                  </div>
-                  
-                  {/* Second section - Current Stage */}
-                  <div>
-                    <h3 className="font-semibold text-blue-700 mb-2">Current Stage: {foundation.currentStage === 'genre' ? 'Genre Selection' : 
-                                                                     foundation.currentStage === 'environment' ? 'Environment Creation' :
-                                                                     foundation.currentStage === 'world' ? 'World Building' :
-                                                                     foundation.currentStage === 'character' ? 'Character Creation' : 'Foundation Setup'}</h3>
-                    <div className="p-2 bg-white rounded border border-blue-100">
-                      {foundation.currentStage === 'genre' && (
-                        <p>Tell me what genre you'd like for your story. You can name a specific genre or describe the kind of story you want to create.</p>
-                      )}
-                      {foundation.currentStage === 'environment' && (
-                        <p>Describe the key locations in your story. What places are important? What makes them unique? Be as detailed as you wish.</p>
-                      )}
-                      {foundation.currentStage === 'world' && (
-                        <p>Now we're building the broader world that contains your environments. What's the history, culture, and unique aspects of this world?</p>
-                      )}
-                      {foundation.currentStage === 'character' && (
-                        <p>Create interesting characters for your story. Describe their appearance, personality, motivations, and relationships.</p>
-                      )}
                     </div>
                   </div>
                   
