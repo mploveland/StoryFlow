@@ -515,11 +515,6 @@ export class DatabaseStorage implements IStorage {
       const [details] = foundationGenreDetails;
       console.log(`[GENRE DB] Found genre details with ID ${details.id} and genre '${details.mainGenre}'`);
       
-      // Log array fields to verify their format
-      if (details.themes) {
-        console.log(`[GENRE DB] Themes array: ${JSON.stringify(details.themes)}`);
-      }
-      
       return details;
     } catch (error) {
       console.error(`[GENRE DB] Error retrieving genre details:`, error);
@@ -531,55 +526,12 @@ export class DatabaseStorage implements IStorage {
     console.log(`[GENRE DB] Creating new genre details for foundation ${insertGenreDetails.foundationId}`);
     console.log(`[GENRE DB] Genre data: ${JSON.stringify({
       mainGenre: insertGenreDetails.mainGenre,
-      foundationId: insertGenreDetails.foundationId,
-      themes: insertGenreDetails.themes
+      foundationId: insertGenreDetails.foundationId
     })}`);
     
     try {
-      // Ensure all array fields are properly initialized
+      // Ensure we have a valid data object
       const genreData = { ...insertGenreDetails };
-      
-      // Handle themes array
-      if (!genreData.themes || !Array.isArray(genreData.themes)) {
-        console.log(`[GENRE DB] Initializing empty themes array`);
-        genreData.themes = [];
-      }
-      
-      // Handle other array fields
-      if (!genreData.tropes || !Array.isArray(genreData.tropes)) {
-        console.log(`[GENRE DB] Initializing empty tropes array`);
-        genreData.tropes = [];
-      }
-      
-      if (!genreData.commonSettings || !Array.isArray(genreData.commonSettings)) {
-        console.log(`[GENRE DB] Initializing empty commonSettings array`);
-        genreData.commonSettings = [];
-      }
-      
-      if (!genreData.typicalCharacters || !Array.isArray(genreData.typicalCharacters)) {
-        console.log(`[GENRE DB] Initializing empty typicalCharacters array`);
-        genreData.typicalCharacters = [];
-      }
-      
-      if (!genreData.plotStructures || !Array.isArray(genreData.plotStructures)) {
-        console.log(`[GENRE DB] Initializing empty plotStructures array`);
-        genreData.plotStructures = [];
-      }
-      
-      if (!genreData.recommendedReading || !Array.isArray(genreData.recommendedReading)) {
-        console.log(`[GENRE DB] Initializing empty recommendedReading array`);
-        genreData.recommendedReading = [];
-      }
-      
-      if (!genreData.popularExamples || !Array.isArray(genreData.popularExamples)) {
-        console.log(`[GENRE DB] Initializing empty popularExamples array`);
-        genreData.popularExamples = [];
-      }
-      
-      if (!genreData.worldbuildingElements || !Array.isArray(genreData.worldbuildingElements)) {
-        console.log(`[GENRE DB] Initializing empty worldbuildingElements array`);
-        genreData.worldbuildingElements = [];
-      }
       
       // Ensure we have a valid mainGenre string
       if (!genreData.mainGenre || typeof genreData.mainGenre !== 'string' || genreData.mainGenre.trim() === '') {
@@ -600,56 +552,12 @@ export class DatabaseStorage implements IStorage {
     console.log(`[GENRE DB] Updating genre details with ID ${id}`);
     console.log(`[GENRE DB] Update data: ${JSON.stringify({
       mainGenre: genreDetailsUpdate.mainGenre,
-      foundationId: genreDetailsUpdate.foundationId,
-      themes: genreDetailsUpdate.themes
+      foundationId: genreDetailsUpdate.foundationId
     })}`);
     
     try {
       // Create a safe copy of the update data
       const safeUpdate = { ...genreDetailsUpdate };
-      
-      // Ensure all array fields that are being updated are properly initialized
-      // Handle themes array
-      if (safeUpdate.themes !== undefined && !Array.isArray(safeUpdate.themes)) {
-        console.log(`[GENRE DB] Converting themes to array for update`);
-        safeUpdate.themes = [];
-      }
-      
-      // Handle other array fields if they're provided in the update
-      if (safeUpdate.tropes !== undefined && !Array.isArray(safeUpdate.tropes)) {
-        console.log(`[GENRE DB] Converting tropes to array for update`);
-        safeUpdate.tropes = [];
-      }
-      
-      if (safeUpdate.commonSettings !== undefined && !Array.isArray(safeUpdate.commonSettings)) {
-        console.log(`[GENRE DB] Converting commonSettings to array for update`);
-        safeUpdate.commonSettings = [];
-      }
-      
-      if (safeUpdate.typicalCharacters !== undefined && !Array.isArray(safeUpdate.typicalCharacters)) {
-        console.log(`[GENRE DB] Converting typicalCharacters to array for update`);
-        safeUpdate.typicalCharacters = [];
-      }
-      
-      if (safeUpdate.plotStructures !== undefined && !Array.isArray(safeUpdate.plotStructures)) {
-        console.log(`[GENRE DB] Converting plotStructures to array for update`);
-        safeUpdate.plotStructures = [];
-      }
-      
-      if (safeUpdate.recommendedReading !== undefined && !Array.isArray(safeUpdate.recommendedReading)) {
-        console.log(`[GENRE DB] Converting recommendedReading to array for update`);
-        safeUpdate.recommendedReading = [];
-      }
-      
-      if (safeUpdate.popularExamples !== undefined && !Array.isArray(safeUpdate.popularExamples)) {
-        console.log(`[GENRE DB] Converting popularExamples to array for update`);
-        safeUpdate.popularExamples = [];
-      }
-      
-      if (safeUpdate.worldbuildingElements !== undefined && !Array.isArray(safeUpdate.worldbuildingElements)) {
-        console.log(`[GENRE DB] Converting worldbuildingElements to array for update`);
-        safeUpdate.worldbuildingElements = [];
-      }
       
       // Ensure mainGenre is valid if it's being updated
       if (safeUpdate.mainGenre !== undefined) {
@@ -723,25 +631,11 @@ export class DatabaseStorage implements IStorage {
   async createEnvironmentDetails(insertEnvironmentDetails: InsertEnvironmentDetails): Promise<EnvironmentDetails> {
     try {
       console.log(`Creating environment details with data:`, JSON.stringify(insertEnvironmentDetails, null, 2));
-      // Ensure we're only including fields that exist in the table
-      // Based on our SQL query, the actual columns are:
-      // world_details_id, foundation_id, technology, history, magic_system, embedding_json, 
-      // created_at, updated_at, id, culture, politics, economy, name, description, 
-      // era, geography, locations, conflicts, thread_id
       
-      const filteredInsert: any = { 
-        foundation_id: insertEnvironmentDetails.foundationId,
-        name: insertEnvironmentDetails.name || 'Environment',
-        description: insertEnvironmentDetails.description || '',
-        // Map fields that exist in schema to database columns
-        geography: insertEnvironmentDetails.geography || '',
-        // Other columns that exist in the actual database table
-        thread_id: insertEnvironmentDetails.threadId || null,
-      };
-      
+      // Create the environment details with the fields from the schema
       const [details] = await db
         .insert(environmentDetails)
-        .values(filteredInsert)
+        .values(insertEnvironmentDetails)
         .returning();
       return details;
     } catch (error) {
@@ -753,29 +647,16 @@ export class DatabaseStorage implements IStorage {
   async updateEnvironmentDetails(id: number, environmentDetailsUpdate: Partial<InsertEnvironmentDetails>): Promise<EnvironmentDetails | undefined> {
     try {
       console.log(`Updating environment details with ID ${id} with data:`, JSON.stringify(environmentDetailsUpdate, null, 2));
-      // Filter the update to only include fields that exist in the database
-      const filteredUpdate: any = {};
       
-      // Based on our SQL query, the actual columns are:
-      // world_details_id, foundation_id, technology, history, magic_system, embedding_json, 
-      // created_at, updated_at, id, culture, politics, economy, name, description, 
-      // era, geography, locations, conflicts, thread_id
-      
-      // Map fields that exist in the schema to database columns
-      // Environment name field mapping
-      if (environmentDetailsUpdate.name) filteredUpdate.name = environmentDetailsUpdate.name;
-      // Handle description
-      if (environmentDetailsUpdate.description) filteredUpdate.description = environmentDetailsUpdate.description;
-      // Geography and geographical features
-      if (environmentDetailsUpdate.geography) filteredUpdate.geography = environmentDetailsUpdate.geography;
-      // Thread ID for conversation continuity
-      if (environmentDetailsUpdate.threadId) filteredUpdate.thread_id = environmentDetailsUpdate.threadId;
-      // Updated timestamp
-      filteredUpdate.updated_at = new Date();
+      // Add the updated timestamp
+      const updateData = {
+        ...environmentDetailsUpdate,
+        updatedAt: new Date()
+      };
       
       const [details] = await db
         .update(environmentDetails)
-        .set(filteredUpdate)
+        .set(updateData)
         .where(eq(environmentDetails.id, id))
         .returning();
       return details;
