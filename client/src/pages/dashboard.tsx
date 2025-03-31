@@ -358,17 +358,17 @@ const Dashboard: React.FC = () => {
             ) : (
               <>
                 <h3 className="text-xl font-bold text-neutral-800 mb-4">You don't have any story foundations yet</h3>
-                <div className="text-neutral-600 mb-6 space-y-3 max-w-md mx-auto">
+                <div className="text-neutral-600 mb-6 space-y-2 max-w-lg mx-auto">
                   <p>
                     <strong className="text-primary-600">Foundations</strong> are the building blocks of your storytelling universe. Each foundation contains:
                   </p>
-                  <ul className="list-disc pl-5 space-y-1">
+                  <ul className="list-disc pl-5 space-y-0.5">
                     <li><span className="font-medium">Genre & Themes</span> - Define the style and tone of your stories</li>
                     <li><span className="font-medium">Environments</span> - Create detailed locations where your stories unfold</li>
                     <li><span className="font-medium">World Details</span> - Build the broader context for your narratives</li>
                     <li><span className="font-medium">Characters</span> - Design memorable people who populate your world</li>
                   </ul>
-                  <p className="pt-1">Create a foundation first, then use it to generate multiple related stories that share the same universe.</p>
+                  <p>Create a foundation first, then use it to generate multiple related stories that share the same universe.</p>
                 </div>
                 <Button 
                   onClick={handleCreateFoundation}
