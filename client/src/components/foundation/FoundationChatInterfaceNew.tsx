@@ -1128,11 +1128,20 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         {/* Loading indicator */}
         {isProcessing && (
           <div className="mb-4 pr-8">
-            <div className="p-3 rounded-lg bg-primary-50 text-primary-900 border border-primary-200">
-              <div className="flex items-center space-x-2">
-                <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full"></div>
-                <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.2s' }}></div>
-                <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.4s' }}></div>
+            <div className="p-4 rounded-lg bg-primary-50 text-primary-900 border border-primary-200">
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-3 mb-2">
+                  <div className="flex items-center space-x-1">
+                    <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full"></div>
+                    <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.2s' }}></div>
+                    <div className="animate-pulse h-2 w-2 bg-primary-500 rounded-full" style={{ animationDelay: '0.4s' }}></div>
+                  </div>
+                  <span className="text-sm font-medium">Thinking...</span>
+                </div>
+                <div className="w-full bg-primary-100 rounded-full h-2.5">
+                  <div className="bg-primary-600 h-2.5 rounded-full animate-progress"></div>
+                </div>
+                <p className="text-xs mt-2 text-primary-700">Generating a thoughtful response for you</p>
               </div>
             </div>
           </div>

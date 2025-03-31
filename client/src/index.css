@@ -11,3 +11,21 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+@keyframes progressAnimation {
+  0% {
+    width: 15%;
+  }
+  50% {
+    width: 85%;
+  }
+  100% {
+    width: 15%;
+  }
+}
+
+@layer components {
+  .animate-progress {
+    animation: progressAnimation 3s ease-in-out infinite;
+  }
+}
