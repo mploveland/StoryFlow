@@ -392,10 +392,17 @@ const FoundationDetails: React.FC = () => {
   const navigateToGenreDetails = () => {
     if (!foundation) return;
     
-    console.log('Navigating to genre details page for foundation:', foundation.id);
+    // Create the URL to check what we're using
+    const genreURL = `/genre-details?foundationId=${foundation.id}`;
     
-    // Use wouter's navigate function instead of direct window.location change
-    navigate(`/genre-details?foundationId=${foundation.id}`);
+    console.log('Navigating to genre details page:', {
+      foundationId: foundation.id,
+      url: genreURL,
+      foundationType: typeof foundation.id
+    });
+    
+    // Force a full page refresh to ensure clean state
+    window.location.href = genreURL;
   };
   
   // Function to send messages to the foundation chat

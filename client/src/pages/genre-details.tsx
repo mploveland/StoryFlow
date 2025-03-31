@@ -76,22 +76,39 @@ const GenreDetailsPage: React.FC = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  // Get foundationId from URL query params
+  // Get foundationId from URL query params - use a more robust extraction method
+  // First try to get the ID from the standard approach
   const params = new URLSearchParams(location.split('?')[1] || '');
-  const foundationIdParam = params.get('foundationId');
+  let foundationIdParam = params.get('foundationId');
   
-  console.log('Genre details - raw params:', { location, queryParams: location.split('?')[1], foundationIdParam });
+  // If foundationId is not found, try to extract it from the path
+  if (!foundationIdParam) {
+    // Check if we have an ID pattern in the URL like /genre-details/123
+    const pathMatch = location.match(/\/genre-details\/(\d+)/);
+    if (pathMatch && pathMatch[1]) {
+      foundationIdParam = pathMatch[1];
+    }
+  }
   
-  // Check if parameter exists and is numeric
-  const isValidId = foundationIdParam && /^\d+$/.test(foundationIdParam);
-  const foundationId = isValidId ? parseInt(foundationIdParam, 10) : 0;
+  console.log('Genre details - raw params:', { 
+    location, 
+    queryParams: location.split('?')[1], 
+    foundationIdParam,
+    extractionMethod: !params.get('foundationId') ? 'path extraction' : 'query param'
+  });
+  
+  // Check if parameter exists and is numeric - handle all possible type scenarios
+  // First ensure foundationIdParam is definitely a string
+  const paramString = foundationIdParam || "";
+  const isValidId = paramString !== "" && /^\d+$/.test(paramString);
+  const foundationId = isValidId ? parseInt(paramString, 10) : 0;
   
   console.log('Genre details - processed params:', { foundationIdParam, foundationId, isValidId });
   
   // Redirect to dashboard if ID is invalid - but be less aggressive with the validation
   useEffect(() => {
     // Only redirect if there's definitely no valid ID (undefined, null, NaN, etc)
-    if (foundationIdParam === null || !isValidId) {
+    if (!isValidId) {
       console.log('Invalid foundation ID detected, redirecting to dashboard');
       toast({
         title: 'Foundation not found',
@@ -101,7 +118,7 @@ const GenreDetailsPage: React.FC = () => {
     } else {
       console.log('Genre details - foundation ID is valid:', foundationId);
     }
-  }, [foundationId, foundationIdParam, isValidId, navigate, toast]);
+  }, [foundationId, isValidId, navigate, toast]);
   
   // State to track if genre is being generated
   const [isGenerating, setIsGenerating] = useState(false);
