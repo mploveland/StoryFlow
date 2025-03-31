@@ -187,30 +187,40 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       const newRequestId = Date.now().toString();
       requestIdRef.current = newRequestId;
       
-      // Skip loading for new foundations
-      if (isNewFoundation) {
-        console.log('New foundation - setting welcome message');
+      // First check if there are existing messages for this foundation
+      try {
+        const checkResponse = await fetch(`/api/foundations/${id}/messages`);
+        const existingMessages = await checkResponse.json();
         
-        // Show welcome message for new foundations
-        const welcomeMessage = {
-          role: 'assistant' as const,
-          content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
-        };
-        
-        setMessages([welcomeMessage]);
-        lastSpokenMessageRef.current = welcomeMessage.content;
-        
-        // Save welcome message if foundation ID is available
-        if (id) {
-          saveMessage(id, 'assistant', welcomeMessage.content);
+        // If this is a new foundation or there are no existing messages, show the welcome message
+        if (isNewFoundation || !Array.isArray(existingMessages) || existingMessages.length === 0) {
+          console.log('New foundation or no existing messages - setting welcome message');
           
-          // Get initial suggestions for the welcome message
-          console.log('Fetching initial suggestions for welcome message');
-          fetchSuggestions('', welcomeMessage.content);
+          // Show welcome message for new foundations
+          const welcomeMessage = {
+            role: 'assistant' as const,
+            content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
+          };
+          
+          setMessages([welcomeMessage]);
+          lastSpokenMessageRef.current = welcomeMessage.content;
+          
+          // Save welcome message ONLY if it's a brand new foundation (no messages)
+          if (id && (isNewFoundation || existingMessages.length === 0)) {
+            console.log('Saving welcome message for new foundation');
+            saveMessage(id, 'assistant', welcomeMessage.content);
+            
+            // Get initial suggestions for the welcome message
+            console.log('Fetching initial suggestions for welcome message');
+            fetchSuggestions('', welcomeMessage.content);
+          }
+          
+          setIsLoadingMessages(false);
+          return;
         }
-        
-        setIsLoadingMessages(false);
-        return;
+      } catch (error) {
+        console.error('Error checking for existing messages:', error);
+        // Continue with normal loading
       }
       
       // Show loading indicator
