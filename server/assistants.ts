@@ -183,7 +183,7 @@ export function detectConversationContext(message: string): 'character' | 'world
 
 export interface GenreCreationInput {
   userInterests?: string;
-  themes?: string[];
+  tone?: string;       // Added tone as an alternative to themes
   mood?: string;
   targetAudience?: string;
   inspirations?: string[];
@@ -598,8 +598,8 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
         promptContent += `User's Interests: ${genreInput.userInterests}\n`;
       }
       
-      if (genreInput.themes && genreInput.themes.length > 0) {
-        promptContent += `Themes: ${genreInput.themes.join(', ')}\n`;
+      if (genreInput.tone) {
+        promptContent += `Tone: ${genreInput.tone}\n`;
       }
       
       if (genreInput.mood) {
@@ -845,8 +845,7 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       .map(theme => theme.charAt(0).toUpperCase() + theme.slice(1));
     
     // If we couldn't extract themes, provide some default ones
-    const finalThemes = themes.length > 0 ? themes : 
-      (genreInput.themes?.length ? genreInput.themes : ["Identity", "Adventure", "Morality"]);
+    const finalThemes = themes.length > 0 ? themes : ["Identity", "Adventure", "Morality"];
     
     // Extract common settings based on the detected genre
     let commonSettings: string[] = [];
@@ -945,7 +944,7 @@ export async function createGenreDetails(genreInput: GenreCreationInput): Promis
       // Mood and tone
       tone: mood,
       mood: mood,
-      emotionalImpact: `${genreName} typically evokes feelings of ${finalThemes.map(t => t.toLowerCase()).join(', ')}.`,
+      emotionalImpact: `${genreName} typically evokes feelings of ${finalThemes.map((t: string) => t.toLowerCase()).join(', ')}.`,
       
       // Setting elements
       timePeriod: timePeriod,

@@ -619,18 +619,9 @@ export const genreDetails = pgTable("genre_details", {
   inspirations: text("inspirations"),
   inspirationDetails: text("inspiration_details"),
   divergenceFromInspirations: text("divergence_from_inspirations"),
-  // Original data structure fields (kept for compatibility)
+  // Metadata fields
   name: text("name"),
   description: text("description"),
-  themes: text("themes").array(),
-  tropes: text("tropes").array(),
-  commonSettings: text("common_settings").array(),
-  typicalCharacters: text("typical_characters").array(),
-  plotStructures: text("plot_structures").array(),
-  styleGuide: jsonb("style_guide"),
-  recommendedReading: text("recommended_reading").array(),
-  popularExamples: text("popular_examples").array(),
-  worldbuildingElements: text("worldbuilding_elements").array(),
   threadId: text("thread_id"),
   // Embeddings will be implemented later with pgvector
   embeddingJson: jsonb("embedding_json"),
@@ -676,18 +667,9 @@ export const insertGenreDetailsSchema = createInsertSchema(genreDetails).pick({
   inspirations: true,
   inspirationDetails: true,
   divergenceFromInspirations: true,
-  // Original fields kept for compatibility
+  // Metadata fields
   name: true,
   description: true,
-  themes: true,
-  tropes: true,
-  commonSettings: true,
-  typicalCharacters: true,
-  plotStructures: true,
-  styleGuide: true,
-  recommendedReading: true,
-  popularExamples: true,
-  worldbuildingElements: true,
   threadId: true,
   embeddingJson: true,
 });

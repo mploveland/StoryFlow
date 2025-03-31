@@ -534,9 +534,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               if (genreDetails.keyTropes) genreContext += `\nKey Tropes: ${genreDetails.keyTropes}`;
               if (genreDetails.speculativeElements) genreContext += `\nSpeculative Elements: ${genreDetails.speculativeElements}`;
               
-              // Themes (either from structured data or legacy field)
-              const themesList = Array.isArray(genreDetails.themes) ? genreDetails.themes.join(', ') : '';
-              if (themesList) genreContext += `\nThemes: ${themesList}`;
+              // Note: Themes field has been removed from schema
               
               // Add generic description if specific fields aren't available
               if (genreDetails.description) genreContext += `\nDescription: ${genreDetails.description}`;
@@ -783,35 +781,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
           }
           
-          // Try to extract themes
-          let themes: string[] = [];
-          const themeMatch = content.match(themePattern);
-          if (themeMatch && themeMatch[1]) {
-            // Split by commas, semicolons, or "and" with space boundaries
-            const rawThemes = themeMatch[1].split(/,|;|\s+and\s+/);
-            // Trim, filter out empty strings, and limit each theme to reasonable length
-            themes = rawThemes
-              .map(t => t.trim())
-              .filter(t => t.length > 0 && t.length < 100)
-              .slice(0, 10); // Limit to 10 themes maximum
-            
-            console.log(`[GENRE DEBUG] Found themes: ${JSON.stringify(themes)}`);
-            
-            // Double check we have a valid array
-            if (!Array.isArray(themes)) {
-              console.log(`[GENRE DEBUG] Themes was not an array, resetting to empty array`);
-              themes = [];
-            }
-          } else {
-            console.log(`[GENRE DEBUG] No themes found in assistant response`);
-          }
-          
-          // Try to extract mood/tone
+          // Try to extract mood/tone first
           let mood = "";
+          let tone = "";
+          let thematicTone = "";
+          
+          // Get the mood
           const moodMatch = content.match(moodPattern);
           if (moodMatch && moodMatch[1]) {
             mood = moodMatch[1].trim();
             console.log(`[GENRE DEBUG] Found mood: ${mood}`);
+          }
+          
+          // Extract thematic elements that will be stored as tone
+          const themeMatch = content.match(themePattern);
+          if (themeMatch && themeMatch[1]) {
+            // Get the raw text about themes
+            thematicTone = themeMatch[1].trim();
+            console.log(`[GENRE DEBUG] Found thematic elements: ${thematicTone}`);
+            
+            // If we don't have tone yet, use the thematic elements as tone
+            if (!tone) {
+              tone = thematicTone.length > 100 ? thematicTone.substring(0, 100) : thematicTone;
+              console.log(`[GENRE DEBUG] Using thematic elements as tone: ${tone}`);
+            }
+          } else {
+            console.log(`[GENRE DEBUG] No thematic elements found in assistant response`);
           }
           
           // Force a specific genre if still using default
@@ -862,17 +857,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const genreData = {
             mainGenre,
             threadId: conversationThreadId,
-            mood,
-            // Ensure themes is properly converted to array format for the database
-            themes: Array.isArray(themes) ? themes : [],
-            // Initialize other array fields to empty arrays to prevent null errors
-            tropes: [],
-            commonSettings: [],
-            typicalCharacters: [],
-            plotStructures: [],
-            recommendedReading: [],
-            popularExamples: [],
-            worldbuildingElements: [],
+            mood, // Will be mapped to the mood field in schema
+            tone, // New field for tone information
             // Use the assistant's response as a description
             description: content
           };
@@ -881,7 +867,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             mainGenre: genreData.mainGenre,
             threadId: genreData.threadId?.substring(0, 10) + '...',
             mood: genreData.mood,
-            themes: genreData.themes,
             descriptionLength: genreData.description?.length || 0
           })}`);
           
@@ -1523,8 +1508,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         inspirationDetails: genreDetails.inspirationDetails || '',
         divergenceFromInspirations: genreDetails.divergenceFromInspirations || '',
         
-        // Legacy fields (arrays and nested objects are handled separately)
-        themes: genreDetails.themes || [],
+        // Removed legacy fields
         
         // Thread ID for continued conversation
         threadId: genreDetails.threadId || null
@@ -1961,7 +1945,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Genre details request received:", req.body);
       const { 
         userInterests, 
-        themes, 
+        // Using tone and mood directly instead of themes
+        tone,
         mood, 
         targetAudience, 
         inspirations, 
@@ -1974,7 +1959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Log the request details
       console.log("Creating genre with input:", {
         userInterests,
-        themes,
+        tone,
         mood,
         targetAudience,
         inspirations,
@@ -1986,7 +1971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Call assistant with all parameters including thread ID if provided
       const genreDetails = await createGenreDetails({
         userInterests,
-        themes,
+        tone,
         mood,
         targetAudience,
         inspirations,
@@ -2110,7 +2095,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
               // Optional fields that might be present in partial responses
               name: genreDetails.name,
               description: genreDetails.description,
-              themes: genreDetails.themes,
               mood: genreDetails.mood,
               tone: genreDetails.tone,
               inspirations: genreDetails.inspirations,
@@ -2289,17 +2273,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   mainGenre: genreName, // Required field
                   name: genreName,
                   description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
-                  themes: ["Identity", "Growth", "Challenge"],
-                  tropes: ["Hero's Journey", "Coming of Age"],
-                  commonSettings: ["Detailed World", "Rich Environment"],
-                  typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
-                  plotStructures: ["Three-Act Structure", "Hero's Journey"],
-                  styleGuide: {
-                    tone: "Balanced",
-                    pacing: "Medium",
-                    perspective: "Third person",
-                    dialogueStyle: "Natural"
-                  },
+                  // Basic genre information
+                  genreRationale: `This genre was selected based on your preferences and interests.`,
+                  audienceExpectations: `Readers expect immersive storytelling with engaging characters.`,
+                  // Mood and tone
+                  tone: "Balanced",
+                  mood: "Immersive",
+                  // Other essential fields
                   threadId: threadId,
                   genreComplete: true
                 };
@@ -2340,10 +2320,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
               mainGenre: genreName, // Required field
               name: genreName,
               description: `Your custom ${genreName.toLowerCase()} genre has been defined based on your preferences.`,
-              themes: ["Identity", "Growth", "Challenge"],
-              tropes: ["Hero's Journey", "Coming of Age"],
-              commonSettings: ["Detailed World", "Rich Environment"],
-              typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
+              genreRationale: `This genre was selected based on your preferences and interests.`,
+              audienceExpectations: `Readers expect immersive storytelling with engaging characters.`,
+              tone: "Balanced",
+              mood: "Immersive",
               question: question, // Include the full question about world-building
               suggestions: ["Surprise me! You decide what works best."],
               threadId
