@@ -1071,30 +1071,23 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     return isSelectionResponse || namesMentioned;
   };
   
-  // State for selected suggestions
-  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
-  
-  // Handle suggestion click for multi-selection
+  // Handle suggestion click to add to input text
   const handleSuggestionClick = (suggestion: string) => {
-    if (selectedSuggestions.includes(suggestion)) {
-      // If already selected, remove it
-      setSelectedSuggestions(prev => prev.filter(s => s !== suggestion));
+    // If the input is empty, just set it to the suggestion
+    if (!inputValue.trim()) {
+      setInputValue(suggestion);
     } else {
-      // If not selected, add it
-      setSelectedSuggestions(prev => [...prev, suggestion]);
+      // If there's already text, add a comma and the suggestion
+      setInputValue(prev => `${prev}, ${suggestion}`);
     }
-  };
-  
-  // Use selected suggestions to form a response
-  const useSelectedSuggestions = () => {
-    if (selectedSuggestions.length === 0) return;
     
-    const combinedText = selectedSuggestions.join(' ');
-    setInputValue(combinedText);
-    setSelectedSuggestions([]);
-    
-    // Submit after a short delay to ensure the input value is updated
-    setTimeout(() => handleSubmit(), 100);
+    // Focus the textarea after adding the suggestion
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+      }
+    }, 50);
   };
   
   // Effect to update input when transcript changes
@@ -1398,27 +1391,14 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           <div className="mb-4 p-3 bg-primary-50/80 backdrop-blur-sm border border-primary-200/70 rounded-lg">
             <div className="flex justify-between items-center mb-2">
               <h4 className="text-sm font-medium text-primary-900">Suggested responses:</h4>
-              {selectedSuggestions.length > 0 && (
-                <button
-                  onClick={useSelectedSuggestions}
-                  className="text-xs px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded-md border border-primary-300 transition-colors flex items-center gap-1"
-                >
-                  <CheckCircle className="h-3 w-3" /> 
-                  Use selected ({selectedSuggestions.length})
-                </button>
-              )}
             </div>
-            <div className="flex overflow-x-auto pb-2 custom-scrollbar">
-              <div className="flex flex-nowrap gap-2">
+            <div className="max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="flex flex-col gap-1.5">
                 {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
                     onClick={() => handleSuggestionClick(suggestion)}
-                    className={`text-xs px-3 py-1.5 text-primary-800 text-left rounded-md border transition-colors whitespace-nowrap ${
-                      selectedSuggestions.includes(suggestion) 
-                        ? 'suggestion-selected' 
-                        : 'bg-primary-100/60 hover:bg-primary-200/70 border-primary-200/50'
-                    }`}
+                    className="text-xs px-3 py-1.5 text-primary-800 text-left rounded-md border transition-colors bg-primary-100/60 hover:bg-primary-200/70 border-primary-200/50"
                   >
                     {suggestion}
                   </button>

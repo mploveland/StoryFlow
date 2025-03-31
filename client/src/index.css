@@ -85,22 +85,9 @@
     background-color: rgba(var(--primary-500), 0.6);
   }
   
-  /* Selected suggestion state */
-  .suggestion-selected {
-    background-color: rgb(var(--primary-200) / 80%) !important;
-    border-color: rgb(var(--primary-400) / 60%) !important;
-    box-shadow: 0 0 0 1px rgb(var(--primary-300) / 30%);
-    position: relative;
-    padding-right: 2rem !important;
-  }
-  
-  .suggestion-selected::after {
-    content: '✓';
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: rgb(var(--primary-600));
-    font-weight: 600;
+  /* Custom hover state for suggestion buttons */
+  .suggestion-hover:hover {
+    background-color: rgb(var(--primary-200) / 70%);
+    border-color: rgb(var(--primary-300) / 60%);
   }
 }
