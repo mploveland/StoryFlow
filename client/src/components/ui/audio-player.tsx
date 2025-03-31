@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Volume2, VolumeX, PlayCircle, PauseCircle, FastForward } from 'lucide-react';
 import { Button } from './button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { Slider } from './slider';
 
 interface AudioPlayerProps {
@@ -32,8 +31,10 @@ export function AudioPlayer({
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
 
-  // The available speed options
-  const speedOptions = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+  // Min and max playback speed values
+  const MIN_SPEED = 0.5;
+  const MAX_SPEED = 2.0;
+  const SPEED_STEP = 0.1;
 
   useEffect(() => {
     // Always create a fresh audio element when the URL changes to prevent echo
@@ -243,10 +244,13 @@ export function AudioPlayer({
     }
   };
 
-  const handleSpeedChange = (value: string) => {
-    const newSpeed = parseFloat(value);
-    setPlaybackSpeed(newSpeed);
-    onPlaybackSpeedChange?.(newSpeed);
+  const handleSpeedChange = (value: number[]) => {
+    if (value.length > 0) {
+      // Round to 1 decimal place for cleaner display
+      const newSpeed = Math.round(value[0] * 10) / 10;
+      setPlaybackSpeed(newSpeed);
+      onPlaybackSpeedChange?.(newSpeed);
+    }
   };
   
   const handleVolumeChange = (value: number[]) => {
@@ -307,24 +311,20 @@ export function AudioPlayer({
         />
       </div>
       
-      {/* Playback Speed Selector */}
-      <div className="flex items-center ml-2">
-        <FastForward size={14} className="mr-1 text-muted-foreground" />
-        <Select 
-          value={playbackSpeed.toString()} 
+      {/* Playback Speed Slider */}
+      <div className="flex items-center ml-2 space-x-2">
+        <FastForward size={14} className="text-muted-foreground" />
+        <Slider
+          value={[playbackSpeed]}
+          min={MIN_SPEED}
+          max={MAX_SPEED}
+          step={SPEED_STEP}
           onValueChange={handleSpeedChange}
-        >
-          <SelectTrigger className="h-7 w-16 text-xs">
-            <SelectValue placeholder={`${playbackSpeed}x`} />
-          </SelectTrigger>
-          <SelectContent>
-            {speedOptions.map(speed => (
-              <SelectItem key={speed} value={speed.toString()} className="text-xs">
-                {speed}x
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+          className="w-24"
+        />
+        <span className="text-xs font-medium w-10 text-center">
+          {playbackSpeed.toFixed(1)}x
+        </span>
       </div>
     </div>
   );
