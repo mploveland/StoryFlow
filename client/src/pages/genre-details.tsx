@@ -77,26 +77,28 @@ const GenreDetailsPage: React.FC = () => {
   const queryClient = useQueryClient();
   
   // Get foundationId from URL query params
-  const params = new URLSearchParams(location.split('?')[1]);
+  const params = new URLSearchParams(location.split('?')[1] || '');
   const foundationIdParam = params.get('foundationId');
-  const foundationId = foundationIdParam ? parseInt(foundationIdParam) : 0;
   
-  console.log('Genre details - params:', { foundationIdParam, foundationId, type: typeof foundationId });
+  // Check if parameter exists and is numeric
+  const isValidId = foundationIdParam && /^\d+$/.test(foundationIdParam);
+  const foundationId = isValidId ? parseInt(foundationIdParam, 10) : 0;
   
-  // Redirect to dashboard only if explicitly invalid
+  console.log('Genre details - params:', { foundationIdParam, foundationId, isValidId });
+  
+  // Redirect to dashboard if ID is invalid
   useEffect(() => {
-    // Only redirect if explicitly invalid (NaN or explicitly passed as 0)
-    if (isNaN(foundationId) || (foundationIdParam !== null && foundationId === 0)) {
+    if (!isValidId || foundationId === 0) {
       console.log('Invalid foundation ID detected, redirecting to dashboard');
       toast({
-        title: 'Invalid parameters',
-        description: 'The foundation ID is invalid. Redirecting to dashboard.',
+        title: 'Foundation not found',
+        description: 'We could not find the requested foundation. Please select one from the dashboard.',
       });
       navigate('/dashboard');
     } else {
       console.log('Genre details - foundation ID is valid:', foundationId);
     }
-  }, [foundationId, foundationIdParam, navigate, toast]);
+  }, [foundationId, isValidId, navigate, toast]);
   
   // State to track if genre is being generated
   const [isGenerating, setIsGenerating] = useState(false);
@@ -202,8 +204,8 @@ const GenreDetailsPage: React.FC = () => {
       <header className="bg-white border-b border-neutral-200 py-4">
         <div className="container mx-auto px-4 flex justify-between items-center">
           <div className="flex items-center">
-            <Link href="/dashboard">
-              <a className="text-primary-600 text-2xl font-bold">StoryFlow</a>
+            <Link to="/dashboard" className="text-primary-600 text-2xl font-bold">
+              StoryFlow
             </Link>
           </div>
           <div className="flex items-center space-x-2">
