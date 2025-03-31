@@ -693,54 +693,63 @@ const FoundationDetails: React.FC = () => {
           {/* Empty space on the left when items are hidden - for centering */}
           <div className={`lg:col-span-3 ${showFoundationComponents ? '' : 'lg:block'}`}></div>
 
-          {/* Genre details card - always visible when available regardless of other components */}
+          {/* Genre details card - create a separate grid row for this to avoid shifting content */}
           {showGenreDetails && genreDetails && (
-            <div className="lg:col-span-3 lg:block mb-6">
-              <Card 
-                className="hover:shadow-md transition-shadow border-primary-200 bg-primary-50/50 hover:bg-primary-100/50 cursor-pointer"
-                onClick={() => {
-                  const url = `/genre-details?foundationId=${foundation.id}`;
-                  console.log('Navigating to genre details with URL:', url);
-                  // Use direct window location for more reliable navigation
-                  window.location.href = url;
-                }}
-              >
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center text-lg">
-                    <Sparkles className="mr-2 h-5 w-5 text-primary-500" /> 
-                    Genre Details
-                  </CardTitle>
-                  <CardDescription>
-                    Detailed genre information
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="pb-2">
-                  <div className="space-y-2">
-                    <div>
-                      <span className="font-semibold text-sm">Main Genre:</span>
-                      <p className="text-sm text-neutral-600">{genreDetails.mainGenre}</p>
-                    </div>
-                    {genreDetails.description && (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
+              <div className="lg:col-span-3"></div>
+              <div className="lg:col-span-6">
+                <Card 
+                  className="hover:shadow-md transition-shadow border-primary-200 bg-primary-50/50 hover:bg-primary-100/50 cursor-pointer"
+                  onClick={() => {
+                    // Use absolute URL to ensure correct navigation
+                    const url = `${window.location.origin}/genre-details?foundationId=${foundation.id}`;
+                    console.log('Navigating to genre details with absolute URL:', url);
+                    
+                    // Add debug alert to verify navigation is happening
+                    alert(`Navigating to: ${url}`);
+                    
+                    // Use direct window location for more reliable navigation
+                    window.location.href = url;
+                  }}
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center text-lg">
+                      <Sparkles className="mr-2 h-5 w-5 text-primary-500" /> 
+                      Genre Details
+                    </CardTitle>
+                    <CardDescription>
+                      Detailed genre information
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-2">
+                    <div className="space-y-2">
                       <div>
-                        <span className="font-semibold text-sm">Description:</span>
-                        <p className="text-sm text-neutral-600">{genreDetails.description}</p>
+                        <span className="font-semibold text-sm">Main Genre:</span>
+                        <p className="text-sm text-neutral-600">{genreDetails.mainGenre}</p>
                       </div>
-                    )}
-                    {genreDetails.themes && genreDetails.themes.length > 0 && (
-                      <div>
-                        <span className="font-semibold text-sm">Themes:</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {genreDetails.themes.map((theme, i) => (
-                            <Badge key={i} variant="outline" className="bg-primary-100/50">
-                              {theme}
-                            </Badge>
-                          ))}
+                      {genreDetails.description && (
+                        <div>
+                          <span className="font-semibold text-sm">Description:</span>
+                          <p className="text-sm text-neutral-600">{genreDetails.description}</p>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      )}
+                      {genreDetails.themes && genreDetails.themes.length > 0 && (
+                        <div>
+                          <span className="font-semibold text-sm">Themes:</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {genreDetails.themes.map((theme, i) => (
+                              <Badge key={i} variant="outline" className="bg-primary-100/50">
+                                {theme}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+              <div className="lg:col-span-3"></div>
             </div>
           )}
           
@@ -764,8 +773,14 @@ const FoundationDetails: React.FC = () => {
                       size="sm"
                       className="w-full text-primary-600" 
                       onClick={() => {
-                        const url = `/genre-details?foundationId=${foundation.id}`;
+                        // Use absolute URL to ensure correct navigation
+                        const url = `${window.location.origin}/genre-details?foundationId=${foundation.id}`;
                         console.log('Clicking view details button, navigating to:', url);
+                        
+                        // Add debug alert to verify navigation is happening
+                        alert(`Navigating to: ${url}`);
+                        
+                        // Use direct window location for more reliable navigation
                         window.location.href = url;
                       }}
                     >
