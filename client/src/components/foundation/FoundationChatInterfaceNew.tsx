@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { Foundation } from '@shared/schema';
-import { Mic, Send, Pause, Volume2, VolumeX, Square } from 'lucide-react';
+import { Mic, Send, Pause, Volume2, VolumeX, Square, CheckCircle } from 'lucide-react';
 import useSpeechRecognition from '@/hooks/useSpeechRecognition';
 import { useTTS } from '@/hooks/useTTS';
 import { AudioPlayer } from '@/components/ui/audio-player';
@@ -883,9 +883,29 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     return isSelectionResponse || namesMentioned;
   };
   
-  // Handle suggestion click
+  // State for selected suggestions
+  const [selectedSuggestions, setSelectedSuggestions] = useState<string[]>([]);
+  
+  // Handle suggestion click for multi-selection
   const handleSuggestionClick = (suggestion: string) => {
-    setInputValue(suggestion);
+    if (selectedSuggestions.includes(suggestion)) {
+      // If already selected, remove it
+      setSelectedSuggestions(prev => prev.filter(s => s !== suggestion));
+    } else {
+      // If not selected, add it
+      setSelectedSuggestions(prev => [...prev, suggestion]);
+    }
+  };
+  
+  // Use selected suggestions to form a response
+  const useSelectedSuggestions = () => {
+    if (selectedSuggestions.length === 0) return;
+    
+    const combinedText = selectedSuggestions.join(' ');
+    setInputValue(combinedText);
+    setSelectedSuggestions([]);
+    
+    // Submit after a short delay to ensure the input value is updated
     setTimeout(() => handleSubmit(), 100);
   };
   
@@ -1187,16 +1207,36 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       <div>
         {/* Message suggestions */}
         {showSuggestions && suggestions.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-2">
-            {suggestions.map((suggestion, index) => (
-              <button
-                key={index}
-                onClick={() => handleSuggestionClick(suggestion)}
-                className="text-xs px-3 py-1.5 bg-primary-50 hover:bg-primary-100 text-primary-700 rounded-full border border-primary-200"
-              >
-                {suggestion}
-              </button>
-            ))}
+          <div className="mb-4 p-3 bg-primary-50/80 backdrop-blur-sm border border-primary-200/70 rounded-lg">
+            <div className="flex justify-between items-center mb-2">
+              <h4 className="text-sm font-medium text-primary-900">Suggested responses:</h4>
+              {selectedSuggestions.length > 0 && (
+                <button
+                  onClick={useSelectedSuggestions}
+                  className="text-xs px-2 py-1 bg-primary-100 hover:bg-primary-200 text-primary-700 rounded-md border border-primary-300 transition-colors flex items-center gap-1"
+                >
+                  <CheckCircle className="h-3 w-3" /> 
+                  Use {selectedSuggestions.length} selected
+                </button>
+              )}
+            </div>
+            <div className="max-h-[150px] overflow-y-auto pr-1 custom-scrollbar">
+              <div className="flex flex-col gap-1.5">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className={`text-xs px-3 py-1.5 text-primary-800 text-left rounded-md border transition-colors ${
+                      selectedSuggestions.includes(suggestion) 
+                        ? 'suggestion-selected' 
+                        : 'bg-primary-100/60 hover:bg-primary-200/70 border-primary-200/50'
+                    }`}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
         
