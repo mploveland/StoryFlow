@@ -425,16 +425,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     setShowSuggestions(false);
     
     try {
-      // First check if the user is responding to name suggestions
-      if (window.pendingGenreTransition && isRespondingToNameSuggestions(userMessage.content)) {
-        // Handle name selection first
-        console.log('Detected response to name suggestions', userMessage.content);
-        const processed = await processNameSelection(userMessage.content);
-        if (processed) {
-          console.log('Name selection processed successfully');
-          return; // Skip the regular message handling flow
-        }
-      }
+      // Skip checking for name suggestions since we're transitioning directly to environment stage
       
       // Regular message handling flow
       const response = await messageHandler(userMessage.content, threadId);
@@ -618,53 +609,11 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       
       console.log('Final main genre for transition:', mainGenre);
       
-      // Generate name suggestions based on the genre summary
-      const nameResponse = await fetch(`/api/foundations/${effectiveFoundationId}/name-suggestions`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          genreSummary,
-          mainGenre
-        })
-      });
+      // Skip name suggestions and transition directly to the environment stage
+      console.log('Skipping name suggestions - transitioning directly to environment stage');
       
-      if (!nameResponse.ok) {
-        console.error('Failed to generate name suggestions:', nameResponse.status);
-        return;
-      }
-      
-      const nameData = await nameResponse.json();
-      const suggestedNames = nameData.suggestedNames || [];
-      
-      console.log('Generated name suggestions:', suggestedNames);
-      
-      if (suggestedNames.length === 0) {
-        // If no name suggestions were generated, skip to environment stage directly
-        console.log('No name suggestions available - transitioning directly');
-        triggerEnvironmentStage(mainGenre, genreSummary, []);
-        return;
-      }
-      
-      // Add message with name suggestions
-      const nameMessage = {
-        role: 'assistant' as const,
-        content: `Based on the ${mainGenre} genre, I've generated some possible names for your story foundation. Would you like to rename it to any of these?\n\n${suggestedNames.map((name: string, index: number) => `${index + 1}. ${name}`).join('\n')}\n\nOr you can keep the current name "${foundation?.name}". What would you prefer?`
-      };
-      
-      setMessages(prev => [...prev, nameMessage]);
-      lastSpokenMessageRef.current = nameMessage.content;
-      
-      // Save assistant message
-      if (effectiveFoundationId) {
-        saveMessage(effectiveFoundationId, 'assistant', nameMessage.content);
-      }
-      
-      // Store the genre info for later use
-      window.pendingGenreTransition = {
-        mainGenre,
-        genreSummary,
-        suggestedNames
-      };
+      // Transition directly to environment stage without name suggestions
+      triggerEnvironmentStage(mainGenre, genreSummary, []);
     } catch (error) {
       console.error('Error processing genre summary:', error);
     }
@@ -1047,39 +996,11 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   };
   
   // Check if a message is responding to name suggestions
+  // This function is no longer needed since we're skipping name suggestions,
+  // but keep a stub to avoid breaking references
   const isRespondingToNameSuggestions = (userContent: string): boolean => {
-    if (!window.pendingGenreTransition) return false;
-    
-    const { suggestedNames } = window.pendingGenreTransition;
-    
-    // Check for common response patterns to name suggestions
-    const selectionIndicators = [
-      /I (like|choose|prefer|want|pick) (option|number|choice)?\s*\d+/i,
-      /option\s*\d+/i,
-      /number\s*\d+/i,
-      /^\d+$/,
-      /the first one/i,
-      /the second one/i,
-      /the third one/i,
-      /the \w+ option/i,
-      /use that name/i,
-      /rename (it|the foundation)/i,
-      /sounds good/i,
-      /(keep|current) name/i,
-      /don't rename/i,
-      /don't change/i,
-      /stay with/i
-    ];
-    
-    const isSelectionResponse = selectionIndicators.some(pattern => 
-      pattern.test(userContent)
-    );
-    
-    const namesMentioned = suggestedNames.some((name: string) => 
-      userContent.toLowerCase().includes(name.toLowerCase())
-    );
-    
-    return isSelectionResponse || namesMentioned;
+    // Always return false since we're skipping the name suggestion step
+    return false;
   };
   
   // Handle suggestion click to add to input text
