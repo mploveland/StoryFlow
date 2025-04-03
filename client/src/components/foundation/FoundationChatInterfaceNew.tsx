@@ -912,7 +912,13 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   
   // Check if a message is a genre summary that should trigger transition
   const isGenreSummaryComplete = (content: string): boolean => {
-    // First, check for structured JSON data which is the most reliable indicator
+    // First verify we're actually in the genre stage - important to prevent accidental regressions
+    if (currentStage !== 'genre') {
+      console.log('isGenreSummaryComplete called but currentStage is not genre:', currentStage);
+      return false;
+    }
+    
+    // Then check for structured JSON data which is the most reliable indicator
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -923,7 +929,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         if (parsedData && (parsedData.mainGenre || parsedData.main_genre)) {
           const genreName = parsedData.mainGenre || parsedData.main_genre;
           console.log(`Found structured JSON with genre field (${genreName}) - triggering transition`);
-          return currentStage === 'genre';
+          return true;
         }
       }
     } catch (error) {
@@ -954,7 +960,13 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   
   // Check if an environment summary is complete and should trigger transition to world stage
   const isEnvironmentSummaryComplete = (content: string): boolean => {
-    // First, check for structured JSON data which is the most reliable indicator
+    // First verify we're actually in the environment stage - important to prevent accidental regressions
+    if (currentStage !== 'environment') {
+      console.log('isEnvironmentSummaryComplete called but currentStage is not environment:', currentStage);
+      return false;
+    }
+    
+    // Then check for structured JSON data which is the most reliable indicator
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -964,7 +976,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         // If we have valid JSON with environment or environments field, consider it a complete environment summary
         if (parsedData && (parsedData.environment || parsedData.environment_details || parsedData.environmentDetails)) {
           console.log(`Found structured JSON with environment field - triggering transition`);
-          return currentStage === 'environment';
+          return true;
         }
       }
     } catch (error) {
