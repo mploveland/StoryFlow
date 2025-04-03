@@ -1587,72 +1587,50 @@ To begin, do you have an existing map in mind for reference—or should I start 
       
       // 2. Add genre details to the database - handle all possible structured fields
       
+      console.log('[GENRE DB] Converting fields from snake_case to camelCase');
+      
       // First, convert any snake_case field names to camelCase for consistency
-      if (genreDetails.main_genre && !genreDetails.mainGenre) {
-        console.log('Converting main_genre to mainGenre for consistency');
-        genreDetails.mainGenre = genreDetails.main_genre;
-      }
-      if (genreDetails.genre_rationale && !genreDetails.genreRationale) {
-        genreDetails.genreRationale = genreDetails.genre_rationale;
-      }
-      if (genreDetails.audience_expectations && !genreDetails.audienceExpectations) {
-        genreDetails.audienceExpectations = genreDetails.audience_expectations;
-      }
-      if (genreDetails.time_period && !genreDetails.timePeriod) {
-        genreDetails.timePeriod = genreDetails.time_period;
-      }
-      if (genreDetails.technology_level && !genreDetails.technologyLevel) {
-        genreDetails.technologyLevel = genreDetails.technology_level;
-      }
-      if (genreDetails.physical_environment && !genreDetails.physicalEnvironment) {
-        genreDetails.physicalEnvironment = genreDetails.physical_environment;
-      }
-      if (genreDetails.key_tropes && !genreDetails.keyTropes) {
-        genreDetails.keyTropes = genreDetails.key_tropes;
-      }
-      if (genreDetails.trope_strategy && !genreDetails.tropeStrategy) {
-        genreDetails.tropeStrategy = genreDetails.trope_strategy;
-      }
-      if (genreDetails.speculative_elements && !genreDetails.speculativeElements) {
-        genreDetails.speculativeElements = genreDetails.speculative_elements;
-      }
-      if (genreDetails.speculative_rules && !genreDetails.speculativeRules) {
-        genreDetails.speculativeRules = genreDetails.speculative_rules;
-      }
-      if (genreDetails.emotional_impact && !genreDetails.emotionalImpact) {
-        genreDetails.emotionalImpact = genreDetails.emotional_impact;
-      }
-      // Add missing snake_case to camelCase conversions for the problematic fields
-      if (genreDetails.subgenre_rationale && !genreDetails.subgenreRationale) {
-        genreDetails.subgenreRationale = genreDetails.subgenre_rationale;
-      }
-      if (genreDetails.subgenre_interaction && !genreDetails.subgenreInteraction) {
-        genreDetails.subgenreInteraction = genreDetails.subgenre_interaction;
-      }
-      if (genreDetails.subgenre_tropes && !genreDetails.subgenreTropes) {
-        genreDetails.subgenreTropes = genreDetails.subgenre_tropes;
-      }
-      if (genreDetails.societal_structures && !genreDetails.societalStructures) {
-        genreDetails.societalStructures = genreDetails.societal_structures;
-      }
-      if (genreDetails.cultural_norms && !genreDetails.culturalNorms) {
-        genreDetails.culturalNorms = genreDetails.cultural_norms;
-      }
-      if (genreDetails.sensory_details && !genreDetails.sensoryDetails) {
-        genreDetails.sensoryDetails = genreDetails.sensory_details;
-      }
-      if (genreDetails.atmospheric_style && !genreDetails.atmosphericStyle) {
-        genreDetails.atmosphericStyle = genreDetails.atmospheric_style;
-      }
-      if (genreDetails.thematic_environment_tieins && !genreDetails.thematicEnvironmentTieins) {
-        genreDetails.thematicEnvironmentTieins = genreDetails.thematic_environment_tieins;
-      }
-      if (genreDetails.inspiration_details && !genreDetails.inspirationDetails) {
-        genreDetails.inspirationDetails = genreDetails.inspiration_details;
-      }
-      if (genreDetails.divergence_from_inspirations && !genreDetails.divergenceFromInspirations) {
-        genreDetails.divergenceFromInspirations = genreDetails.divergence_from_inspirations;
-      }
+      const fieldMappings = {
+        'main_genre': 'mainGenre',
+        'genre_rationale': 'genreRationale',
+        'audience_expectations': 'audienceExpectations',
+        'time_period': 'timePeriod',
+        'technology_level': 'technologyLevel',
+        'physical_environment': 'physicalEnvironment',
+        'key_tropes': 'keyTropes',
+        'trope_strategy': 'tropeStrategy',
+        'speculative_elements': 'speculativeElements',
+        'speculative_rules': 'speculativeRules',
+        'emotional_impact': 'emotionalImpact',
+        'subgenre_rationale': 'subgenreRationale',
+        'subgenre_interaction': 'subgenreInteraction',
+        'subgenre_tropes': 'subgenreTropes',
+        'societal_structures': 'societalStructures',
+        'cultural_norms': 'culturalNorms',
+        'sensory_details': 'sensoryDetails',
+        'atmospheric_style': 'atmosphericStyle',
+        'thematic_environment_tieins': 'thematicEnvironmentTieins',
+        'inspiration_details': 'inspirationDetails',
+        'divergence_from_inspirations': 'divergenceFromInspirations'
+      };
+      
+      // Process all field mappings systematically
+      Object.entries(fieldMappings).forEach(([snakeCase, camelCase]) => {
+        if (genreDetails[snakeCase] && !genreDetails[camelCase]) {
+          console.log(`Converting ${snakeCase} to ${camelCase}`);
+          genreDetails[camelCase] = genreDetails[snakeCase];
+        }
+      });
+      
+      // Ensure any array or object fields are properly stringified if needed
+      ['subgenres', 'keyTropes', 'speculativeElements'].forEach(field => {
+        if (genreDetails[field] && typeof genreDetails[field] === 'object') {
+          genreDetails[field] = JSON.stringify(genreDetails[field]);
+        }
+      });
+      
+      // Log all processed field data for debugging
+      console.log('[GENRE DB] Looking up genre details for foundation', foundationId);
       
       const genreData = {
         foundationId,
@@ -1683,6 +1661,10 @@ To begin, do you have an existing map in mind for reference—or should I start 
         physicalEnvironment: genreDetails.physicalEnvironment || '',
         geography: genreDetails.geography || '',
         
+        // Social elements - these were missing from previous implementation
+        societalStructures: genreDetails.societalStructures || '',
+        culturalNorms: genreDetails.culturalNorms || '',
+        
         // Tropes and speculative elements
         keyTropes: genreDetails.keyTropes || '',
         tropeStrategy: genreDetails.tropeStrategy || '',
@@ -1700,8 +1682,6 @@ To begin, do you have an existing map in mind for reference—or should I start 
         inspirationDetails: genreDetails.inspirationDetails || '',
         divergenceFromInspirations: genreDetails.divergenceFromInspirations || '',
         
-        // Removed legacy fields
-        
         // Thread ID for continued conversation
         threadId: genreDetails.threadId || null
       };
@@ -1711,13 +1691,25 @@ To begin, do you have an existing map in mind for reference—or should I start 
       
       if (!existingDetails) {
         // Insert new genre details
-        console.log('Creating new genre details');
-        await storage.createGenreDetails(genreData);
+        console.log('[GENRE DB] No genre details found for foundation', foundationId);
+        console.log('[GENRE DB] Creating new genre details for foundation', foundationId);
+        console.log('[GENRE DB] Genre data:', JSON.stringify(genreData, null, 2));
+        
+        const newGenre = await storage.createGenreDetails(genreData);
+        console.log('[GENRE DB] Successfully created genre details with ID', newGenre?.id);
       } else {
         // Update existing genre details
-        console.log('Updating existing genre details');
-        await storage.updateGenreDetails(existingDetails.id, genreData);
+        console.log('[GENRE DB] Found existing genre details ID:', existingDetails.id);
+        console.log('[GENRE DB] Updating genre details');
+        console.log('[GENRE DB] Genre data to save:', JSON.stringify(genreData, null, 2));
+        
+        const updatedGenre = await storage.updateGenreDetails(existingDetails.id, genreData);
+        console.log('[GENRE DB] Successfully updated genre details with ID:', updatedGenre?.id);
       }
+      
+      // Generate a summary for display to the user (instead of showing raw JSON)
+      const genreSummaryForDisplay = generateGenreSummaryForDisplay(genreData);
+      console.log('[GENRE DB] Generated user-friendly summary:', genreSummaryForDisplay);
       
       // 3. Generate a customized environment introduction based on the genre
       const environmentIntroMessage = getEnvironmentIntroMessage(effectiveMainGenre, genreSummary);
@@ -1727,7 +1719,8 @@ To begin, do you have an existing map in mind for reference—or should I start 
         suggestedNames,
         message: "Genre details saved and ready for environment stage",
         environmentIntroMessage,
-        mainGenre: effectiveMainGenre
+        mainGenre: effectiveMainGenre,
+        genreSummary: genreSummaryForDisplay // Include the user-friendly summary in the response
       });
     } catch (error) {
       console.error('Error in genre to environment transition:', error);
@@ -1735,6 +1728,65 @@ To begin, do you have an existing map in mind for reference—or should I start 
     }
   });
   
+  // Helper function to generate a user-friendly genre summary from the genre data
+  function generateGenreSummaryForDisplay(genreData: any): string {
+    const { mainGenre, tone, mood, timePeriod, physicalEnvironment, keyTropes, atmosphere } = genreData;
+    
+    let summary = `Your ${mainGenre} story world`;
+    
+    // Add tone/mood if available
+    if (tone || mood) {
+      summary += ` has a ${tone || mood} feel`;
+    }
+    
+    // Add time period if available
+    if (timePeriod) {
+      summary += `, set in ${timePeriod}`;
+    }
+    
+    // Add physical environment if available
+    if (physicalEnvironment) {
+      const environmentDesc = physicalEnvironment.length > 100 
+        ? physicalEnvironment.substring(0, 97) + '...'
+        : physicalEnvironment;
+      summary += `, with ${environmentDesc}`;
+    }
+    
+    // Add key tropes if available
+    if (keyTropes) {
+      let tropesText = keyTropes;
+      if (typeof tropesText === 'string' && tropesText.startsWith('[') && tropesText.endsWith(']')) {
+        try {
+          const tropesArray = JSON.parse(tropesText);
+          if (Array.isArray(tropesArray) && tropesArray.length > 0) {
+            tropesText = tropesArray.slice(0, 3).join(', ');
+            if (tropesArray.length > 3) {
+              tropesText += ', and more';
+            }
+          }
+        } catch (e) {
+          // Keep original text if JSON parsing fails
+        }
+      }
+      
+      if (tropesText && tropesText.length > 0) {
+        summary += `. It features elements like ${tropesText}`;
+      }
+    }
+    
+    // Add atmosphere if available and not already covered by tone/mood
+    if (atmosphere && atmosphere !== tone && atmosphere !== mood) {
+      summary += `. The atmosphere is ${atmosphere}`;
+    }
+    
+    // End with a period if needed
+    if (!summary.endsWith('.')) {
+      summary += '.';
+    }
+    
+    return summary;
+  }
+
   // Helper function to generate environment introduction message with enhanced genre data
   function getEnvironmentIntroMessage(mainGenre: string, genreSummary: string): string {
     // Try to extract structured JSON data from the genre summary if available

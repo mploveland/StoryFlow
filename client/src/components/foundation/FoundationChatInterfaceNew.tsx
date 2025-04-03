@@ -1007,22 +1007,39 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       setCurrentStage('world');
       console.log('Updated current stage to: world');
       
-      // Add the world introduction message
+      // Add an environment summary message first to show completion of that stage
+      const environmentSummaryMessage = {
+        role: 'assistant' as const,
+        content: `✅ Environment Stage Complete: You've created ${allEnvironments.length} environment${allEnvironments.length !== 1 ? 's' : ''} for your world.`
+      };
+      
+      // Save the environment summary message
+      if (effectiveFoundationId) {
+        saveMessage(effectiveFoundationId, 'assistant', environmentSummaryMessage.content);
+      }
+      
+      setMessages(prev => [...prev, environmentSummaryMessage]);
+
+      // Define the world intro message
       const worldIntroMessage = {
         role: 'assistant' as const,
         content: "Would you like me to generate a world based on the environments you have previously created, or use an existing map for this process?"
       };
       
-      setMessages(prev => [...prev, worldIntroMessage]);
-      lastSpokenMessageRef.current = worldIntroMessage.content;
-      
-      // Save assistant message
-      if (effectiveFoundationId) {
-        saveMessage(effectiveFoundationId, 'assistant', worldIntroMessage.content);
-      }
-      
-      // Fetch suggestions for the world stage introduction
-      fetchSuggestions('', worldIntroMessage.content);
+      // Short delay before adding the world introduction message
+      // This helps the user perceive the transition between stages
+      setTimeout(() => {
+        setMessages(prev => [...prev, worldIntroMessage]);
+        lastSpokenMessageRef.current = worldIntroMessage.content;
+        
+        // Save assistant message
+        if (effectiveFoundationId) {
+          saveMessage(effectiveFoundationId, 'assistant', worldIntroMessage.content);
+        }
+        
+        // Fetch suggestions for the world stage introduction
+        fetchSuggestions('', worldIntroMessage.content);
+      }, 1000);
       
       // Clear pending transition data
       delete window.pendingEnvironmentToWorldTransition;
@@ -1079,22 +1096,39 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       const transitionData = await transitionResponse.json();
       console.log('Transition data:', transitionData);
       
-      // Add the environment introduction message
+      // Add a genre summary message first to show completion of that stage
+      const genreSummaryMessage = {
+        role: 'assistant' as const,
+        content: `✅ Genre Stage Complete: ${transitionData.genreSummary || `Your ${mainGenre} story world is ready.`}`
+      };
+      
+      // Save the genre summary message
+      if (effectiveFoundationId) {
+        saveMessage(effectiveFoundationId, 'assistant', genreSummaryMessage.content);
+      }
+      
+      setMessages(prev => [...prev, genreSummaryMessage]);
+
+      // Define environment message first so it can be referenced
       const envIntroMessage = {
         role: 'assistant' as const,
         content: transitionData.environmentIntroMessage || 'You are now ready to transition to the Environments Stage of the Foundation creation process.'
       };
       
-      setMessages(prev => [...prev, envIntroMessage]);
-      lastSpokenMessageRef.current = envIntroMessage.content;
-      
-      // Save assistant message
-      if (effectiveFoundationId) {
-        saveMessage(effectiveFoundationId, 'assistant', envIntroMessage.content);
-      }
-      
-      // Fetch suggestions for the environment stage introduction
-      fetchSuggestions('', envIntroMessage.content);
+      // Short delay before adding the environment introduction message
+      // This helps the user perceive the transition between stages
+      setTimeout(() => {
+        setMessages(prev => [...prev, envIntroMessage]);
+        lastSpokenMessageRef.current = envIntroMessage.content;
+        
+        // Save assistant message
+        if (effectiveFoundationId) {
+          saveMessage(effectiveFoundationId, 'assistant', envIntroMessage.content);
+        }
+        
+        // Fetch suggestions for the environment stage introduction
+        fetchSuggestions('', envIntroMessage.content);
+      }, 1000);
       
       // Update the current stage
       setCurrentStage('environment');
