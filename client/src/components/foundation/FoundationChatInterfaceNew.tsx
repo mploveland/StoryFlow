@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
@@ -126,6 +126,20 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     apiKeyError,
     clearApiKeyError
   } = useTTS();
+  
+  // Derived TTS state for convenience
+  const ttsEnabled = !!selectedVoice;
+  const ttsVoiceId = selectedVoice?.id;
+  
+  // Flag to monitor next user message after asking about environment/world choice
+  const [monitoringNextMessage, setMonitoringNextMessage] = useState(false);
+  
+  // Helper function to speak text using TTS
+  const speakText = useCallback((text: string) => {
+    if (ttsEnabled && ttsVoiceId) {
+      speak(text);
+    }
+  }, [speak, ttsEnabled, ttsVoiceId]);
   
   // Update input value from transcript
   useEffect(() => {
@@ -460,7 +474,106 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       // Check if this is an environment summary that should trigger a transition
       else if (isEnvironmentSummaryComplete(assistantMessage.content)) {
         console.log('Detected completed environment summary');
-        await processEnvironmentSummary(assistantMessage.content);
+        await handleEnvironmentCompletion(assistantMessage.content);
+      }
+      // Check if we're in environment stage and responding to "create another or move to world"
+      else if (currentStage === 'environment' && 
+               messages.length >= 2 && 
+               messages[messages.length - 2].content.includes("Would you like to create another environment or are you ready to move to the world building stage?")) {
+        
+        // Parse the user's response to determine their choice
+        const userInput = userMessage.content.toLowerCase();
+        
+        if (userInput.includes("another") || 
+            userInput.includes("more environment") || 
+            userInput.includes("create environment") || 
+            userInput.includes("add environment") ||
+            userInput.includes("new environment")) {
+          
+          console.log('User wants to create another environment');
+          
+          // Ask what kind of environment they want to add
+          const nextPromptMessage = {
+            role: 'assistant' as const,
+            content: "What kind of environment would you like to add?"
+          };
+          
+          setMessages(prev => [...prev, nextPromptMessage]);
+          lastSpokenMessageRef.current = nextPromptMessage.content;
+          
+          // Save assistant message
+          if (effectiveFoundationId) {
+            saveMessage(effectiveFoundationId, 'assistant', nextPromptMessage.content);
+          }
+          
+          // Fetch suggestions for creating a new environment
+          fetchSuggestions('', nextPromptMessage.content);
+          
+          // If TTS is enabled, speak the message
+          if (ttsEnabled && ttsVoiceId) {
+            speakText(nextPromptMessage.content);
+          }
+          
+        } else if (userInput.includes("world") || 
+                  userInput.includes("next stage") || 
+                  userInput.includes("move on") || 
+                  userInput.includes("ready") ||
+                  userInput.includes("done") ||
+                  userInput.includes("finished")) {
+          
+          console.log('User wants to move to world building stage');
+          
+          // Get all environment details to pass to world stage
+          const environmentResponse = await fetch(`/api/foundations/${effectiveFoundationId}/environment`);
+          let allEnvironments = [];
+          
+          if (environmentResponse.ok) {
+            const environmentData = await environmentResponse.json();
+            if (Array.isArray(environmentData)) {
+              allEnvironments = environmentData;
+              console.log(`Retrieved ${environmentData.length} environments for world transition`);
+            }
+          }
+          
+          // Get genre details for context
+          const genreResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre`);
+          let genreContext = undefined;
+          
+          if (genreResponse.ok) {
+            const genreData = await genreResponse.json();
+            if (genreData) {
+              genreContext = {
+                mainGenre: genreData.mainGenre || genreData.main_genre || 'Unknown',
+                description: genreData.description || ''
+              };
+            }
+          }
+          
+          // Trigger transition to world stage
+          await triggerWorldStage('', allEnvironments, genreContext);
+        } else {
+          // User's response is unclear, ask for clarification
+          const clarificationMessage = {
+            role: 'assistant' as const,
+            content: "I'm not sure if you want to create another environment or move to the world building stage. Could you please clarify?"
+          };
+          
+          setMessages(prev => [...prev, clarificationMessage]);
+          lastSpokenMessageRef.current = clarificationMessage.content;
+          
+          // Save assistant message
+          if (effectiveFoundationId) {
+            saveMessage(effectiveFoundationId, 'assistant', clarificationMessage.content);
+          }
+          
+          // Fetch suggestions
+          fetchSuggestions('', clarificationMessage.content);
+          
+          // If TTS is enabled, speak the message
+          if (ttsEnabled && ttsVoiceId) {
+            speakText(clarificationMessage.content);
+          }
+        }
       } else {
         // Only fetch suggestions if not transitioning
         fetchSuggestions(userMessage.content, assistantMessage.content);
@@ -777,7 +890,78 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     }
   };
   
-  // Trigger the transition to world stage
+  // Handle completion of environment creation and ask if user wants to create another environment
+// or move to the world stage
+const handleEnvironmentCompletion = async (environmentSummary: string) => {
+    try {
+      console.log('Environment creation completed');
+      const effectiveFoundationId = foundationId || foundation?.id;
+      
+      if (!effectiveFoundationId) {
+        console.error('No foundation ID available for environment completion');
+        return;
+      }
+      
+      // First try to extract JSON content from the response
+      let structuredData = null;
+      
+      // Try to parse any JSON block in the content
+      try {
+        const jsonMatch = environmentSummary.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          structuredData = JSON.parse(jsonString);
+          console.log('Found structured JSON data in environment summary:', structuredData);
+        }
+      } catch (jsonError) {
+        console.log('No valid JSON found in response, falling back to text extraction');
+      }
+      
+      // Call the API to save environment details but not transition yet
+      const saveResponse = await fetch(`/api/foundations/${effectiveFoundationId}/environment-to-world`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          environmentDetails: structuredData || {},
+          createAnother: true // Default to staying in environment stage
+        })
+      });
+      
+      if (!saveResponse.ok) {
+        console.error('Failed to save environment details:', saveResponse.status);
+        return;
+      }
+      
+      // Add the completion message asking user about next steps
+      const completionMessage = {
+        role: 'assistant' as const,
+        content: "Would you like to create another environment or are you ready to move to the world building stage?"
+      };
+      
+      setMessages(prev => [...prev, completionMessage]);
+      lastSpokenMessageRef.current = completionMessage.content;
+      
+      // Save assistant message
+      if (effectiveFoundationId) {
+        saveMessage(effectiveFoundationId, 'assistant', completionMessage.content);
+      }
+      
+      // Reset message monitoring to allow for new environment creation or world transition
+      setMonitoringNextMessage(true);
+      
+      // If TTS is active, speak the message
+      if (ttsEnabled && ttsVoiceId) {
+        speakText(completionMessage.content);
+      }
+      
+      // Fetch suggestions for the user's response
+      fetchSuggestions('', completionMessage.content);
+    } catch (error) {
+      console.error('Error handling environment completion:', error);
+    }
+};
+
+// Trigger the transition to world stage
   const triggerWorldStage = async (
     environmentSummary: string, 
     allEnvironments: any[], 
@@ -797,7 +981,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          environmentSummary,
+          environmentDetails: {},
+          createAnother: false, // This signals moving to world stage
           allEnvironments,
           genreContext
         })
@@ -814,7 +999,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       // Add the world introduction message
       const worldIntroMessage = {
         role: 'assistant' as const,
-        content: transitionData.worldIntroMessage || 'You are now ready to transition to the World Building Stage of the Foundation creation process.'
+        content: "Would you like me to generate a world based on the environments you have previously created, or use an existing map for this process?"
       };
       
       setMessages(prev => [...prev, worldIntroMessage]);
