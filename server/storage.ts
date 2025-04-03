@@ -622,6 +622,13 @@ export class DatabaseStorage implements IStorage {
         .select()
         .from(environmentDetails)
         .where(eq(environmentDetails.foundationId, foundationId));
+      
+      if (details) {
+        console.log(`Found environment details with ID: ${details.id}`);
+      } else {
+        console.log(`No environment details found for foundation ${foundationId}`);
+      }
+      
       return details;
     } catch (error) {
       console.error('Error fetching environment details:', error);

@@ -29,6 +29,11 @@ export const foundations = pgTable("foundations", {
   genre: text("genre"),
   threadId: text("thread_id"),
   currentStage: text("current_stage").default('genre'),
+  // Completion status tracking flags
+  genreCompleted: boolean("genre_completed").default(false),
+  environmentCompleted: boolean("environment_completed").default(false),
+  worldCompleted: boolean("world_completed").default(false),
+  charactersCompleted: boolean("characters_completed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -40,6 +45,11 @@ export const insertFoundationSchema = createInsertSchema(foundations).pick({
   genre: true,
   threadId: true,
   currentStage: true,
+  // Completion status tracking flags
+  genreCompleted: true,
+  environmentCompleted: true,
+  worldCompleted: true,
+  charactersCompleted: true,
 });
 
 // Story schema - now referencing foundations instead of directly containing world data
@@ -772,6 +782,12 @@ export const environmentDetails = pgTable("environment_details", {
   speculative_features: text("speculative_features"),
   associated_characters_factions: text("associated_characters_factions"),
   inspirations_references: text("inspirations_references"),
+  // Additional fields for environment transition (legacy field support)
+  setting: text("setting"),
+  era: text("era"),
+  atmosphere: text("atmosphere"),
+  description: text("description"),
+  threadId: text("thread_id"),
   // References to other tables in our schema (modified from the original request)
   worldDetailsId: integer("world_details_id").references(() => worldDetails.id, { onDelete: 'set null' }),
   genreDetailsId: integer("genre_details_id").references(() => genreDetails.id, { onDelete: 'set null' }),
@@ -794,6 +810,13 @@ export const insertEnvironmentDetailsSchema = createInsertSchema(environmentDeta
   speculative_features: true,
   associated_characters_factions: true,
   inspirations_references: true,
+  // Additional fields for environment transition
+  setting: true,
+  era: true,
+  atmosphere: true,
+  description: true,
+  threadId: true,
+  // References
   worldDetailsId: true,
   genreDetailsId: true,
 });

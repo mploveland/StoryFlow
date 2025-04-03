@@ -670,7 +670,7 @@ To begin, do you have an existing map in mind for reference—or should I start 
         });
       }
       
-      // If this is a genre-related conversation, save details to genre_details table
+      // Process response based on the context type
       if (contextType === 'genre') {
         try {
           console.log(`[GENRE DEBUG] Processing genre details from dynamic assistant for foundation ${foundationId}`);
@@ -914,6 +914,106 @@ To begin, do you have an existing map in mind for reference—or should I start 
           }
         } catch (error) {
           console.error("[GENRE DEBUG] Error saving genre details from dynamic assistant:", error);
+          // Continue despite the error - don't block the response
+        }
+      }
+      
+      // If this is an environment-related conversation, save details to environment_details table
+      if (contextType === 'environment') {
+        try {
+          console.log(`[ENVIRONMENT DEBUG] Processing environment details from dynamic assistant for foundation ${foundationId}`);
+          console.log(`[ENVIRONMENT DEBUG] AI Response content: ${content.substring(0, 200)}...`);
+          
+          // Extract setting/location/era from the conversation
+          const settingPattern = /(?:setting|location|place|environment|world|city|town|realm)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+          const eraPattern = /(?:era|time period|time|century|decade|age|historical period)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+          const atmospherePattern = /(?:atmosphere|feeling|vibe|ambiance|ambience|mood)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+          
+          // Extract environment information
+          let setting = "";
+          let era = "";
+          let atmosphere = "";
+          const fullText = message + " " + content;
+          
+          // Try to extract setting
+          const settingMatch = content.match(settingPattern);
+          if (settingMatch && settingMatch[1]) {
+            setting = settingMatch[1].trim();
+            console.log(`[ENVIRONMENT DEBUG] Found setting: ${setting}`);
+          }
+          
+          // Try to extract era
+          const eraMatch = content.match(eraPattern);
+          if (eraMatch && eraMatch[1]) {
+            era = eraMatch[1].trim();
+            console.log(`[ENVIRONMENT DEBUG] Found era: ${era}`);
+          }
+          
+          // Try to extract atmosphere
+          const atmosphereMatch = content.match(atmospherePattern);
+          if (atmosphereMatch && atmosphereMatch[1]) {
+            atmosphere = atmosphereMatch[1].trim();
+            console.log(`[ENVIRONMENT DEBUG] Found atmosphere: ${atmosphere}`);
+          }
+          
+          // Check if environment details already exist for this foundation
+          const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
+          console.log(`[ENVIRONMENT DEBUG] Existing details found: ${!!existingDetails}`);
+          
+          // Prepare environment data with extracted information
+          const environmentData = {
+            environment_name: setting || 'Custom Environment', // Use setting as the environment name
+            setting,
+            era,
+            atmosphere,
+            threadId: conversationThreadId,
+            // Use the assistant's response as a description - store the full conversation for reference
+            description: content
+          };
+          
+          console.log(`[ENVIRONMENT DEBUG] Prepared environment data: ${JSON.stringify({
+            setting: environmentData.setting,
+            era: environmentData.era,
+            atmosphere: environmentData.atmosphere,
+            threadId: environmentData.threadId?.substring(0, 10) + '...',
+            descriptionLength: environmentData.description?.length || 0
+          })}`);
+          
+          try {
+            if (existingDetails) {
+              // Update existing environment details
+              console.log(`[ENVIRONMENT DEBUG] Updating existing environment details ID: ${existingDetails.id} from dynamic assistant`);
+              const updated = await storage.updateEnvironmentDetails(existingDetails.id, {
+                ...environmentData,
+                foundationId
+              });
+              console.log(`[ENVIRONMENT DEBUG] Updated environment details successfully: ${!!updated}`);
+            } else {
+              // Create new environment details
+              console.log(`[ENVIRONMENT DEBUG] Creating new environment details for foundation ID: ${foundationId} from dynamic assistant`);
+              const created = await storage.createEnvironmentDetails({
+                ...environmentData,
+                foundationId
+              });
+              console.log(`[ENVIRONMENT DEBUG] Created environment details successfully: ${!!created}, ID: ${created?.id}`);
+            }
+            
+            // Update the foundation to mark environment as completed
+            console.log(`[ENVIRONMENT DEBUG] Updating foundation ${foundationId} to mark environment as completed`);
+            try {
+              const updatedFoundation = await storage.updateFoundation(foundationId, {
+                environmentCompleted: true  // Mark the environment stage as completed
+              });
+              console.log(`[ENVIRONMENT DEBUG] Foundation updated successfully: ${!!updatedFoundation}`);
+            } catch (dbError) {
+              console.error(`[ENVIRONMENT DEBUG] Database error updating foundation:`, dbError);
+            }
+            
+          } catch (dbError) {
+            console.error(`[ENVIRONMENT DEBUG] Database error saving environment details:`, dbError);
+          }
+        } catch (error) {
+          console.error("[ENVIRONMENT DEBUG] Error saving environment details from dynamic assistant:", error);
           // Continue despite the error - don't block the response
         }
       }
