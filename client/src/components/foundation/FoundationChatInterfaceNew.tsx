@@ -519,7 +519,10 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
                   userInput.includes("move on") || 
                   userInput.includes("ready") ||
                   userInput.includes("done") ||
-                  userInput.includes("finished")) {
+                  userInput.includes("finished") ||
+                  userInput === "no" ||
+                  userInput === "finish it" ||
+                  userInput.includes("proceed")) {
           
           console.log('User wants to move to world building stage');
           
@@ -996,6 +999,10 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       const transitionData = await transitionResponse.json();
       console.log('World transition data:', transitionData);
       
+      // Update current stage to world
+      setCurrentStage('world');
+      console.log('Updated current stage to: world');
+      
       // Add the world introduction message
       const worldIntroMessage = {
         role: 'assistant' as const,
@@ -1012,9 +1019,6 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       
       // Fetch suggestions for the world stage introduction
       fetchSuggestions('', worldIntroMessage.content);
-      
-      // Update the current stage
-      setCurrentStage('world');
       
       // Clear pending transition data
       delete window.pendingEnvironmentToWorldTransition;
