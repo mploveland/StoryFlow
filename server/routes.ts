@@ -1456,17 +1456,23 @@ To begin, do you have an existing map in mind for reference—or should I start 
           if (existingDetails) {
             // Update existing environment details
             console.log(`Updating existing environment details ID: ${existingDetails.id}`);
-            await storage.updateEnvironmentDetails(existingDetails.id, {
+            console.log('Environment data to save:', JSON.stringify(environmentData, null, 2));
+            
+            const updatedEnv = await storage.updateEnvironmentDetails(existingDetails.id, {
               ...environmentData,
               foundationId
             });
+            console.log('Successfully updated environment details:', updatedEnv?.id);
           } else {
             // Create new environment details
             console.log(`Creating new environment details for foundation ID: ${foundationId}`);
-            await storage.createEnvironmentDetails({
+            console.log('Environment data to save:', JSON.stringify(environmentData, null, 2));
+            
+            const newEnv = await storage.createEnvironmentDetails({
               ...environmentData,
               foundationId
             });
+            console.log('Successfully created environment details with ID:', newEnv?.id);
           }
           
           console.log(`Successfully saved environment details for foundation ${foundationId}`);
@@ -2776,17 +2782,23 @@ To begin, do you have an existing map in mind for reference—or should I start 
           if (existingDetails) {
             // Update existing environment details
             console.log(`Updating existing environment details ID: ${existingDetails.id}`);
-            await storage.updateEnvironmentDetails(existingDetails.id, {
+            console.log('Environment data to save:', JSON.stringify(environmentData, null, 2));
+            
+            const updatedEnv = await storage.updateEnvironmentDetails(existingDetails.id, {
               ...environmentData,
               foundationId
             });
+            console.log('Successfully updated environment details:', updatedEnv?.id);
           } else {
             // Create new environment details
             console.log(`Creating new environment details for foundation ID: ${foundationId}`);
-            await storage.createEnvironmentDetails({
+            console.log('Environment data to save:', JSON.stringify(environmentData, null, 2));
+            
+            const newEnv = await storage.createEnvironmentDetails({
               ...environmentData,
               foundationId
             });
+            console.log('Successfully created environment details with ID:', newEnv?.id);
           }
         } else {
           console.log(`Cannot save environment details: Invalid foundation ID: ${req.body.foundationId}`);
@@ -2910,17 +2922,23 @@ To begin, do you have an existing map in mind for reference—or should I start 
           if (existingDetails) {
             // Update existing world details
             console.log(`Updating existing world details ID: ${existingDetails.id}`);
-            await storage.updateWorldDetails(existingDetails.id, {
+            console.log('World data to save:', JSON.stringify(worldData, null, 2));
+            
+            const updatedWorld = await storage.updateWorldDetails(existingDetails.id, {
               ...worldData,
               foundationId
             });
+            console.log('Successfully updated world details:', updatedWorld?.id);
           } else {
             // Create new world details
             console.log(`Creating new world details for foundation ID: ${foundationId}`);
-            await storage.createWorldDetails({
+            console.log('World data to save:', JSON.stringify(worldData, null, 2));
+            
+            const newWorld = await storage.createWorldDetails({
               ...worldData,
               foundationId
             });
+            console.log('Successfully created world details with ID:', newWorld?.id);
           }
         } else {
           console.log(`Cannot save world details: Invalid foundation ID: ${req.body.foundationId}`);

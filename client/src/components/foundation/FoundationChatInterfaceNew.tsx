@@ -921,6 +921,7 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       }
       
       // Call the API to save environment details but not transition yet
+      console.log('Saving environment details to database with JSON:', JSON.stringify(structuredData || {}, null, 2));
       const saveResponse = await fetch(`/api/foundations/${effectiveFoundationId}/environment-to-world`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -934,6 +935,9 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
         console.error('Failed to save environment details:', saveResponse.status);
         return;
       }
+      
+      const saveResult = await saveResponse.json();
+      console.log('Environment details saved successfully:', saveResult);
       
       // Add the completion message asking user about next steps
       const completionMessage = {
