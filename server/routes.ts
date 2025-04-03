@@ -1426,9 +1426,13 @@ To begin, do you have an existing map in mind for reference—or should I start 
           // Cast environmentDetails to any type to avoid TypeScript errors with dynamic properties
           const environmentDetailsAny = environmentDetails as any;
           
+          // Generate a user-friendly name for the environment if one isn't provided
+          const envName = environmentDetailsAny.name || environmentDetailsAny.environment_name || 'Custom Environment';
+          
           // Prepare the environment data - handle both camelCase and snake_case formats
+          // Ensuring we use the correct column names as defined in the schema
           const environmentData = {
-            environment_name: environmentDetailsAny.name || environmentDetailsAny.environment_name || 'Custom Environment',
+            environment_name: envName,
             narrative_significance: environmentDetailsAny.worldContext || environmentDetailsAny.narrative_significance || '',
             geography: typeof environmentDetailsAny.physicalAttributes === 'object' ? 
               JSON.stringify(environmentDetailsAny.physicalAttributes) : 
@@ -1453,7 +1457,8 @@ To begin, do you have an existing map in mind for reference—or should I start 
               JSON.stringify(environmentDetailsAny.inhabitants) : 
               (environmentDetailsAny.associated_characters_factions || ''),
             inspirations_references: environmentDetailsAny.inspirations_references || '',
-            threadId: environmentDetailsAny.threadId || null
+            // No threadId column in schema, so we'll need to handle it separately
+            foundationId // Add the foundation ID explicitly
           };
           
           if (existingDetails) {
@@ -1635,12 +1640,27 @@ To begin, do you have an existing map in mind for reference—or should I start 
       // Log all processed field data for debugging
       console.log('[GENRE DB] Looking up genre details for foundation', foundationId);
       
+      // Create a structured object from the genre data for generating the summary
+      const genreDataForSummary = {
+        mainGenre: effectiveMainGenre,
+        tone: genreDetails.tone || '',
+        mood: genreDetails.mood || '',
+        timePeriod: genreDetails.timePeriod || '',
+        physicalEnvironment: genreDetails.physicalEnvironment || '',
+        keyTropes: genreDetails.keyTropes || '',
+        atmosphere: genreDetails.atmosphere || ''
+      };
+      
+      // Generate a user-friendly summary
+      const userFriendlySummary = generateGenreSummaryForDisplay(genreDataForSummary);
+      console.log('[GENRE DB] Generated user-friendly summary for description:', userFriendlySummary);
+      
       const genreData = {
         foundationId,
         // Core identifying information
         name: genreDetails.name || `${effectiveMainGenre} Genre`, // Default name is required
         mainGenre: effectiveMainGenre,
-        description: genreDetails.description || genreSummary,
+        description: userFriendlySummary, // Use the user-friendly summary instead of raw JSON
         
         // Handle all possible JSON fields from the GenreDetails interface
         // Expanded genre information
@@ -1710,10 +1730,6 @@ To begin, do you have an existing map in mind for reference—or should I start 
         console.log('[GENRE DB] Successfully updated genre details with ID:', updatedGenre?.id);
       }
       
-      // Generate a summary for display to the user (instead of showing raw JSON)
-      const genreSummaryForDisplay = generateGenreSummaryForDisplay(genreData);
-      console.log('[GENRE DB] Generated user-friendly summary:', genreSummaryForDisplay);
-      
       // 3. Generate a customized environment introduction based on the genre
       const environmentIntroMessage = getEnvironmentIntroMessage(effectiveMainGenre, genreSummary);
       
@@ -1723,7 +1739,7 @@ To begin, do you have an existing map in mind for reference—or should I start 
         message: "Genre details saved and ready for environment stage",
         environmentIntroMessage,
         mainGenre: effectiveMainGenre,
-        genreSummary: genreSummaryForDisplay // Include the user-friendly summary in the response
+        genreSummary: userFriendlySummary // Use the same user-friendly summary we stored in the database
       });
     } catch (error) {
       console.error('Error in genre to environment transition:', error);
@@ -1794,15 +1810,23 @@ To begin, do you have an existing map in mind for reference—or should I start 
   function getEnvironmentIntroMessage(mainGenre: string, genreSummary: string): string {
     // Try to extract structured JSON data from the genre summary if available
     let structuredData = null;
-    try {
-      const jsonMatch = genreSummary.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const jsonString = jsonMatch[0];
-        structuredData = JSON.parse(jsonString);
-        console.log('Found structured JSON data for environment intro message');
+    
+    // First, check if this is a user-friendly summary (non-JSON) or raw JSON data
+    const isUserFriendlySummary = !genreSummary.includes('{') || genreSummary.startsWith('Your');
+    
+    if (!isUserFriendlySummary) {
+      try {
+        const jsonMatch = genreSummary.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          structuredData = JSON.parse(jsonString);
+          console.log('Found structured JSON data for environment intro message');
+        }
+      } catch (jsonError) {
+        console.log('No valid JSON found in genre summary for environment intro', jsonError);
       }
-    } catch (jsonError) {
-      console.log('No valid JSON found in genre summary for environment intro', jsonError);
+    } else {
+      console.log('Using user-friendly summary for environment intro message');
     }
     
     // Base message template
