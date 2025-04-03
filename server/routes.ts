@@ -1423,34 +1423,37 @@ To begin, do you have an existing map in mind for reference—or should I start 
           // Check if environment details already exist for this foundation
           const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
           
+          // Cast environmentDetails to any type to avoid TypeScript errors with dynamic properties
+          const environmentDetailsAny = environmentDetails as any;
+          
           // Prepare the environment data - handle both camelCase and snake_case formats
           const environmentData = {
-            environment_name: environmentDetails.name || environmentDetails.environment_name || 'Custom Environment',
-            narrative_significance: environmentDetails.worldContext || environmentDetails.narrative_significance || '',
-            geography: typeof environmentDetails.physicalAttributes === 'object' ? 
-              JSON.stringify(environmentDetails.physicalAttributes) : 
-              (environmentDetails.geography || ''),
-            architecture: typeof environmentDetails.structuralFeatures === 'object' ? 
-              JSON.stringify(environmentDetails.structuralFeatures) : 
-              (environmentDetails.architecture || ''),
-            climate_weather: environmentDetails.physicalAttributes?.climate || environmentDetails.climate_weather || '',
-            sensory_atmosphere: typeof environmentDetails.sensoryDetails === 'object' ? 
-              JSON.stringify(environmentDetails.sensoryDetails) : 
-              (environmentDetails.sensory_atmosphere || ''),
-            cultural_influence: typeof environmentDetails.culture === 'object' ? 
-              JSON.stringify(environmentDetails.culture) : 
-              (environmentDetails.cultural_influence || ''),
-            societal_norms: environmentDetails.culture?.attitudes || environmentDetails.societal_norms || '',
-            historical_relevance: typeof environmentDetails.history === 'object' ? 
-              JSON.stringify(environmentDetails.history) : 
-              (environmentDetails.historical_relevance || ''),
-            economic_significance: environmentDetails.economic_significance || '',
-            speculative_features: environmentDetails.speculative_features || '',
-            associated_characters_factions: typeof environmentDetails.inhabitants === 'object' ? 
-              JSON.stringify(environmentDetails.inhabitants) : 
-              (environmentDetails.associated_characters_factions || ''),
-            inspirations_references: environmentDetails.inspirations_references || '',
-            threadId: environmentDetails.threadId
+            environment_name: environmentDetailsAny.name || environmentDetailsAny.environment_name || 'Custom Environment',
+            narrative_significance: environmentDetailsAny.worldContext || environmentDetailsAny.narrative_significance || '',
+            geography: typeof environmentDetailsAny.physicalAttributes === 'object' ? 
+              JSON.stringify(environmentDetailsAny.physicalAttributes) : 
+              (environmentDetailsAny.geography || ''),
+            architecture: typeof environmentDetailsAny.structuralFeatures === 'object' ? 
+              JSON.stringify(environmentDetailsAny.structuralFeatures) : 
+              (environmentDetailsAny.architecture || ''),
+            climate_weather: environmentDetailsAny.physicalAttributes?.climate || environmentDetailsAny.climate_weather || '',
+            sensory_atmosphere: typeof environmentDetailsAny.sensoryDetails === 'object' ? 
+              JSON.stringify(environmentDetailsAny.sensoryDetails) : 
+              (environmentDetailsAny.sensory_atmosphere || ''),
+            cultural_influence: typeof environmentDetailsAny.culture === 'object' ? 
+              JSON.stringify(environmentDetailsAny.culture) : 
+              (environmentDetailsAny.cultural_influence || ''),
+            societal_norms: environmentDetailsAny.culture?.attitudes || environmentDetailsAny.societal_norms || '',
+            historical_relevance: typeof environmentDetailsAny.history === 'object' ? 
+              JSON.stringify(environmentDetailsAny.history) : 
+              (environmentDetailsAny.historical_relevance || ''),
+            economic_significance: environmentDetailsAny.economic_significance || '',
+            speculative_features: environmentDetailsAny.speculative_features || '',
+            associated_characters_factions: typeof environmentDetailsAny.inhabitants === 'object' ? 
+              JSON.stringify(environmentDetailsAny.inhabitants) : 
+              (environmentDetailsAny.associated_characters_factions || ''),
+            inspirations_references: environmentDetailsAny.inspirations_references || '',
+            threadId: environmentDetailsAny.threadId || null
           };
           
           if (existingDetails) {
@@ -1826,7 +1829,7 @@ To begin, do you have an existing map in mind for reference—or should I start 
         baseMessage += ` You've mentioned settings like ${physicalEnvironment}.`;
       }
       
-      baseMessage += ' Now, let\'s expand on these ideas to create specific environments within your world.';
+      baseMessage += ' Now, what specific environments would you like to create within your world?';
     }
     // If no structured data, fall back to the genre-specific template
     else {
@@ -2940,35 +2943,38 @@ To begin, do you have an existing map in mind for reference—or should I start 
           // Check if world details already exist for this foundation
           const existingDetails = await storage.getWorldDetailsByFoundation(foundationId);
           
+          // Cast worldDetails to any type to avoid TypeScript errors with dynamic properties
+          const worldDetailsAny = worldDetails as any;
+          
           // Prepare the data to save - normalize empty arrays
           const worldData = {
             // Required field for the new world_details table
-            world_name: worldDetails.name || 'Custom World',
-            // New fields for the world_details table
-            narrative_context: '',
-            global_geography_topography: '',
-            regions_territories: '',
-            boundaries_borders: '',
-            climate_environmental_zones: '',
-            environment_placements_distances: '',
-            resources_economic_geography: '',
-            historical_cultural_geography: '',
-            speculative_supernatural_geography: '',
-            map_generation_details: '',
-            inspirations_references: '',
-            // Legacy fields maintained for compatibility
-            description: worldDetails.description || '',
-            era: worldDetails.era || '',
-            geography: worldDetails.geography || [],
-            locations: worldDetails.locations || [],
-            culture: worldDetails.culture || {},
-            politics: worldDetails.politics || {},
-            economy: worldDetails.economy || {},
-            technology: worldDetails.technology || {},
-            conflicts: worldDetails.conflicts || [],
-            history: worldDetails.history || {},
-            magicSystem: worldDetails.magicSystem,
-            threadId: worldDetails.threadId
+            world_name: worldDetailsAny.name || 'Custom World',
+            // New fields for the world_details table - ensure empty string fallbacks
+            narrative_context: worldDetailsAny.narrative_context || '',
+            global_geography_topography: worldDetailsAny.global_geography_topography || '',
+            regions_territories: worldDetailsAny.regions_territories || '',
+            boundaries_borders: worldDetailsAny.boundaries_borders || '',
+            climate_environmental_zones: worldDetailsAny.climate_environmental_zones || '',
+            environment_placements_distances: worldDetailsAny.environment_placements_distances || '',
+            resources_economic_geography: worldDetailsAny.resources_economic_geography || '',
+            historical_cultural_geography: worldDetailsAny.historical_cultural_geography || '',
+            speculative_supernatural_geography: worldDetailsAny.speculative_supernatural_geography || '',
+            map_generation_details: worldDetailsAny.map_generation_details || '',
+            inspirations_references: worldDetailsAny.inspirations_references || '',
+            // Legacy fields maintained for compatibility - ensure proper defaults for all types
+            description: worldDetailsAny.description || '',
+            era: worldDetailsAny.era || '',
+            geography: Array.isArray(worldDetailsAny.geography) ? worldDetailsAny.geography : [],
+            locations: Array.isArray(worldDetailsAny.locations) ? worldDetailsAny.locations : [],
+            culture: worldDetailsAny.culture || {},
+            politics: worldDetailsAny.politics || {},
+            economy: worldDetailsAny.economy || {},
+            technology: worldDetailsAny.technology || {},
+            conflicts: Array.isArray(worldDetailsAny.conflicts) ? worldDetailsAny.conflicts : [],
+            history: worldDetailsAny.history || {},
+            magicSystem: worldDetailsAny.magicSystem || null,
+            threadId: worldDetailsAny.threadId || null
           };
           
           if (existingDetails) {
