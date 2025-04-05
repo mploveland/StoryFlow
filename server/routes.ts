@@ -1,4 +1,4 @@
-import express, { type Express, Request, Response } from "express";
+import express, { type Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
@@ -33,6 +33,7 @@ import {
   generateOpenAISpeech 
 } from "./tts";
 import { generateImage, generateCharacterPortrait, generateCharacterScene, ImageGenerationRequest } from "./image-generation";
+import { db, checkDatabaseConnection, pool } from "./db";
 
 // Initialize OpenAI client for dynamic assistant API
 const openai = new OpenAI({
@@ -3436,8 +3437,84 @@ To begin, do you have an existing map in mind for reference—or should I start 
     }
   });
   
+  // Add database health check endpoint
+  apiRouter.get("/health", async (req: Request, res: Response) => {
+    try {
+      const dbConnected = await checkDatabaseConnection();
+      
+      if (dbConnected) {
+        return res.status(200).json({
+          status: 'healthy',
+          database: 'connected',
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        return res.status(503).json({
+          status: 'unhealthy',
+          database: 'disconnected',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      console.error("Health check error:", error);
+      return res.status(500).json({
+        status: 'error',
+        message: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  });
+  
+  // Database middleware to check connection for important routes
+  const checkDatabaseMiddleware = async (req: Request, res: Response, next: NextFunction) => {
+    // Skip health check route to avoid circular checks
+    if (req.path === '/health') {
+      return next();
+    }
+    
+    // Only check on write operations that need database
+    if (req.method === 'GET') {
+      return next();
+    }
+    
+    try {
+      const isConnected = await checkDatabaseConnection();
+      
+      if (!isConnected) {
+        console.error('Database connection failed during request');
+        return res.status(503).json({
+          message: 'Database service unavailable',
+          details: 'The server cannot connect to the database at this time. Please try again later.'
+        });
+      }
+      
+      next();
+    } catch (error) {
+      console.error('Error checking database connection:', error);
+      return res.status(500).json({
+        message: 'Internal server error',
+        details: 'Failed to validate database connection'
+      });
+    }
+  };
+  
+  // Apply database middleware to API routes
+  apiRouter.use(checkDatabaseMiddleware);
+  
   // Use the router
   app.use("/api", apiRouter);
+  
+  // Monitor database connection status
+  setInterval(async () => {
+    try {
+      const isConnected = await checkDatabaseConnection();
+      if (!isConnected) {
+        console.error('Periodic database connection check failed');
+      }
+    } catch (error) {
+      console.error('Error during periodic database check:', error);
+    }
+  }, 60000); // Check every minute
   
   const httpServer = createServer(app);
   return httpServer;
