@@ -17,6 +17,10 @@ export interface Foundation {
   currentStage: string | null;
   createdAt: Date | null;
   updatedAt: Date | null;
+  genreCompleted: boolean | null;
+  environmentCompleted: boolean | null;
+  worldCompleted: boolean | null;
+  charactersCompleted: boolean | null;
 }
 
 export interface Story {

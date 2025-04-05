@@ -584,6 +584,17 @@ const FoundationDetails: React.FC = () => {
           chatInterface.setCurrentStage(data.contextType);
         }
         
+        // Update the current stage in the foundation record
+        updateFoundationMutation.mutate({
+          id: foundation.id,
+          currentStage: data.contextType
+        });
+        
+        // Show foundation components when transitioning to environment
+        if (data.contextType === 'environment') {
+          setShowFoundationComponents(true);
+        }
+        
         toast({
           title: `Moving to ${data.contextType} creation`,
           description: `We're now developing the ${data.contextType} for your story.`,

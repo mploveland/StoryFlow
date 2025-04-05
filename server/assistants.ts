@@ -1933,7 +1933,12 @@ export async function getAppropriateAssistant(
      message.toLowerCase().includes("continue") ||
      message.toLowerCase().includes("proceed") ||
      message.toLowerCase().includes("next step") ||
-     message.toLowerCase().includes("next stage"));
+     message.toLowerCase().includes("next stage") ||
+     message.toLowerCase().includes("ready") ||
+     message.toLowerCase().includes("let's move on") ||
+     message.toLowerCase().includes("ok") ||
+     message.toLowerCase().includes("okay") ||
+     message.toLowerCase().includes("yes"));
      
   // Check for transition cues in the message content
   const hasGenreToEnvironmentTransition = isGenreComplete || 
@@ -1942,6 +1947,15 @@ export async function getAppropriateAssistant(
     message.toLowerCase().includes("build environment") ||
     message.toLowerCase().includes("design environment") ||
     message.toLowerCase().includes("start with environment") ||
+    message.toLowerCase().includes("environment creation") ||
+    message.toLowerCase().includes("make environment") ||
+    message.toLowerCase().includes("set up environment") ||
+    message.toLowerCase().includes("create the environment") ||
+    message.toLowerCase().includes("create a location") ||
+    message.toLowerCase().includes("create location") ||
+    message.toLowerCase().includes("location creation") ||
+    message.toLowerCase().includes("add environment") ||
+    message.toLowerCase().includes("add a location") ||
     (currentAssistantType === 'genre' && message.toLowerCase().includes("next"));
   
   // If we have a foundation ID, check the foundation's stage to provide context
