@@ -874,6 +874,41 @@ To begin, do you have an existing map in mind for reference—or should I start 
             description: content
           };
           
+          // Try to extract a short summary for the foundation description
+          let foundationSummary = '';
+          try {
+            // Extract a short summary (first 1-2 sentences or paragraph)
+            const summaryMatch = content.match(/(?:summary|overview|your genre is)[:\s]+(.*?)(?:\n\n|$)/i);
+            if (summaryMatch && summaryMatch[1]) {
+              foundationSummary = summaryMatch[1].trim();
+            } else {
+              // Try to extract JSON data if present
+              let extractedData = null;
+              try {
+                const jsonMatch = content.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  const jsonString = jsonMatch[0];
+                  extractedData = JSON.parse(jsonString);
+                  if (extractedData && extractedData.description) {
+                    foundationSummary = extractedData.description.trim();
+                  }
+                }
+              } catch (jsonError) {
+                console.log('No valid JSON found in genre content', jsonError);
+              }
+              
+              // If still no summary, fallback to using first paragraph
+              if (!foundationSummary) {
+                const firstParagraph = content.split('\n\n')[0];
+                if (firstParagraph && firstParagraph.length < 300) {
+                  foundationSummary = firstParagraph.trim();
+                }
+              }
+            }
+          } catch (summaryError) {
+            console.log('Error extracting summary:', summaryError);
+          }
+          
           console.log(`[GENRE DEBUG] Prepared genre data: ${JSON.stringify({
             mainGenre: genreData.mainGenre,
             threadId: genreData.threadId?.substring(0, 10) + '...',
@@ -903,12 +938,23 @@ To begin, do you have an existing map in mind for reference—or should I start 
             console.error(`[GENRE DEBUG] Database error saving genre details:`, dbError);
           }
           
-          // Update the foundation with the genre name - always do this to ensure it's set
+          // Update the foundation with the genre name and summary - always do this to ensure it's set
           console.log(`[GENRE DEBUG] Updating foundation ${foundationId} genre to: ${mainGenre}`);
           try {
-            const updatedFoundation = await storage.updateFoundation(foundationId, {
-              genre: mainGenre
-            });
+            // Include summary in the foundation description if available
+            const updateData: any = {
+              genre: mainGenre,
+              genreCompleted: true,
+              currentStage: 'genre' // Ensure we're in the correct stage
+            };
+            
+            // Add description if we have a summary
+            if (foundationSummary) {
+              updateData.description = foundationSummary;
+              console.log(`[GENRE DEBUG] Adding summary to foundation description: ${foundationSummary.substring(0, 100)}...`);
+            }
+            
+            const updatedFoundation = await storage.updateFoundation(foundationId, updateData);
             console.log(`[GENRE DEBUG] Foundation updated successfully: ${!!updatedFoundation}`);
           } catch (dbError) {
             console.error(`[GENRE DEBUG] Database error updating foundation:`, dbError);
