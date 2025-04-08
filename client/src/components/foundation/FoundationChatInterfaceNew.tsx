@@ -1145,7 +1145,8 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       return false;
     }
     
-    // Then check for structured JSON data which is the most reliable indicator
+    // IMPORTANT: Only rely on structured JSON data as the indicator of completion
+    // This ensures we have proper data to save to the database before transitioning
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
@@ -1156,33 +1157,30 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
         if (parsedData && (parsedData.mainGenre || parsedData.main_genre)) {
           const genreName = parsedData.mainGenre || parsedData.main_genre;
           console.log(`Found structured JSON with genre field (${genreName}) - triggering transition`);
+          
+          // Add an explicit user notification about the JSON data being found
+          // and that we're preparing to save the genre information
+          setTimeout(() => {
+            toast({
+              title: "Genre details received",
+              description: `Preparing to save your ${genreName} genre information to the database.`,
+              duration: 3000
+            });
+          }, 500);
+          
           return true;
         }
       }
+      
+      console.log('No valid JSON with mainGenre found - not ready to transition yet');
+      return false;
     } catch (error) {
-      console.log('No valid JSON found, using text-based detection');
+      console.log('No valid JSON found or JSON parsing error:', error);
+      return false;
     }
     
-    // Fallback to text-based heuristics if JSON not found
-    const hasGenre = content.includes('Genre:') || content.includes('Main Genre:');
-    const hasDescription = content.length > 500; // Assuming a good summary is reasonably detailed
-    
-    // Look for specific transition indicators in the message
-    const transitionIndicators = [
-      'genre summary',
-      'genre profile is complete',
-      'genre foundation is complete',
-      'foundation genre',
-      'ready to move to the next stage',
-      'ready to move to environments',
-      'ready for the environment stage'
-    ];
-    
-    const hasTransitionIndicator = transitionIndicators.some(indicator => 
-      content.toLowerCase().includes(indicator.toLowerCase())
-    );
-    
-    return currentStage === 'genre' && hasGenre && hasDescription && hasTransitionIndicator;
+    // REMOVED: Fallback to text-based heuristics to prevent false positives
+    // This ensures only complete genre details with proper JSON trigger the transition
   };
   
   // Check if an environment summary is complete and should trigger transition to world stage
@@ -1193,45 +1191,41 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       return false;
     }
     
-    // Then check for structured JSON data which is the most reliable indicator
+    // IMPORTANT: Only rely on structured JSON data as the indicator of completion
+    // This ensures we have proper data to save to the database before transitioning
     try {
       const jsonMatch = content.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const jsonString = jsonMatch[0];
         const parsedData = JSON.parse(jsonString);
         
-        // If we have valid JSON with environment or environments field, consider it a complete environment summary
-        if (parsedData && (parsedData.environment || parsedData.environment_details || parsedData.environmentDetails)) {
+        // If we have valid JSON with environment field, consider it a complete environment summary
+        if (parsedData && (parsedData.environment || parsedData.environment_details || parsedData.environmentDetails || parsedData.name)) {
           console.log(`Found structured JSON with environment field - triggering transition`);
+          
+          // Add an explicit user notification about the JSON data being found
+          // and that we're preparing to save the environment information
+          setTimeout(() => {
+            toast({
+              title: "Environment details received",
+              description: `Preparing to save your environmental information to the database.`,
+              duration: 3000
+            });
+          }, 500);
+          
           return true;
         }
       }
+      
+      console.log('No valid JSON with environment fields found - not ready to transition yet');
+      return false;
     } catch (error) {
-      console.log('No valid JSON found in environment check, using text-based detection');
+      console.log('No valid JSON found or JSON parsing error:', error);
+      return false;
     }
     
-    // Fallback to text-based heuristics if JSON not found
-    const hasEnvironment = content.includes('Environment:') || content.includes('Location:');
-    const hasDescription = content.length > 500; // Assuming a good summary is reasonably detailed
-    
-    // Look for specific transition indicators in the message
-    const transitionIndicators = [
-      'environment summary',
-      'environment profile is complete',
-      'environment details are complete',
-      'ready to move to the next stage',
-      'ready to move to world building',
-      'ready for the world stage',
-      'world building can now begin',
-      'world development phase',
-      'world creation stage'
-    ];
-    
-    const hasTransitionIndicator = transitionIndicators.some(indicator => 
-      content.toLowerCase().includes(indicator.toLowerCase())
-    );
-    
-    return currentStage === 'environment' && hasEnvironment && hasDescription && hasTransitionIndicator;
+    // REMOVED: Fallback to text-based heuristics to prevent false positives
+    // This ensures only complete environment details with proper JSON trigger the transition
   };
   
   // Check if a message is responding to name suggestions

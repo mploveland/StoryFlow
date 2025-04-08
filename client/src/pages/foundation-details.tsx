@@ -241,30 +241,43 @@ const FoundationDetails: React.FC = () => {
   });
   
   // Auto-transition to environment stage when genre details are available
+  // Modified to include a delay and check additional conditions to prevent premature transitions
   useEffect(() => {
+    // Check if we have valid genre details with mainGenre
     if (genreDetails && genreDetails.mainGenre) {
       console.log('Genre details available', genreDetails);
       
-      // If the foundation is in the genre stage, auto-update it to environment stage
-      // when genre details are entered
-      if (foundation && foundation.currentStage === 'genre') {
-        console.log('Auto-transitioning from genre to environment stage');
+      // If the foundation is in the genre stage and genre is marked as completed,
+      // then auto-update it to environment stage
+      if (foundation && 
+          foundation.currentStage === 'genre' && 
+          foundation.genreCompleted === true) {
+        console.log('Auto-transitioning from genre to environment stage (with 2s delay)');
         
         // First update the UI state to show components
         setShowFoundationComponents(true);
         
-        // Then update the backend stage
-        updateFoundationMutation.mutate({
-          id: foundation.id,
-          currentStage: 'environment'
-        });
+        // Add a delay to ensure the user sees the genre details first
+        const transitionTimer = setTimeout(() => {
+          // Then update the backend stage
+          updateFoundationMutation.mutate({
+            id: foundation.id,
+            currentStage: 'environment'
+          });
+          
+          // Auto-notify the user about the transition
+          toast({
+            title: 'Moving to environment creation',
+            description: 'Now that we have your genre details saved, we can start working on the environment.',
+            duration: 3000
+          });
+        }, 2000); // 2-second delay to ensure user sees genre details
         
-        // Auto-notify the user about the transition
-        toast({
-          title: 'Moving to environment creation',
-          description: 'Now that we have your genre details, we can start working on the environment.',
-          duration: 3000
-        });
+        // Clean up timer if component unmounts
+        return () => clearTimeout(transitionTimer);
+      } else {
+        console.log('Not transitioning yet because:', 
+          foundation?.currentStage !== 'genre' ? 'not in genre stage' : 'genre not marked as completed');
       }
     }
   }, [genreDetails, foundation, updateFoundationMutation, toast]);
