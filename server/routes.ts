@@ -12,7 +12,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const apiRouter = express.Router();
   
   // Define routes and middlewares
+
+  // Foundations - List all foundations
+  apiRouter.get("/foundations", async (req: Request, res: Response) => {
+    try {
+      // Use a default user ID of 1 for now since we're not implementing auth in the simplified version
+      const foundations = await storage.getFoundations(1);
+      return res.json(foundations);
+    } catch (error) {
+      console.error("Error getting foundations:", error);
+      return res.status(500).json({ message: "Failed to get foundations" });
+    }
+  });
+
+  // Foundations - Get single foundation
+  apiRouter.get("/foundations/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid ID" });
+      }
+      const foundation = await storage.getFoundation(id);
+      if (!foundation) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      return res.json(foundation);
+    } catch (error) {
+      console.error("Error getting foundation:", error);
+      return res.status(500).json({ message: "Failed to get foundation" });
+    }
+  });
+
+  // Foundations - Create new foundation
+  apiRouter.post("/foundations", async (req: Request, res: Response) => {
+    try {
+      const { name } = req.body;
+      // Use a default user ID of 1 for now since we're not implementing auth in the simplified version
+      const foundation = await storage.createFoundation({
+        name: name || "New Foundation",
+        userId: 1, // Required field
+        description: "",
+        genre: "",
+        currentStage: "initial",
+        genreCompleted: false
+      });
+      return res.json(foundation);
+    } catch (error) {
+      console.error("Error creating foundation:", error);
+      return res.status(500).json({ message: "Failed to create foundation" });
+    }
+  });
   
+  // Foundations - Get foundation messages
+  apiRouter.get("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      const messages = await storage.getFoundationMessages(foundationId);
+      return res.json(messages || []);
+    } catch (error) {
+      console.error("Error getting foundation messages:", error);
+      return res.status(500).json({ message: "Failed to get foundation messages" });
+    }
+  });
+
+  // Foundations - Get foundation characters
+  apiRouter.get("/foundations/:foundationId/characters", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      const characters = await storage.getCharactersByFoundation(foundationId);
+      return res.json(characters || []);
+    } catch (error) {
+      console.error("Error getting foundation characters:", error);
+      return res.status(500).json({ message: "Failed to get foundation characters" });
+    }
+  });
+
+  // Foundations - Get foundation genre details
+  apiRouter.get("/foundations/:foundationId/genre", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      const genreDetails = await storage.getGenreDetailsByFoundation(foundationId);
+      return res.json(genreDetails || null);
+    } catch (error) {
+      console.error("Error getting foundation genre details:", error);
+      return res.status(500).json({ message: "Failed to get foundation genre details" });
+    }
+  });
+
   // Use simplified implementation for dynamic assistant
   apiRouter.post("/foundations/:foundationId/dynamic-assistant", async (req: Request, res: Response) => {
     return await handleDynamicAssistantRequest(req, res);
