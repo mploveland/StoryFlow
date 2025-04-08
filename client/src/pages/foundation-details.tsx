@@ -803,7 +803,7 @@ const FoundationDetails: React.FC = () => {
           {/* Left side: Genre/World/Character cards - only show if foundation is complete or explicitly requested */}
           <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : 'lg:block'}`}>
             <div className="space-y-4">
-              {/* Simple Genre Card - Only visible when Genre is completed */}
+              {/* Genre Card - Only visible when Genre is completed */}
               {foundation.genreCompleted && foundation.genre && (
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
@@ -826,6 +826,31 @@ const FoundationDetails: React.FC = () => {
                     </Button>
                   </CardFooter>
                 </Card>
+              )}
+              
+              {/* Environment Card - Only visible when Environment is completed */}
+              {foundation.environmentCompleted && (
+                <Card className="hover:shadow-md transition-shadow">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center text-lg">
+                    <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
+                    Environments
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="pb-2">
+                  <p className="text-sm text-neutral-600">Define locations and their details</p>
+                </CardContent>
+                <CardFooter className="pt-2">
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    className="w-full text-primary-600" 
+                    onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
+                  >
+                    View Details
+                  </Button>
+                </CardFooter>
+              </Card>
               )}
               
               {/* World Card - Only visible when World is completed */}
@@ -882,31 +907,6 @@ const FoundationDetails: React.FC = () => {
                     </Button>
                   </CardFooter>
                 </Card>
-              )}
-              
-              {/* Environment Card - Only visible when Environment is completed */}
-              {foundation.environmentCompleted && (
-                <Card className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center text-lg">
-                    <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
-                    Environments
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pb-2">
-                  <p className="text-sm text-neutral-600">Define locations and their details</p>
-                </CardContent>
-                <CardFooter className="pt-2">
-                  <Button 
-                    variant="ghost" 
-                    size="sm"
-                    className="w-full text-primary-600" 
-                    onClick={() => navigate(`/environment-details?foundationId=${foundation.id}`)}
-                  >
-                    View Details
-                  </Button>
-                </CardFooter>
-              </Card>
               )}
             </div>
           </div>
