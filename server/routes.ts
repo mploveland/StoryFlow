@@ -971,54 +971,95 @@ To begin, do you have an existing map in mind for reference—or should I start 
           console.log(`[ENVIRONMENT DEBUG] Processing environment details from dynamic assistant for foundation ${foundationId}`);
           console.log(`[ENVIRONMENT DEBUG] AI Response content: ${content.substring(0, 200)}...`);
           
-          // Extract setting/location/era from the conversation
-          const settingPattern = /(?:setting|location|place|environment|world|city|town|realm)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
-          const eraPattern = /(?:era|time period|time|century|decade|age|historical period)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
-          const atmospherePattern = /(?:atmosphere|feeling|vibe|ambiance|ambience|mood)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+          // Try to parse JSON format first if it looks like JSON
+          let environmentData: any = {};
+          let extractedFromJson = false;
           
-          // Extract environment information
-          let setting = "";
-          let era = "";
-          let atmosphere = "";
-          const fullText = message + " " + content;
-          
-          // Try to extract setting
-          const settingMatch = content.match(settingPattern);
-          if (settingMatch && settingMatch[1]) {
-            setting = settingMatch[1].trim();
-            console.log(`[ENVIRONMENT DEBUG] Found setting: ${setting}`);
+          if (content.trim().startsWith('{') && content.trim().endsWith('}')) {
+            try {
+              // Attempt to parse the JSON response
+              const parsedJson = JSON.parse(content);
+              console.log(`[ENVIRONMENT DEBUG] Successfully parsed JSON response:`, parsedJson);
+              
+              // Map JSON properties to our environment schema
+              environmentData = {
+                environment_name: parsedJson.environment_name || parsedJson.name || '',
+                setting: parsedJson.setting || '',
+                era: parsedJson.era || parsedJson.time_period || '',
+                atmosphere: parsedJson.atmosphere || '',
+                description: content, // Store the full JSON as description
+                // Map additional fields if they exist
+                narrative_significance: parsedJson.narrative_significance || parsedJson.purpose || '',
+                geography: typeof parsedJson.geography === 'object' ? JSON.stringify(parsedJson.geography) : parsedJson.geography || '',
+                architecture: typeof parsedJson.architecture === 'object' ? JSON.stringify(parsedJson.architecture) : parsedJson.architecture || '',
+                climate_weather: parsedJson.climate_weather || parsedJson.climate || '',
+                threadId: conversationThreadId
+              };
+              
+              extractedFromJson = true;
+              console.log(`[ENVIRONMENT DEBUG] Extracted environment data from JSON successfully`);
+            } catch (jsonError) {
+              console.error(`[ENVIRONMENT DEBUG] Failed to parse JSON:`, jsonError);
+              // If JSON parsing fails, continue with regex extraction
+            }
           }
           
-          // Try to extract era
-          const eraMatch = content.match(eraPattern);
-          if (eraMatch && eraMatch[1]) {
-            era = eraMatch[1].trim();
-            console.log(`[ENVIRONMENT DEBUG] Found era: ${era}`);
+          // If JSON parsing failed, use regex extraction as a fallback
+          if (!extractedFromJson) {
+            // Extract setting/location/era from the conversation
+            const settingPattern = /(?:setting|location|place|environment|world|city|town|realm)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+            const eraPattern = /(?:era|time period|time|century|decade|age|historical period)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+            const atmospherePattern = /(?:atmosphere|feeling|vibe|ambiance|ambience|mood)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+([^\.,:;!?]+)/i;
+            const namePattern = /(?:name|called|named)(?:\s+is|\s+would\s+be|\s*:|\s+could\s+be)?\s+["']?([^\.,:;!?"']+)["']?/i;
+            
+            // Extract environment information
+            let setting = "";
+            let era = "";
+            let atmosphere = "";
+            let name = "";
+            
+            // Try to extract setting
+            const settingMatch = content.match(settingPattern);
+            if (settingMatch && settingMatch[1]) {
+              setting = settingMatch[1].trim();
+              console.log(`[ENVIRONMENT DEBUG] Found setting: ${setting}`);
+            }
+            
+            // Try to extract era
+            const eraMatch = content.match(eraPattern);
+            if (eraMatch && eraMatch[1]) {
+              era = eraMatch[1].trim();
+              console.log(`[ENVIRONMENT DEBUG] Found era: ${era}`);
+            }
+            
+            // Try to extract atmosphere
+            const atmosphereMatch = content.match(atmospherePattern);
+            if (atmosphereMatch && atmosphereMatch[1]) {
+              atmosphere = atmosphereMatch[1].trim();
+              console.log(`[ENVIRONMENT DEBUG] Found atmosphere: ${atmosphere}`);
+            }
+            
+            // Try to extract name
+            const nameMatch = content.match(namePattern);
+            if (nameMatch && nameMatch[1]) {
+              name = nameMatch[1].trim();
+              console.log(`[ENVIRONMENT DEBUG] Found name: ${name}`);
+            }
+            
+            // Prepare environment data with extracted information
+            environmentData = {
+              environment_name: name || setting || 'Custom Environment', // Use name or setting as the environment name
+              setting,
+              era,
+              atmosphere,
+              threadId: conversationThreadId,
+              // Use the assistant's response as a description
+              description: content
+            };
           }
           
-          // Try to extract atmosphere
-          const atmosphereMatch = content.match(atmospherePattern);
-          if (atmosphereMatch && atmosphereMatch[1]) {
-            atmosphere = atmosphereMatch[1].trim();
-            console.log(`[ENVIRONMENT DEBUG] Found atmosphere: ${atmosphere}`);
-          }
-          
-          // Check if environment details already exist for this foundation
-          const existingDetails = await storage.getEnvironmentDetailsByFoundation(foundationId);
-          console.log(`[ENVIRONMENT DEBUG] Existing details found: ${!!existingDetails}`);
-          
-          // Prepare environment data with extracted information
-          const environmentData = {
-            environment_name: setting || 'Custom Environment', // Use setting as the environment name
-            setting,
-            era,
-            atmosphere,
-            threadId: conversationThreadId,
-            // Use the assistant's response as a description - store the full conversation for reference
-            description: content
-          };
-          
-          console.log(`[ENVIRONMENT DEBUG] Prepared environment data: ${JSON.stringify({
+          console.log(`[ENVIRONMENT DEBUG] Final environment data: ${JSON.stringify({
+            environment_name: environmentData.environment_name,
             setting: environmentData.setting,
             era: environmentData.era,
             atmosphere: environmentData.atmosphere,
@@ -1026,32 +1067,35 @@ To begin, do you have an existing map in mind for reference—or should I start 
             descriptionLength: environmentData.description?.length || 0
           })}`);
           
+          // Check if environment details already exist for this foundation
+          const existingEnvironments = await storage.getAllEnvironmentDetailsByFoundation(foundationId);
+          console.log(`[ENVIRONMENT DEBUG] Found ${existingEnvironments.length} existing environment details`);
+          
           try {
-            if (existingDetails) {
-              // Update existing environment details
-              console.log(`[ENVIRONMENT DEBUG] Updating existing environment details ID: ${existingDetails.id} from dynamic assistant`);
-              const updated = await storage.updateEnvironmentDetails(existingDetails.id, {
-                ...environmentData,
-                foundationId
-              });
-              console.log(`[ENVIRONMENT DEBUG] Updated environment details successfully: ${!!updated}`);
-            } else {
-              // Create new environment details
-              console.log(`[ENVIRONMENT DEBUG] Creating new environment details for foundation ID: ${foundationId} from dynamic assistant`);
-              const created = await storage.createEnvironmentDetails({
-                ...environmentData,
-                foundationId
-              });
-              console.log(`[ENVIRONMENT DEBUG] Created environment details successfully: ${!!created}, ID: ${created?.id}`);
-            }
+            // Always create a new environment (we support multiple environments per foundation)
+            console.log(`[ENVIRONMENT DEBUG] Creating new environment details for foundation ID: ${foundationId}`);
+            const created = await storage.createEnvironmentDetails({
+              ...environmentData,
+              foundationId
+            });
+            console.log(`[ENVIRONMENT DEBUG] Created environment details successfully: ${!!created}, ID: ${created?.id}`);
             
-            // Update the foundation to mark environment as completed
+            // Update the foundation to mark environment stage as completed
             console.log(`[ENVIRONMENT DEBUG] Updating foundation ${foundationId} to mark environment as completed`);
             try {
               const updatedFoundation = await storage.updateFoundation(foundationId, {
-                environmentCompleted: true  // Mark the environment stage as completed
+                environmentCompleted: true,  // Mark the environment stage as completed
+                currentStage: 'environment'  // Ensure current stage is set to environment
               });
               console.log(`[ENVIRONMENT DEBUG] Foundation updated successfully: ${!!updatedFoundation}`);
+              
+              // Add a special message to the thread asking if they want to create another environment
+              // or move to the world stage
+              await openai.beta.threads.messages.create(conversationThreadId, {
+                role: "assistant",
+                content: "Your environment has been saved successfully! Would you like to create another environment or move on to the World stage? Creating multiple environments can add richness to your story world."
+              });
+              
             } catch (dbError) {
               console.error(`[ENVIRONMENT DEBUG] Database error updating foundation:`, dbError);
             }

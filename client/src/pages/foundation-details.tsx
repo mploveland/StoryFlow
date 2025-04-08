@@ -269,6 +269,52 @@ const FoundationDetails: React.FC = () => {
     }
   }, [genreDetails, foundation, updateFoundationMutation, toast]);
   
+  // Handle transition from environment to world stage when user chooses to advance
+  useEffect(() => {
+    // Only proceed if foundation data is available and messages are loaded
+    if (!foundation || !messages || messages.length === 0) return;
+    
+    // Check if we're in environment stage and have environment details completed
+    if (foundation.currentStage === 'environment' && foundation.environmentCompleted === true) {
+      console.log('Environment is completed, watching for world stage transition request');
+      
+      // Check for transition messages from the user
+      const transitionRequested = messages.some(msg => {
+        const content = msg.content.toLowerCase();
+        return (
+          msg.role === 'user' && 
+          (content.includes('move to world') || 
+           content.includes('world stage') || 
+           content.includes('proceed to world') ||
+           content.includes('start world building') ||
+           content.includes('go to world'))
+        );
+      });
+      
+      if (transitionRequested) {
+        console.log('User requested transition to world stage, updating foundation');
+        
+        // Update the foundation's stage to world
+        updateFoundationMutation.mutate({
+          id: foundation.id,
+          currentStage: 'world'
+        });
+        
+        // Notify the user about the transition
+        toast({
+          title: 'Moving to world building',
+          description: 'Now that we have your environment details, we can start building your world.',
+          duration: 3000
+        });
+        
+        // Update the chat interface state if we have the ref
+        if (chatInterfaceRef.current) {
+          chatInterfaceRef.current.setCurrentStage('world');
+        }
+      }
+    }
+  }, [foundation, messages, updateFoundationMutation, toast]);
+  
   // Create a new story
   const createStoryMutation = useMutation({
     mutationFn: async (storyData: { title: string; genre?: string; foundationId: number }) => {
