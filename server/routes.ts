@@ -941,12 +941,26 @@ To begin, do you have an existing map in mind for reference—or should I start 
           // Update the foundation with the genre name and summary - always do this to ensure it's set
           console.log(`[GENRE DEBUG] Updating foundation ${foundationId} genre to: ${mainGenre}`);
           try {
+            // Get the current foundation to check if we're already past the genre stage
+            const currentFoundation = await storage.getFoundation(foundationId);
+            
             // Include summary in the foundation description if available
             const updateData: any = {
               genre: mainGenre,
-              genreCompleted: true,
-              currentStage: 'genre' // Ensure we're in the correct stage
+              genreCompleted: true
             };
+            
+            // IMPORTANT: Only set currentStage to 'genre' if we're not already in a later stage
+            // This prevents reverting back to genre stage after transitioning to environment or world
+            if (!currentFoundation || 
+                !currentFoundation.currentStage || 
+                currentFoundation.currentStage === 'initial' ||
+                (currentFoundation.currentStage === 'genre' && !currentFoundation.genreCompleted)) {
+              updateData.currentStage = 'genre';
+              console.log(`[GENRE DEBUG] Setting currentStage to 'genre'`);
+            } else {
+              console.log(`[GENRE DEBUG] Preserving current stage '${currentFoundation.currentStage}' instead of reverting to genre`);
+            }
             
             // Add description if we have a summary
             if (foundationSummary) {
@@ -1083,10 +1097,27 @@ To begin, do you have an existing map in mind for reference—or should I start 
             // Update the foundation to mark environment stage as completed
             console.log(`[ENVIRONMENT DEBUG] Updating foundation ${foundationId} to mark environment as completed`);
             try {
-              const updatedFoundation = await storage.updateFoundation(foundationId, {
-                environmentCompleted: true,  // Mark the environment stage as completed
-                currentStage: 'environment'  // Ensure current stage is set to environment
-              });
+              // Get the current foundation to check if we're already past the environment stage
+              const currentFoundation = await storage.getFoundation(foundationId);
+              
+              // Prepare update data
+              const updateData: any = {
+                environmentCompleted: true  // Mark the environment stage as completed
+              };
+              
+              // Only set currentStage to 'environment' if we're not already in a later stage
+              // This prevents reverting back to environment stage if we're already in world or character stage
+              if (!currentFoundation || 
+                  !currentFoundation.currentStage || 
+                  currentFoundation.currentStage === 'initial' || 
+                  currentFoundation.currentStage === 'genre') {
+                updateData.currentStage = 'environment';
+                console.log(`[ENVIRONMENT DEBUG] Setting currentStage to 'environment'`);
+              } else {
+                console.log(`[ENVIRONMENT DEBUG] Preserving current stage '${currentFoundation.currentStage}' instead of reverting to environment`);
+              }
+              
+              const updatedFoundation = await storage.updateFoundation(foundationId, updateData);
               console.log(`[ENVIRONMENT DEBUG] Foundation updated successfully: ${!!updatedFoundation}`);
               
               // Add a special message to the thread asking if they want to create another environment
@@ -1777,12 +1808,30 @@ To begin, do you have an existing map in mind for reference—or should I start 
       }
       
       // 1. Update the foundation with genre info and change stage
-      await storage.updateFoundation(foundationId, { 
-        genre: effectiveMainGenre, 
-        currentStage: 'environment'  // Advance to environment stage
-      });
+      // Get the current foundation to check if we're already past the environment stage
+      const currentFoundation = await storage.getFoundation(foundationId);
       
-      console.log('Foundation updated to environment stage');
+      // Prepare update data for the foundation
+      const updateData: any = {
+        genre: effectiveMainGenre,
+        genreCompleted: true // Mark genre as completed
+      };
+      
+      // Only set currentStage to 'environment' if we're not already in a later stage
+      // This prevents reverting back to environment stage if we're already in world or character stage
+      if (!currentFoundation || 
+          !currentFoundation.currentStage || 
+          currentFoundation.currentStage === 'initial' || 
+          currentFoundation.currentStage === 'genre') {
+        updateData.currentStage = 'environment';
+        console.log(`Setting currentStage to 'environment'`);
+      } else {
+        console.log(`Preserving current stage '${currentFoundation.currentStage}' instead of reverting to environment`);
+      }
+      
+      await storage.updateFoundation(foundationId, updateData);
+      
+      console.log('Foundation updated with genre information');
       
       // 2. Add genre details to the database - handle all possible structured fields
       
