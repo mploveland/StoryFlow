@@ -115,6 +115,7 @@ const FoundationDetails: React.FC = () => {
   const [newFoundationName, setNewFoundationName] = useState('');
   
   // State to track if foundation components should be shown (overrides isFoundationComplete)
+  // Initialize with a default value, will be updated when foundation loads
   const [showFoundationComponents, setShowFoundationComponents] = useState(false);
   
   // State to track if genre details should be shown
@@ -138,10 +139,16 @@ const FoundationDetails: React.FC = () => {
     onError: (error: Error) => console.error('Foundation query failed:', error)
   } as any); // Using type assertion to work around type error
   
-  // Log the threadId when foundation is loaded
+  // Log the threadId and update visibility when foundation is loaded
   useEffect(() => {
     if (foundation) {
       console.log(`Foundation loaded with threadId: ${foundation.threadId || 'undefined'}`);
+      
+      // Update component visibility based on the stage
+      // Show component cards for any stage except 'genre'
+      if (foundation.currentStage && foundation.currentStage !== 'genre') {
+        setShowFoundationComponents(true);
+      }
     }
   }, [foundation]);
   
@@ -242,6 +249,11 @@ const FoundationDetails: React.FC = () => {
       // when genre details are entered
       if (foundation && foundation.currentStage === 'genre') {
         console.log('Auto-transitioning from genre to environment stage');
+        
+        // First update the UI state to show components
+        setShowFoundationComponents(true);
+        
+        // Then update the backend stage
         updateFoundationMutation.mutate({
           id: foundation.id,
           currentStage: 'environment'
@@ -590,8 +602,8 @@ const FoundationDetails: React.FC = () => {
           currentStage: data.contextType
         });
         
-        // Show foundation components when transitioning to environment
-        if (data.contextType === 'environment') {
+        // Show foundation components when transitioning from genre to any other stage
+        if (data.contextType && data.contextType !== 'genre') {
           setShowFoundationComponents(true);
         }
         
