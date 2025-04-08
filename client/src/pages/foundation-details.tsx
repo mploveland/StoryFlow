@@ -144,10 +144,13 @@ const FoundationDetails: React.FC = () => {
     if (foundation) {
       console.log(`Foundation loaded with threadId: ${foundation.threadId || 'undefined'}`);
       
-      // Update component visibility based on the stage
-      // Show component cards for any stage except 'genre'
-      if (foundation.currentStage && foundation.currentStage !== 'genre') {
+      // Only set showFoundationComponents to true if at least one stage is completed
+      // This controls the initial visibility of the side columns
+      if (foundation.genreCompleted || foundation.environmentCompleted || 
+          foundation.worldCompleted || foundation.charactersCompleted) {
         setShowFoundationComponents(true);
+      } else {
+        setShowFoundationComponents(false);
       }
     }
   }, [foundation]);
@@ -191,19 +194,13 @@ const FoundationDetails: React.FC = () => {
   // Function to check if foundation is complete (has genre, world details, and at least one character)
   // Currently always returning false to hide stage cards until explicitly requested
   const isFoundationComplete = (foundation?: Foundation, characters?: Character[]) => {
-    // Always return false to hide stage cards until explicitly requested by the user
-    return false;
-    
-    // The original implementation is commented out below
-    /*
     if (!foundation) return false;
     
-    const hasGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
-    const hasWorldDetails = foundation.description && foundation.description.trim() !== '';
-    const hasCharacters = characters && characters.length > 0;
-    
-    return hasGenre && hasWorldDetails;
-    */
+    // Check if all required foundation stages are completed
+    return foundation.genreCompleted === true && 
+           foundation.worldCompleted === true && 
+           foundation.environmentCompleted === true && 
+           foundation.charactersCompleted === true;
   };
   
   // Auto-initialize the UI state based on foundation data
@@ -806,8 +803,8 @@ const FoundationDetails: React.FC = () => {
           {/* Left side: Genre/World/Character cards - only show if foundation is complete or explicitly requested */}
           <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : 'lg:block'}`}>
             <div className="space-y-4">
-              {/* Simple Genre Card */}
-              {foundation.genre && (
+              {/* Simple Genre Card - Only visible when Genre is completed */}
+              {foundation.genreCompleted && foundation.genre && (
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-lg">
@@ -831,7 +828,8 @@ const FoundationDetails: React.FC = () => {
                 </Card>
               )}
               
-              {foundation.description && (
+              {/* World Card - Only visible when World is completed */}
+              {foundation.worldCompleted && foundation.description && (
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-lg">
@@ -855,7 +853,8 @@ const FoundationDetails: React.FC = () => {
                 </Card>
               )}
               
-              {characters.length > 0 && (
+              {/* Characters Card - Only visible when Characters are completed */}
+              {foundation.charactersCompleted && characters.length > 0 && (
                 <Card className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-2">
                     <CardTitle className="flex items-center text-lg">
@@ -885,8 +884,9 @@ const FoundationDetails: React.FC = () => {
                 </Card>
               )}
               
-              {/* Add more foundation components */}
-              <Card className="hover:shadow-md transition-shadow">
+              {/* Environment Card - Only visible when Environment is completed */}
+              {foundation.environmentCompleted && (
+                <Card className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center text-lg">
                     <Mountain className="mr-2 h-5 w-5 text-primary-500" /> 
@@ -907,6 +907,7 @@ const FoundationDetails: React.FC = () => {
                   </Button>
                 </CardFooter>
               </Card>
+              )}
             </div>
           </div>
           
@@ -989,8 +990,8 @@ const FoundationDetails: React.FC = () => {
             </Card>
           </div>
           
-          {/* Right side: Stories list and create button - only shown when foundation is complete */}
-          <div className={`lg:col-span-3 ${!showFoundationComponents ? 'hidden lg:hidden' : ''}`}>
+          {/* Right side: Stories list and create button - only shown when ALL foundation stages are complete */}
+          <div className={`lg:col-span-3 ${!showFoundationComponents || !isFoundationComplete(foundation, characters) ? 'hidden lg:hidden' : ''}`}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center">
