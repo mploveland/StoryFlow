@@ -2531,6 +2531,31 @@ export async function getAppropriateAssistant(
   contextType: "genre" | "world" | "character" | "environment";
   isAutoTransition?: boolean;
 }> {
+  // First, if we have a foundation ID, check if the genre is completed
+  // This is critical to prevent reverting back to genre stage once completed
+  let foundationGenreCompleted = false;
+  
+  if (foundationId) {
+    try {
+      // Get foundation record to check genre completion status
+      const { storage } = require('./storage');
+      const foundation = await storage.getFoundation(foundationId);
+      
+      if (foundation && foundation.genreCompleted === true) {
+        foundationGenreCompleted = true;
+        console.log(`Foundation ${foundationId} has completed genre stage (genreCompleted=true)`);
+        
+        // If genre is completed but current assistant is still genre, force to environment
+        if (currentAssistantType === "genre") {
+          console.log(`Overriding current assistant from genre to environment because genreCompleted=true`);
+          currentAssistantType = "environment";
+        }
+      }
+    } catch (error) {
+      console.error("Error checking foundation genre completion status:", error);
+    }
+  }
+  
   // Detect the conversation context from the message
   const detectedContext = detectConversationContext(message);
   console.log(
@@ -2582,14 +2607,8 @@ export async function getAppropriateAssistant(
       message.toLowerCase().includes("next"));
 
   // If we have a foundation ID, check the foundation's stage to provide context
-  let foundationStage: "genre" | "world" | "character" | "environment" | null =
-    null;
-
   if (foundationId) {
     try {
-      // In a future implementation, we could check the database to determine
-      // the foundation's current stage by looking for genre/environment/world details
-
       // For now, we'll use the currentAssistantType and transition triggers
       if (currentAssistantType === "genre" && hasGenreToEnvironmentTransition) {
         console.log(
@@ -2622,26 +2641,33 @@ export async function getAppropriateAssistant(
     }
   }
 
-  // If we detected a specific context in the message, use that
-  if (detectedContext) {
-    console.log(`Using detected context: ${detectedContext}`);
+  // If genre is completed, NEVER allow reverting to genre regardless of detected context
+  let effectiveContext = detectedContext;
+  if (foundationGenreCompleted && detectedContext === "genre") {
+    console.log("Detected genre context but genre is already completed. Staying in current context.");
+    effectiveContext = null; // Nullify the detected context to prevent reverting to genre
+  }
 
-    if (detectedContext === "character") {
+  // If we detected a specific context in the message, use that
+  if (effectiveContext) {
+    console.log(`Using detected context: ${effectiveContext}`);
+
+    if (effectiveContext === "character") {
       return {
         assistantId: StoryFlow_CharacterCreator_ID,
         contextType: "character",
       };
-    } else if (detectedContext === "world") {
+    } else if (effectiveContext === "world") {
       return {
         assistantId: StoryFlow_WorldBuilder_ID,
         contextType: "world",
       };
-    } else if (detectedContext === "environment") {
+    } else if (effectiveContext === "environment") {
       return {
         assistantId: StoryFlow_EnvironmentGenerator_ID,
         contextType: "environment",
       };
-    } else if (detectedContext === "genre") {
+    } else if (effectiveContext === "genre" && !foundationGenreCompleted) {
       return {
         assistantId: StoryFlow_GenreCreator_ID,
         contextType: "genre",
@@ -2670,7 +2696,7 @@ export async function getAppropriateAssistant(
         assistantId: StoryFlow_EnvironmentGenerator_ID,
         contextType: "environment",
       };
-    } else {
+    } else if (currentAssistantType === "genre" && !foundationGenreCompleted) {
       return {
         assistantId: StoryFlow_GenreCreator_ID,
         contextType: "genre",
@@ -2678,9 +2704,20 @@ export async function getAppropriateAssistant(
     }
   }
 
-  // Default to genre creator if all else fails (starting point)
+  // Default case - check if genre is completed to determine default
+  if (foundationGenreCompleted) {
+    console.log(
+      "No context detected, but genre is completed. Defaulting to environment assistant",
+    );
+    return {
+      assistantId: StoryFlow_EnvironmentGenerator_ID,
+      contextType: "environment",
+    };
+  }
+  
+  // Default to genre creator only if genre is not completed
   console.log(
-    "No context detected and no current assistant, defaulting to genre assistant",
+    "No context detected and genre not completed, defaulting to genre assistant",
   );
   return {
     assistantId: StoryFlow_GenreCreator_ID,
