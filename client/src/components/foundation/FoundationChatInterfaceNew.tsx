@@ -209,74 +209,6 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       const newRequestId = Date.now().toString();
       requestIdRef.current = newRequestId;
       
-      // First check if there are existing messages for this foundation
-      try {
-        const checkResponse = await fetch(`/api/foundations/${id}/messages`);
-        const existingMessages = await checkResponse.json();
-        
-        // If this is a new foundation or there are no existing messages, show the welcome message
-        if (isNewFoundation || !Array.isArray(existingMessages) || existingMessages.length === 0) {
-          console.log('New foundation or no existing messages - setting welcome message');
-          
-          // Show welcome message for new foundations
-          const welcomeMessage = {
-            role: 'assistant' as const,
-            content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
-          };
-          
-          setMessages([welcomeMessage]);
-          lastSpokenMessageRef.current = welcomeMessage.content;
-          
-          // Save welcome message ONLY if it's a COMPLETELY NEW foundation with NO existing messages
-          if (id && Array.isArray(existingMessages) && existingMessages.length === 0) {
-            console.log('Saving welcome message for new foundation with zero messages');
-            saveMessage(id, 'assistant', welcomeMessage.content);
-            
-            // Get initial suggestions for the welcome message
-            console.log('Fetching initial suggestions for welcome message');
-            fetchSuggestions('', welcomeMessage.content);
-          }
-          
-          setIsLoadingMessages(false);
-          return;
-        } else {
-          // We found existing messages, so display them right away
-          console.log(`Found ${existingMessages.length} existing messages - loading them directly`);
-          
-          // Convert messages to the right format
-          const formattedMessages = existingMessages.map(msg => ({
-            role: msg.role as 'user' | 'assistant',
-            content: String(msg.content)
-          }));
-          
-          // Set the last message as already spoken to prevent TTS
-          if (formattedMessages.length > 0) {
-            const lastMessage = formattedMessages[formattedMessages.length - 1];
-            lastSpokenMessageRef.current = lastMessage.content;
-          }
-          
-          // Update state with the loaded messages
-          setMessages(formattedMessages);
-          
-          // Fetch suggestions for the last message pair
-          const lastUserIndex = formattedMessages.map(m => m.role).lastIndexOf('user');
-          const lastAssistantIndex = formattedMessages.map(m => m.role).lastIndexOf('assistant');
-          
-          if (lastUserIndex >= 0 && lastAssistantIndex > lastUserIndex) {
-            fetchSuggestions(
-              formattedMessages[lastUserIndex].content,
-              formattedMessages[lastAssistantIndex].content
-            );
-          }
-          
-          setIsLoadingMessages(false);
-          return;
-        }
-      } catch (error) {
-        console.error('Error checking for existing messages:', error);
-        // Continue with normal loading
-      }
-      
       // Show loading indicator
       setMessages([{
         role: 'assistant',
@@ -297,7 +229,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         throw new Error(`Failed to load messages: ${response.status}`);
       }
       
-      const data = await response.json();
+      const existingMessages = await response.json();
       
       // Check if this is still the most recent request
       if (requestIdRef.current !== newRequestId) {
@@ -305,11 +237,34 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         return;
       }
       
-      if (Array.isArray(data) && data.length > 0) {
-        console.log(`Loaded ${data.length} messages`);
+      // If this is a new foundation or there are no existing messages, show the welcome message
+      if (isNewFoundation || !Array.isArray(existingMessages) || existingMessages.length === 0) {
+        console.log('New foundation or no existing messages - setting welcome message');
+        
+        // Show welcome message for new foundations
+        const welcomeMessage = {
+          role: 'assistant' as const,
+          content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
+        };
+        
+        setMessages([welcomeMessage]);
+        lastSpokenMessageRef.current = welcomeMessage.content;
+        
+        // Save welcome message ONLY if it's a COMPLETELY NEW foundation with NO existing messages
+        if (id && Array.isArray(existingMessages) && existingMessages.length === 0) {
+          console.log('Saving welcome message for new foundation with zero messages');
+          saveMessage(id, 'assistant', welcomeMessage.content);
+          
+          // Get initial suggestions for the welcome message
+          console.log('Fetching initial suggestions for welcome message');
+          fetchSuggestions('', welcomeMessage.content);
+        }
+      } 
+      else if (Array.isArray(existingMessages) && existingMessages.length > 0) {
+        console.log(`Found ${existingMessages.length} existing messages - loading them directly`);
         
         // Convert messages to the right format
-        const formattedMessages = data.map(msg => ({
+        const formattedMessages = existingMessages.map(msg => ({
           role: msg.role as 'user' | 'assistant',
           content: String(msg.content)
         }));
@@ -320,8 +275,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           lastSpokenMessageRef.current = lastMessage.content;
         }
         
-        // Update state without re-saving the messages to the database
-        // This is important to prevent duplicating messages when loading an existing foundation
+        // Update state with the loaded messages
         setMessages(formattedMessages);
         
         // Fetch suggestions for the last message pair
