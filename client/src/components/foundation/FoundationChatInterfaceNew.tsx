@@ -617,11 +617,23 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   const { autoPlayMessages } = useSettings();
   
   useEffect(() => {
+    console.log('*** TTS AUTOPLAY EFFECT TRIGGERED ***');
+    console.log('Messages count:', messages.length);
+    console.log('autoPlayMessages setting:', autoPlayMessages);
+    console.log('isLoadingMessages:', isLoadingMessages);
+    console.log('isProcessing:', isProcessing);
+    
     // Skip if still loading, no messages, or auto-play is disabled
-    if (isLoadingMessages || messages.length === 0 || !autoPlayMessages) return;
+    if (isLoadingMessages || messages.length === 0 || !autoPlayMessages) {
+      console.log('*** TTS AUTOPLAY SKIPPED - Early return condition ***');
+      return;
+    }
     
     // Get the last message
     const lastMessage = messages[messages.length - 1];
+    console.log('Last message role:', lastMessage.role);
+    console.log('Last message content (first 50 chars):', lastMessage.content.substring(0, 50));
+    console.log('Last spoken reference:', lastSpokenMessageRef.current ? lastSpokenMessageRef.current.substring(0, 50) : 'none');
     
     // Only speak if:
     // 1. It's an assistant message
@@ -631,7 +643,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         lastMessage.content !== lastSpokenMessageRef.current &&
         !isProcessing) {
       
-      console.log('Speaking new assistant message');
+      console.log('*** ATTEMPTING TO SPEAK NEW ASSISTANT MESSAGE ***');
       console.log('Auto-play is enabled:', autoPlayMessages);
       console.log('Last spoken message:', lastSpokenMessageRef.current ? lastSpokenMessageRef.current.substring(0, 50) : 'none');
       console.log('Current message:', lastMessage.content.substring(0, 50));
