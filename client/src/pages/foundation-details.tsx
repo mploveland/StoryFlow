@@ -551,96 +551,19 @@ const FoundationDetails: React.FC = () => {
       // Use the foundation's threadId if available and no specific threadId was provided
       const chatThreadId = threadId || foundation.threadId;
       
-      // Determine current stage based on foundation data
-      let currentAssistantType = 'genre'; // Default to genre
-
-      // Check for environment details
-      const hasEnvironmentDetails = await apiRequest('GET', `/api/foundations/${foundation.id}/environment`).then(
-        res => res.ok
-      ).catch(() => false);
-      
-      // Check for world details
-      const hasWorldDetails = await apiRequest('GET', `/api/foundations/${foundation.id}/world`).then(
-        res => res.ok
-      ).catch(() => false);
-      
-      // Check for character details
-      const hasCharacterDetails = await apiRequest('GET', `/api/foundations/${foundation.id}/characters`).then(
-        res => res.json().then(data => data.length > 0)
-      ).catch(() => false);
-      
-      // For the purpose of thread state tracking, check if we have a defined genre
-      const hasDefinedGenre = foundation.genre && foundation.genre.trim() !== '' && foundation.genre !== 'Undecided';
-      
-      // Check the current stage stored in the foundation (if any)
-      const currentStoredStage = foundation.currentStage || 'genre';
-      
-      // Get the previous stage stored in the foundation if available
-      const previousAssistantType = currentStoredStage;
-      
-      // First, get the most advanced stage the foundation has reached based on content
-      let advancedStage = 'genre';
-      if (hasCharacterDetails) {
-        advancedStage = 'character';
-      } else if (hasWorldDetails) {
-        advancedStage = 'world';
-      } else if (hasEnvironmentDetails) {
-        advancedStage = 'environment';
-      } else if (hasDefinedGenre) {
-        advancedStage = 'environment';
-      }
-      
-      // Determine stage based on sequential completion
-      // Start with what's stored, but don't jump ahead too quickly
-      currentAssistantType = previousAssistantType;
-      
-      // Only advance stage when explicitly requested or when adequate content exists
-      // and the message specifically indicates completion of the current stage
-      if (lowerCaseMessage.includes('next stage') || 
-          lowerCaseMessage.includes('move on') ||
-          lowerCaseMessage.includes('continue to') ||
-          lowerCaseMessage.includes('proceed to')) {
-        
-        // Determine the next sequential stage based on current stage
-        if (previousAssistantType === 'genre' && hasDefinedGenre) {
-          currentAssistantType = 'environment';
-        } else if (previousAssistantType === 'environment' && hasEnvironmentDetails) {
-          currentAssistantType = 'world';
-        } else if (previousAssistantType === 'world' && hasWorldDetails) {
-          currentAssistantType = 'character';
-        }
-        
-        // Check if we need to update the foundation with the new stage
-        if (currentAssistantType !== previousAssistantType) {
-          console.log(`Updating foundation with new current stage: ${currentAssistantType}`);
-          updateFoundationMutation.mutate({
-            id: foundation.id,
-            currentStage: currentAssistantType
-          });
-        }
-      }
+      // Simplify stage determination by relying on the foundation's currentStage
+      // The backend will properly determine the appropriate assistant based on completion flags
+      const currentAssistantType = foundation.currentStage || 'genre';
       
       // Set the current stage in the chat interface if it's provided
       if (chatInterface && typeof chatInterface.setCurrentStage === 'function') {
         chatInterface.setCurrentStage(currentAssistantType);
       }
       
-      // Additional logging to debug stage determination
-      console.log(`Foundation stage determination details:`, {
-        hasCharacterDetails,
-        hasWorldDetails,
-        hasEnvironmentDetails,
-        hasDefinedGenre,
-        foundationGenre: foundation.genre,
-        foundationDescription: foundation.description?.substring(0, 50),
-        result: currentAssistantType
-      });
+      console.log(`Processing chat message. Foundation ID: ${foundation.id}, Current stage: ${currentAssistantType}`);
+      console.log(`Thread ID: ${chatThreadId || 'none'}`);
       
-      console.log(`Processing chat message with dynamic assistant. Foundation genre: "${foundation.genre || 'none'}", Current stage: ${currentAssistantType}`);
-      
-      // Add extra log for debugging thread ID usage
-      console.log(`Using thread ID: ${chatThreadId || 'none'} for foundation ${foundation.id}`);
-        
+      // Let the backend determine the correct assistant based on completion flags
       const payload = {
         message,
         foundationId: foundation.id,

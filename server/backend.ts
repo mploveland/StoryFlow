@@ -3,8 +3,11 @@ import { storage } from "./storage";
 import { getAppropriateAssistant, waitForRunCompletion } from "./assistants";
 import OpenAI from "openai";
 
-// Define assistant IDs
+// Define assistant IDs - these are the official production assistant IDs
 const StoryFlow_GenreCreator_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
+const StoryFlow_EnvironmentGenerator_ID = "asst_EezatLBvY8BhCC20fztog1RF";
+const StoryFlow_WorldBuilder_ID = "asst_jHr9TLXeEtTiqt6DjTRhP1fo";
+const StoryFlow_CharacterCreator_ID = "asst_6leBQqNpfRPmS8cHjH9H2BXz";
 
 // Initialize OpenAI client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -19,12 +22,6 @@ export async function getContextTypeRespectingStageProgression(
   foundationId: number
 ) {
   try {
-    // Define assistant IDs
-    const StoryFlow_GenreCreator_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
-    const StoryFlow_EnvironmentGenerator_ID = "asst_EezatLBvY8BhCC20fztog1RF";
-    const StoryFlow_WorldBuilder_ID = "asst_jHr9TLXeEtTiqt6DjTRhP1fo";
-    const StoryFlow_CharacterCreator_ID = "asst_6leBQqNpfRPmS8cHjH9H2BXz";
-    
     // Get the foundation to check completion flags
     const foundation = await storage.getFoundation(foundationId);
     if (!foundation) {
@@ -47,31 +44,31 @@ export async function getContextTypeRespectingStageProgression(
       // If genre is not completed, we're in the genre stage
       contextType = "genre";
       assistantId = StoryFlow_GenreCreator_ID;
-      console.log(`[STAGE DETERMINATION] Stage: Genre (completion flags indicate genre not completed)`);
+      console.log(`[STAGE DETERMINATION] Stage: Genre (${StoryFlow_GenreCreator_ID})`);
     } 
     else if (foundation.genreCompleted && !foundation.environmentCompleted) {
       // If genre is completed but environment is not, we're in the environment stage
       contextType = "environment";
       assistantId = StoryFlow_EnvironmentGenerator_ID;
-      console.log(`[STAGE DETERMINATION] Stage: Environment (genre completed, environment not completed)`);
+      console.log(`[STAGE DETERMINATION] Stage: Environment (${StoryFlow_EnvironmentGenerator_ID})`);
     } 
     else if (foundation.genreCompleted && foundation.environmentCompleted && !foundation.worldCompleted) {
       // If genre and environment are completed but world is not, we're in the world stage
       contextType = "world";
       assistantId = StoryFlow_WorldBuilder_ID;
-      console.log(`[STAGE DETERMINATION] Stage: World (genre & environment completed, world not completed)`);
+      console.log(`[STAGE DETERMINATION] Stage: World (${StoryFlow_WorldBuilder_ID})`);
     }
     else if (foundation.genreCompleted && foundation.environmentCompleted && foundation.worldCompleted && !foundation.charactersCompleted) {
       // If all but characters are completed, we're in the character stage
       contextType = "character";
       assistantId = StoryFlow_CharacterCreator_ID;
-      console.log(`[STAGE DETERMINATION] Stage: Character (genre, environment & world completed, characters not completed)`);
+      console.log(`[STAGE DETERMINATION] Stage: Character (${StoryFlow_CharacterCreator_ID})`);
     }
     else {
       // If everything is completed, default to character stage
       contextType = "character";
       assistantId = StoryFlow_CharacterCreator_ID;
-      console.log(`[STAGE DETERMINATION] Stage: Character (default if all stages completed)`);
+      console.log(`[STAGE DETERMINATION] Stage: Character (default) (${StoryFlow_CharacterCreator_ID})`);
     }
     
     // Update the foundation with the current stage if it's different
@@ -81,6 +78,9 @@ export async function getContextTypeRespectingStageProgression(
         currentStage: contextType
       });
     }
+    
+    // Log the final decision for clarity
+    console.log(`[STAGE DETERMINATION] Final decision: ${contextType} stage with assistant ID ${assistantId}`);
     
     return {
       assistantId,
@@ -92,10 +92,8 @@ export async function getContextTypeRespectingStageProgression(
     
     // In case of error, use a safe default to the Genre stage
     console.log(`[STAGE DETERMINATION] Error occurred, defaulting to Genre stage`);
-    // Define the Genre Creator ID in this scope to avoid reference errors
-    const errorGenreCreatorID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
     return {
-      assistantId: errorGenreCreatorID,
+      assistantId: StoryFlow_GenreCreator_ID,
       contextType: "genre",
       isAutoTransition: false
     };
@@ -164,6 +162,15 @@ export async function handleDynamicAssistantRequest(req: Request, res: Response)
       role: "user",
       content: message
     });
+    
+    // Log the request details for debugging
+    console.log(`Using assistant ID: ${assistantId} for ${contextType} stage`);
+    console.log(`Assistant type mapping check: 
+      genre = ${StoryFlow_GenreCreator_ID}
+      environment = ${StoryFlow_EnvironmentGenerator_ID}
+      world = ${StoryFlow_WorldBuilder_ID}
+      character = ${StoryFlow_CharacterCreator_ID}
+    `);
     
     // Run the assistant on the thread
     const run = await openai.beta.threads.runs.create(conversationThreadId, {
