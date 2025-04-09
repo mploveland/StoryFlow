@@ -168,30 +168,38 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     }
   }, [messages, isProcessing, suggestions]);
   
-  // Load saved messages when foundation changes or when explicitly forced
+  // Load saved messages once when the component mounts (with the current foundation)
+  // This is a critical fix - we use a loadedRef to ensure messages are loaded exactly once
+  const loadedRef = useRef(false);
+  
   useEffect(() => {
     const effectiveFoundationId = foundationId || foundation?.id;
+    const effectiveThreadId = foundation?.threadId;
     
-    // Skip if we don't have a foundation ID or message handler
-    if (!effectiveFoundationId || !messageHandler) {
-      console.log('No foundation ID or message handler. Skipping message load.');
+    // Skip if we don't have a foundation ID or message handler or if we've already loaded
+    if (!effectiveFoundationId || !messageHandler || loadedRef.current) {
+      console.log('No foundation ID, message handler, or already loaded. Skipping message load.');
       return;
     }
     
     console.log(`Loading messages for foundation ${effectiveFoundationId}`);
     
     // Set thread ID from foundation if available
-    if (foundation?.threadId) {
-      console.log(`Setting thread ID to ${foundation.threadId}`);
-      setThreadId(foundation.threadId);
+    if (effectiveThreadId) {
+      console.log(`Setting thread ID to ${effectiveThreadId}`);
+      setThreadId(effectiveThreadId);
     }
     
-    // Load messages
-    const isNewFoundation = !foundation?.threadId;
+    // Load messages only once per component instance
+    const isNewFoundation = !effectiveThreadId;
     loadFoundationMessages(effectiveFoundationId, isNewFoundation);
     
-  // We need to use both foundationId and foundation as dependencies to ensure proper reloading
-  }, [foundationId, foundation, messageHandler]);
+    // Mark as loaded to prevent repeated loading
+    loadedRef.current = true;
+    
+  // Empty dependency array ensures this runs only once when component mounts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Load messages from the server
   const loadFoundationMessages = async (id: number, isNewFoundation: boolean, forceRefresh = false) => {

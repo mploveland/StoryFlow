@@ -915,20 +915,23 @@ const FoundationDetails: React.FC = () => {
           {/* Center: Chat window - always show */}
           <div className="lg:col-span-6">
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
-              <FoundationChatInterfaceNew 
-                key={`foundation-chat-${foundation.id}`} 
-                foundation={foundation}
-                title={`Building ${foundation.name}`}
-                description="Discuss and develop your story foundation through natural conversation"
-                foundationId={foundation.id}
-                messageHandler={(message, threadId) => sendFoundationChatMessage(
-                  message, 
-                  threadId, 
-                  chatInterfaceRef.current
-                )}
-                initialThreadId={foundation.threadId || undefined}
-                ref={chatInterfaceRef}
-              />
+              {/* Only render the chat interface after foundation is fully loaded */}
+              {foundation && (
+                <FoundationChatInterfaceNew 
+                  key={`foundation-chat-${foundation.id}-${Date.now()}`} 
+                  foundation={foundation}
+                  title={`Building ${foundation.name}`}
+                  description="Discuss and develop your story foundation through natural conversation"
+                  foundationId={foundation.id}
+                  messageHandler={(message, threadId) => sendFoundationChatMessage(
+                    message, 
+                    threadId, 
+                    chatInterfaceRef.current
+                  )}
+                  initialThreadId={foundation.threadId || undefined}
+                  ref={chatInterfaceRef}
+                />
+              )}
             </div>
           </div>
           
