@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { storage } from "./storage";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -2538,7 +2539,6 @@ export async function getAppropriateAssistant(
   if (foundationId) {
     try {
       // Get foundation record to check genre completion status
-      const { storage } = require('./storage');
       const foundation = await storage.getFoundation(foundationId);
       
       if (foundation && foundation.genreCompleted === true) {
