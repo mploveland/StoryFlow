@@ -64,9 +64,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Foundations - Get foundation messages
+  // Foundations - Get foundation messages with cache control disabled
   apiRouter.get("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
     try {
+      // Disable caching for this endpoint
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      
       const foundationId = parseInt(req.params.foundationId);
       if (isNaN(foundationId)) {
         return res.status(400).json({ message: "Invalid foundation ID" });

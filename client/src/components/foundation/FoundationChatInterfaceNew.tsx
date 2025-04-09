@@ -212,7 +212,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       
       // Fetch messages from the server - add cache-busting parameter
       const timestamp = Date.now();
-      const response = await fetch(`/api/foundations/${id}/messages?t=${timestamp}`);
+      const response = await fetch(`/api/foundations/${id}/messages?t=${timestamp}&no_cache=${Math.random()}`);
       
       // Check if this is still the most recent request
       if (requestIdRef.current !== newRequestId) {

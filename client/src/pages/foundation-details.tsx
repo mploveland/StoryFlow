@@ -182,12 +182,13 @@ const FoundationDetails: React.FC = () => {
     enabled: !!foundationId,
   });
   
-  // Query messages for this foundation
+  // Query messages for this foundation - add timestamp to prevent caching
   const { 
     data: messages = [], 
-    isLoading: isLoadingMessages 
+    isLoading: isLoadingMessages,
+    refetch: refetchMessages 
   } = useQuery<{id: number, role: 'user' | 'assistant', content: string}[]>({
-    queryKey: [`/api/foundations/${foundationId}/messages`],
+    queryKey: [`/api/foundations/${foundationId}/messages`, Date.now()],
     enabled: !!foundationId,
   });
   
