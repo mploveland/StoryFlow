@@ -178,14 +178,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       return;
     }
     
-    // Skip if we've already loaded for this specific foundation
-    if (loadedFoundationIds.current.has(effectiveFoundationId)) {
-      console.log(`Messages already loaded for foundation ${effectiveFoundationId}`);
-      return;
-    }
-    
-    // Mark this specific foundation ID as loaded
-    loadedFoundationIds.current.add(effectiveFoundationId);
+    // Always load messages regardless of whether we've loaded them before
+    // This ensures we always get fresh data when navigating back to a foundation
     console.log(`Loading messages for foundation ${effectiveFoundationId}`);
     
     // Set thread ID from foundation if available
@@ -197,6 +191,12 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     // Load messages
     const isNewFoundation = !foundation?.threadId;
     loadFoundationMessages(effectiveFoundationId, isNewFoundation);
+    
+    // Cleanup function to prepare for next load
+    return () => {
+      console.log('Component unmounting, clearing message cache');
+      loadedFoundationIds.current.clear();
+    };
   }, [foundation, foundationId, messageHandler]);
   
   // Load messages from the server
@@ -216,8 +216,9 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       }]);
       lastSpokenMessageRef.current = 'Loading your previous conversation...';
       
-      // Fetch messages from the server
-      const response = await fetch(`/api/foundations/${id}/messages`);
+      // Fetch messages from the server - add cache-busting parameter
+      const timestamp = Date.now();
+      const response = await fetch(`/api/foundations/${id}/messages?t=${timestamp}`);
       
       // Check if this is still the most recent request
       if (requestIdRef.current !== newRequestId) {
@@ -230,6 +231,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       }
       
       const existingMessages = await response.json();
+      console.log(`Debug - Raw response from server:`, existingMessages);
       
       // Check if this is still the most recent request
       if (requestIdRef.current !== newRequestId) {
