@@ -1277,14 +1277,9 @@ export async function generateChatSuggestions(
     const thread = await openai.beta.threads.create();
     console.log(`Created thread: ${thread.id} for chat suggestions`);
 
-    // Craft a prompt for the chat suggestions assistant
-    const content = `I'm creating a story. Here is the last exchange in the conversation:
-
-USER: ${userMessage}
-
-ASSISTANT: ${assistantReply}
-
-Based on this exchange, suggest 5-15 thoughtful responses I could make as the USER. Format as a valid JSON object with an "options" array of strings.`;
+    // Simplified prompt - just send the conversation context without additional instructions
+    const content = `USER: ${userMessage}
+ASSISTANT: ${assistantReply}`;
 
     // Add the message to the thread
     await openai.beta.threads.messages.create(thread.id, {
