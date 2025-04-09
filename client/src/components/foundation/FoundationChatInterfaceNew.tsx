@@ -168,142 +168,107 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     }
   }, [messages, isProcessing, suggestions]);
   
-  // Load saved messages once when the component mounts (with the current foundation)
-  // This is a critical fix - we use a loadedRef to ensure messages are loaded exactly once
-  const loadedRef = useRef(false);
+  // SIMPLIFIED VERSION - Using a ref to guarantee we load messages exactly once
+  const hasLoadedMessages = useRef(false);
   
+  // Load messages once on mount, guaranteed to run only a single time
   useEffect(() => {
+    // Immediately return if no foundation ID
     const effectiveFoundationId = foundationId || foundation?.id;
-    const effectiveThreadId = foundation?.threadId;
-    
-    // Skip if we don't have a foundation ID or message handler or if we've already loaded
-    if (!effectiveFoundationId || !messageHandler || loadedRef.current) {
-      console.log('No foundation ID, message handler, or already loaded. Skipping message load.');
+    if (!effectiveFoundationId || !messageHandler) {
+      console.log('Missing foundation ID or message handler. Cannot load messages.');
       return;
     }
     
-    console.log(`Loading messages for foundation ${effectiveFoundationId}`);
-    
-    // Set thread ID from foundation if available
-    if (effectiveThreadId) {
-      console.log(`Setting thread ID to ${effectiveThreadId}`);
-      setThreadId(effectiveThreadId);
+    // Set thread ID immediately if available
+    if (foundation?.threadId) {
+      setThreadId(foundation.threadId);
     }
     
-    // Load messages only once per component instance
-    const isNewFoundation = !effectiveThreadId;
-    loadFoundationMessages(effectiveFoundationId, isNewFoundation);
-    
-    // Mark as loaded to prevent repeated loading
-    loadedRef.current = true;
-    
-  // Empty dependency array ensures this runs only once when component mounts
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  
-  // Load messages from the server
-  const loadFoundationMessages = async (id: number, isNewFoundation: boolean, forceRefresh = false) => {
-    try {
-      console.log(`Loading messages for foundation ${id}, isNewFoundation: ${isNewFoundation}`);
+    // Only load messages once per component lifecycle using ref
+    if (!hasLoadedMessages.current) {
+      console.log(`Loading messages for foundation ${effectiveFoundationId}...`);
+      
+      // Set loading state
       setIsLoadingMessages(true);
-      
-      // Set a unique request ID to prevent race conditions
-      const newRequestId = Date.now().toString();
-      requestIdRef.current = newRequestId;
-      
-      // Show loading indicator
       setMessages([{
         role: 'assistant',
         content: 'Loading your previous conversation...'
       }]);
-      lastSpokenMessageRef.current = 'Loading your previous conversation...';
       
-      // Fetch messages from the server - add cache-busting parameter
+      // Add timestamp to prevent caching
       const timestamp = Date.now();
-      const response = await fetch(`/api/foundations/${id}/messages?t=${timestamp}&no_cache=${Math.random()}`);
+      const cacheBuster = Math.random();
       
-      // Check if this is still the most recent request
-      if (requestIdRef.current !== newRequestId) {
-        console.log('Abandoned message loading due to newer request');
-        return;
-      }
-      
-      if (!response.ok) {
-        throw new Error(`Failed to load messages: ${response.status}`);
-      }
-      
-      const existingMessages = await response.json();
-      console.log(`Debug - Raw response from server:`, existingMessages);
-      
-      // Check if this is still the most recent request
-      if (requestIdRef.current !== newRequestId) {
-        console.log('Abandoned message processing due to newer request');
-        return;
-      }
-      
-      // If this is a new foundation or there are no existing messages, show the welcome message
-      if (isNewFoundation || !Array.isArray(existingMessages) || existingMessages.length === 0) {
-        console.log('New foundation or no existing messages - setting welcome message');
-        
-        // Show welcome message for new foundations
-        const welcomeMessage = {
-          role: 'assistant' as const,
-          content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
-        };
-        
-        setMessages([welcomeMessage]);
-        lastSpokenMessageRef.current = welcomeMessage.content;
-        
-        // Save welcome message ONLY if it's a COMPLETELY NEW foundation with NO existing messages
-        if (id && Array.isArray(existingMessages) && existingMessages.length === 0) {
-          console.log('Saving welcome message for new foundation with zero messages');
-          saveMessage(id, 'assistant', welcomeMessage.content);
+      // Direct fetch implementation to avoid any race conditions
+      fetch(`/api/foundations/${effectiveFoundationId}/messages?t=${timestamp}&nocache=${cacheBuster}`)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to load messages: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          console.log(`Got ${data.length} messages for foundation ${effectiveFoundationId}`);
           
-          // Get initial suggestions for the welcome message
-          console.log('Fetching initial suggestions for welcome message');
-          fetchSuggestions('', welcomeMessage.content);
-        }
-      } 
-      else if (Array.isArray(existingMessages) && existingMessages.length > 0) {
-        console.log(`Found ${existingMessages.length} existing messages - loading them directly`);
-        
-        // Convert messages to the right format
-        const formattedMessages = existingMessages.map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: String(msg.content)
-        }));
-        
-        // Set the last message as already spoken to prevent TTS
-        if (formattedMessages.length > 0) {
-          const lastMessage = formattedMessages[formattedMessages.length - 1];
-          lastSpokenMessageRef.current = lastMessage.content;
-        }
-        
-        // Update state with the loaded messages
-        setMessages(formattedMessages);
-        
-        // Fetch suggestions for the last message pair
-        const lastUserIndex = formattedMessages.map(m => m.role).lastIndexOf('user');
-        const lastAssistantIndex = formattedMessages.map(m => m.role).lastIndexOf('assistant');
-        
-        if (lastUserIndex >= 0 && lastAssistantIndex > lastUserIndex) {
-          fetchSuggestions(
-            formattedMessages[lastUserIndex].content,
-            formattedMessages[lastAssistantIndex].content
-          );
-        }
-      } else {
-        console.log('No messages found');
-        setMessages([]);
-      }
-    } catch (error) {
-      console.error('Error loading messages:', error);
-      setPersistenceError(`Failed to load conversation: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setMessages([]);
-    } finally {
-      setIsLoadingMessages(false);
+          if (Array.isArray(data) && data.length > 0) {
+            // Format messages properly
+            const formattedMessages = data.map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: String(msg.content)
+            }));
+            
+            // Set the messages
+            setMessages(formattedMessages);
+            
+            // Remember last spoken message to prevent auto-TTS
+            if (formattedMessages.length > 0) {
+              lastSpokenMessageRef.current = formattedMessages[formattedMessages.length - 1].content;
+            }
+            
+            // Load suggestions for the last message pair
+            const lastUserIndex = formattedMessages.map(m => m.role).lastIndexOf('user');
+            const lastAssistantIndex = formattedMessages.map(m => m.role).lastIndexOf('assistant');
+            
+            if (lastUserIndex >= 0 && lastAssistantIndex > lastUserIndex) {
+              fetchSuggestions(
+                formattedMessages[lastUserIndex].content,
+                formattedMessages[lastAssistantIndex].content
+              );
+            }
+          } else {
+            // No messages or new foundation, show welcome message
+            const welcomeMessage = {
+              role: 'assistant' as const,
+              content: 'Welcome to Foundation Builder the starting point for your story creation journey! In this interview, we\'ll build the foundation for a living story world that will evolve as you create characters and narratives within it. We\'ll start by exploring genre elements to establish the tone and themes that will bring your world to life. What type of genre would you like to explore for your story world?'
+            };
+            
+            setMessages([welcomeMessage]);
+            lastSpokenMessageRef.current = welcomeMessage.content;
+            
+            // Save welcome message ONLY if it's a COMPLETELY NEW foundation with NO existing messages
+            if (Array.isArray(data) && data.length === 0) {
+              saveMessage(effectiveFoundationId, 'assistant', welcomeMessage.content);
+              fetchSuggestions('', welcomeMessage.content);
+            }
+          }
+        })
+        .catch(error => {
+          console.error('Error loading messages:', error);
+          setPersistenceError(`Failed to load conversation: ${error.message}`);
+          setMessages([]);
+        })
+        .finally(() => {
+          setIsLoadingMessages(false);
+          // Mark as loaded to prevent future loading
+          hasLoadedMessages.current = true;
+        });
     }
-  };
+  // Empty dependency array - explicitly only runs once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
+  // loadFoundationMessages has been replaced with direct implementation in the useEffect above
   
   // Save message to the database
   const saveMessage = async (id: number, role: 'user' | 'assistant', content: string) => {

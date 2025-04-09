@@ -105,6 +105,16 @@ const FoundationDetails: React.FC = () => {
   // State to track if UI has been initialized
   const [initialized, setInitialized] = useState(false);
   
+  // A unique key to force complete component remounting
+  const [componentKey, setComponentKey] = useState(Date.now());
+  
+  // Reset the component key when the foundation ID changes
+  useEffect(() => {
+    if (foundationId > 0) {
+      setComponentKey(Date.now());
+    }
+  }, [foundationId]);
+  
   // State for delete confirmation dialog
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isForceDeleteDialogOpen, setIsForceDeleteDialogOpen] = useState(false);
@@ -915,10 +925,10 @@ const FoundationDetails: React.FC = () => {
           {/* Center: Chat window - always show */}
           <div className="lg:col-span-6">
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
-              {/* Only render the chat interface after foundation is fully loaded */}
+              {/* Completely remount chat interface using componentKey when foundation changes */}
               {foundation && (
                 <FoundationChatInterfaceNew 
-                  key={`foundation-chat-${foundation.id}-${Date.now()}`} 
+                  key={`foundation-chat-${foundation.id}-${componentKey}`} 
                   foundation={foundation}
                   title={`Building ${foundation.name}`}
                   description="Discuss and develop your story foundation through natural conversation"
