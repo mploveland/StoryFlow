@@ -78,6 +78,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: "Failed to get foundation messages" });
     }
   });
+  
+  // Foundations - Create foundation message
+  apiRouter.post("/foundations/:foundationId/messages", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      
+      const { role, content } = req.body;
+      
+      if (!role || !content) {
+        return res.status(400).json({ message: "Role and content are required" });
+      }
+      
+      if (role !== 'user' && role !== 'assistant') {
+        return res.status(400).json({ message: "Role must be 'user' or 'assistant'" });
+      }
+      
+      const message = await storage.createFoundationMessage({
+        foundationId,
+        role,
+        content,
+        timestamp: new Date()
+      });
+      
+      return res.json(message);
+    } catch (error) {
+      console.error("Error creating foundation message:", error);
+      return res.status(500).json({ message: "Failed to create foundation message" });
+    }
+  });
 
   // Foundations - Get foundation characters
   apiRouter.get("/foundations/:foundationId/characters", async (req: Request, res: Response) => {
