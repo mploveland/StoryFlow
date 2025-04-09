@@ -647,11 +647,14 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   // Process genre summary for transition to environment stage
   const processGenreSummary = async (genreSummary: string) => {
     try {
-      console.log('Processing genre summary for stage transition');
+      console.log('**** TRANSITION: Processing genre summary for stage transition');
+      console.log('**** TRANSITION: Current stage is:', currentStage);
       const effectiveFoundationId = foundationId || foundation?.id;
       
+      console.log(`**** TRANSITION: Foundation ID for transition: ${effectiveFoundationId}`);
+      
       if (!effectiveFoundationId) {
-        console.error('No foundation ID available for genre transition');
+        console.error('**** TRANSITION ERROR: No foundation ID available for genre transition');
         return;
       }
       
@@ -1014,11 +1017,14 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
   // Trigger the transition to environment stage
   const triggerEnvironmentStage = async (mainGenre: string, genreSummary: string, suggestedNames: string[]) => {
     try {
-      console.log('Transitioning to environment stage');
+      console.log('**** TRANSITION: Transitioning to environment stage - BEGIN');
       const effectiveFoundationId = foundationId || foundation?.id;
+      console.log('**** TRANSITION: Current stage before transition:', currentStage);
+      console.log(`**** TRANSITION: Foundation ID: ${effectiveFoundationId}`);
+      console.log(`**** TRANSITION: Main genre: ${mainGenre}`);
       
       if (!effectiveFoundationId) {
-        console.error('No foundation ID available for environment stage transition');
+        console.error('**** TRANSITION ERROR: No foundation ID available for environment stage transition');
         return;
       }
       

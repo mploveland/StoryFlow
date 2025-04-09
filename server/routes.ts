@@ -167,9 +167,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Genre details are required" });
       }
       
-      console.log(`Genre-to-environment transition requested for foundation ${foundationId}`);
-      console.log(`Main genre: ${mainGenre}`);
-      console.log(`Genre details:`, JSON.stringify(genreDetails, null, 2).substring(0, 500) + "...");
+      console.log(`**** TRANSITION API: Genre-to-environment transition requested for foundation ${foundationId}`);
+      console.log(`**** TRANSITION API: Main genre: ${mainGenre}`);
+      console.log(`**** TRANSITION API: Genre details:`, JSON.stringify(genreDetails, null, 2).substring(0, 500) + "...");
       
       // 1. Save genre details to the database
       const insertedGenreDetails = await storage.createGenreDetails({
@@ -205,15 +205,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         divergenceFromInspirations: genreDetails.divergenceFromInspirations
       });
       
-      console.log(`Genre details saved with ID: ${insertedGenreDetails.id}`);
+      console.log(`**** TRANSITION API: Genre details saved with ID: ${insertedGenreDetails.id}`);
       
       // 2. Update foundation to mark genre as completed and set current stage to environment
-      const updatedFoundation = await storage.updateFoundation(foundationId, {
-        genreCompleted: true,
-        currentStage: 'environment'
-      });
-      
-      console.log(`Foundation ${foundationId} updated: genreCompleted=true, currentStage=environment`);
+      try {
+        const updatedFoundation = await storage.updateFoundation(foundationId, {
+          genreCompleted: true,
+          currentStage: 'environment'
+        });
+        
+        console.log(`**** TRANSITION API: Foundation ${foundationId} updated: genreCompleted=true, currentStage=environment`);
+        console.log(`**** TRANSITION API: Updated foundation data:`, JSON.stringify(updatedFoundation || {}, null, 2));
+      } catch (updateError) {
+        console.error(`**** TRANSITION API ERROR: Failed to update foundation status:`, updateError);
+        throw updateError;
+      }
       
       // 3. Return success response with the environment intro message
       return res.json({
