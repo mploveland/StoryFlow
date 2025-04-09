@@ -145,6 +145,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ message: "Failed to get foundation genre details" });
     }
   });
+  
+  // Genre to Environment transition endpoint
+  apiRouter.post("/foundations/:foundationId/genre-to-environment", async (req: Request, res: Response) => {
+    try {
+      const foundationId = parseInt(req.params.foundationId);
+      if (isNaN(foundationId)) {
+        return res.status(400).json({ message: "Invalid foundation ID" });
+      }
+      
+      // Get foundation to check current stage
+      const foundation = await storage.getFoundation(foundationId);
+      if (!foundation) {
+        return res.status(404).json({ message: "Foundation not found" });
+      }
+      
+      // Extract genre details from request body
+      const { genreSummary, mainGenre, genreDetails } = req.body;
+      
+      if (!genreDetails) {
+        return res.status(400).json({ message: "Genre details are required" });
+      }
+      
+      console.log(`Genre-to-environment transition requested for foundation ${foundationId}`);
+      console.log(`Main genre: ${mainGenre}`);
+      console.log(`Genre details:`, JSON.stringify(genreDetails, null, 2).substring(0, 500) + "...");
+      
+      // 1. Save genre details to the database
+      const insertedGenreDetails = await storage.createGenreDetails({
+        foundationId,
+        mainGenre: genreDetails.mainGenre || mainGenre,
+        description: genreDetails.description || genreSummary,
+        // Add any additional fields that are available in the genre details
+        genreRationale: genreDetails.genreRationale,
+        audienceExpectations: genreDetails.audienceExpectations,
+        subgenres: genreDetails.subgenres,
+        subgenreRationale: genreDetails.subgenreRationale,
+        subgenreInteraction: genreDetails.subgenreInteraction,
+        subgenreTropes: genreDetails.subgenreTropes,
+        tone: genreDetails.tone,
+        mood: genreDetails.mood,
+        emotionalImpact: genreDetails.emotionalImpact,
+        timePeriod: genreDetails.timePeriod,
+        technologyLevel: genreDetails.technologyLevel,
+        physicalEnvironment: genreDetails.physicalEnvironment,
+        geography: genreDetails.geography,
+        societalStructures: genreDetails.societalStructures,
+        culturalNorms: genreDetails.culturalNorms,
+        keyTropes: genreDetails.keyTropes,
+        tropeStrategy: genreDetails.tropeStrategy,
+        speculativeElements: genreDetails.speculativeElements,
+        speculativeRules: genreDetails.speculativeRules,
+        atmosphere: genreDetails.atmosphere,
+        sensoryDetails: genreDetails.sensoryDetails,
+        atmosphericStyle: genreDetails.atmosphericStyle,
+        thematicEnvironmentTieins: genreDetails.thematicEnvironmentTieins,
+        inspirations: genreDetails.inspirations,
+        inspirationDetails: genreDetails.inspirationDetails,
+        divergenceFromInspirations: genreDetails.divergenceFromInspirations
+      });
+      
+      console.log(`Genre details saved with ID: ${insertedGenreDetails.id}`);
+      
+      // 2. Update foundation to mark genre as completed and set current stage to environment
+      const updatedFoundation = await storage.updateFoundation(foundationId, {
+        genreCompleted: true,
+        currentStage: 'environment'
+      });
+      
+      console.log(`Foundation ${foundationId} updated: genreCompleted=true, currentStage=environment`);
+      
+      // 3. Return success response with the environment intro message
+      return res.json({
+        success: true,
+        genreDetailsId: insertedGenreDetails.id,
+        foundationId,
+        currentStage: 'environment',
+        environmentIntroMessage: `Now that we have defined your ${mainGenre} genre, let's create a compelling environment for your story. What kind of setting would you like to explore?`
+      });
+    } catch (error) {
+      console.error("Error transitioning from genre to environment:", error);
+      return res.status(500).json({ 
+        message: "Failed to transition from genre to environment",
+        error: error.message
+      });
+    }
+  });
 
   // Dynamic assistant endpoint - uses completion flags to enforce strict stage progression:
   // 1. If genreCompleted is not TRUE → Genre Stage
