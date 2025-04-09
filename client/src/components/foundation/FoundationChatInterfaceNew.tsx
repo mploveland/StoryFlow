@@ -91,7 +91,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   }>>([]);
   const processSaveQueueRef = useRef<NodeJS.Timeout | null>(null);
   // Store loaded foundation IDs instead of a simple boolean
-  const loadedFoundationIds = useRef<Set<number>>(new Set());
+  // Removed loadedFoundationIds tracking which was causing message refresh issues
   const requestIdRef = useRef<string>('');
   
   // Expose methods to parent via ref
@@ -178,8 +178,6 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
       return;
     }
     
-    // Always load messages regardless of whether we've loaded them before
-    // This ensures we always get fresh data when navigating back to a foundation
     console.log(`Loading messages for foundation ${effectiveFoundationId}`);
     
     // Set thread ID from foundation if available
@@ -192,11 +190,6 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     const isNewFoundation = !foundation?.threadId;
     loadFoundationMessages(effectiveFoundationId, isNewFoundation);
     
-    // Cleanup function to prepare for next load
-    return () => {
-      console.log('Component unmounting, clearing message cache');
-      loadedFoundationIds.current.clear();
-    };
   }, [foundation, foundationId, messageHandler]);
   
   // Load messages from the server
