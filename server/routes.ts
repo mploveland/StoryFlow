@@ -100,8 +100,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const message = await storage.createFoundationMessage({
         foundationId,
         role,
-        content,
-        timestamp: new Date()
+        content
       });
       
       return res.json(message);

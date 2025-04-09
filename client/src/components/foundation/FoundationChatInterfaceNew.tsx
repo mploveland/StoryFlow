@@ -227,14 +227,46 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
           setMessages([welcomeMessage]);
           lastSpokenMessageRef.current = welcomeMessage.content;
           
-          // Save welcome message ONLY if it's a brand new foundation (no messages)
-          if (id && (isNewFoundation || existingMessages.length === 0)) {
-            console.log('Saving welcome message for new foundation');
+          // Save welcome message ONLY if it's a COMPLETELY NEW foundation with NO existing messages
+          if (id && Array.isArray(existingMessages) && existingMessages.length === 0) {
+            console.log('Saving welcome message for new foundation with zero messages');
             saveMessage(id, 'assistant', welcomeMessage.content);
             
             // Get initial suggestions for the welcome message
             console.log('Fetching initial suggestions for welcome message');
             fetchSuggestions('', welcomeMessage.content);
+          }
+          
+          setIsLoadingMessages(false);
+          return;
+        } else {
+          // We found existing messages, so display them right away
+          console.log(`Found ${existingMessages.length} existing messages - loading them directly`);
+          
+          // Convert messages to the right format
+          const formattedMessages = existingMessages.map(msg => ({
+            role: msg.role as 'user' | 'assistant',
+            content: String(msg.content)
+          }));
+          
+          // Set the last message as already spoken to prevent TTS
+          if (formattedMessages.length > 0) {
+            const lastMessage = formattedMessages[formattedMessages.length - 1];
+            lastSpokenMessageRef.current = lastMessage.content;
+          }
+          
+          // Update state with the loaded messages
+          setMessages(formattedMessages);
+          
+          // Fetch suggestions for the last message pair
+          const lastUserIndex = formattedMessages.map(m => m.role).lastIndexOf('user');
+          const lastAssistantIndex = formattedMessages.map(m => m.role).lastIndexOf('assistant');
+          
+          if (lastUserIndex >= 0 && lastAssistantIndex > lastUserIndex) {
+            fetchSuggestions(
+              formattedMessages[lastUserIndex].content,
+              formattedMessages[lastAssistantIndex].content
+            );
           }
           
           setIsLoadingMessages(false);
