@@ -2687,8 +2687,11 @@ export async function getAppropriateAssistant(
         contextType: "environment",
       };
     } else if (effectiveContext === "genre" && !foundationGenreCompleted) {
+      // Make sure we're always using the correct StoryFlow_GenreCreator_ID
+      // The assistant's name is StoryFlow_GenreCreator
+      console.log(`Using StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID} for genre stage`);
       return {
-        assistantId: StoryFlow_GenreCreator_ID,
+        assistantId: StoryFlow_GenreCreator_ID, // Specific ID: asst_Hc5VyWr5mXgNL86DvT1m4cim
         contextType: "genre",
       };
     }
@@ -2716,8 +2719,10 @@ export async function getAppropriateAssistant(
         contextType: "environment",
       };
     } else if (currentAssistantType === "genre" && !foundationGenreCompleted) {
+      // Make sure we're always using the correct StoryFlow_GenreCreator_ID
+      console.log(`Using StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID} for continuing genre conversation`);
       return {
-        assistantId: StoryFlow_GenreCreator_ID,
+        assistantId: StoryFlow_GenreCreator_ID, // Specific ID: asst_Hc5VyWr5mXgNL86DvT1m4cim
         contextType: "genre",
       };
     }
@@ -2738,8 +2743,9 @@ export async function getAppropriateAssistant(
   console.log(
     "No context detected and genre not completed, defaulting to genre assistant",
   );
+  console.log(`Using StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID} as default genre assistant`);
   return {
-    assistantId: StoryFlow_GenreCreator_ID,
+    assistantId: StoryFlow_GenreCreator_ID, // Specific ID: asst_Hc5VyWr5mXgNL86DvT1m4cim
     contextType: "genre",
   };
 }

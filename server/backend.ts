@@ -37,11 +37,13 @@ export async function getContextTypeRespectingStageProgression(
         console.log(`[STAGE PROGRESSION] ⚠️ IMPORTANT: Foundation ${foundationId} has already completed genre stage (genreCompleted=true)`);
         console.log(`[STAGE PROGRESSION] Forcing assistant from 'genre' to 'environment' to prevent regression`);
         
-        // Using explicit environment return object
+        // Always use the StoryFlow_EnvironmentGenerator_ID for environment stage
+        const StoryFlow_EnvironmentGenerator_ID = "asst_EezatLBvY8BhCC20fztog1RF";
+        
         return {
-          assistantId: result.assistantId, // Keep the same assistant ID for now
-          contextType: 'environment',      // Force to environment stage
-          isAutoTransition: false          // Not an auto transition
+          assistantId: StoryFlow_EnvironmentGenerator_ID, // Use the specific environment assistant ID
+          contextType: 'environment',                     // Force to environment stage
+          isAutoTransition: false                         // Not an auto transition
         };
       }
     } catch (error) {
