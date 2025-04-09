@@ -97,8 +97,16 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
     setCurrentStage: (stage: string) => {
-      console.log(`Setting current stage to: ${stage}`);
-      setCurrentStage(stage);
+      // Convert 'initial' to 'genre' to fix UI issues
+      let normalizedStage = stage;
+      
+      if (stage?.toLowerCase() === 'initial') {
+        console.log(`Converting 'initial' stage to 'genre' for consistency`);
+        normalizedStage = 'genre';
+      }
+      
+      console.log(`Setting current stage to: ${normalizedStage}`);
+      setCurrentStage(normalizedStage);
     }
   }));
   
@@ -1286,7 +1294,10 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
   
   // Helper function to get assistant name based on stage
   const getAssistantName = (stage: string) => {
-    switch (stage.toLowerCase()) {
+    // Normalize the stage name to handle unexpected values
+    const normalizedStage = stage?.toLowerCase() || '';
+    
+    switch (normalizedStage) {
       case 'genre':
         return 'Genre Creator';
       case 'environment':
@@ -1295,8 +1306,13 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
         return 'World Builder';
       case 'character':
         return 'Character Creator';
+      case 'initial':
+        // If we see 'initial', always treat it as genre to fix the UI issue
+        console.log('Converting "initial" stage to "genre" for display');
+        return 'Genre Creator';
       default:
-        return 'Foundation Assistant';
+        console.log(`Unexpected stage value: "${stage}" - defaulting to genre`);
+        return 'Genre Creator'; // Default to Genre Creator for all unknown stages
     }
   };
 
@@ -1307,7 +1323,7 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
         <span className="text-sm font-medium text-neutral-500">Foundation Builder</span>
         <div className="flex items-center">
           <span className="text-xs px-2 py-1 bg-primary-100 text-primary-800 rounded-full capitalize">
-            {currentStage} Stage • {getAssistantName(currentStage)}
+            {currentStage === 'initial' ? 'Genre' : currentStage} Stage • {getAssistantName(currentStage)}
           </span>
         </div>
       </div>

@@ -54,7 +54,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId: 1, // Required field
         description: "",
         genre: "",
-        currentStage: "initial",
+        currentStage: "genre", // Set to genre as the initial stage to avoid UI issues
         genreCompleted: false
       });
       return res.json(foundation);
