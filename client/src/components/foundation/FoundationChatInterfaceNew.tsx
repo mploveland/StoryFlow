@@ -1036,6 +1036,12 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
       }
       
       // Call the API to perform the genre-to-environment transition
+      console.log('Calling genre-to-environment API with data:', {
+        effectiveFoundationId,
+        mainGenre,
+        structuredGenreData: structuredGenreData ? 'present' : 'not present'
+      });
+      
       const transitionResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre-to-environment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1050,6 +1056,8 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
           }
         })
       });
+      
+      console.log('Genre-to-environment API response status:', transitionResponse.status, transitionResponse.statusText);
       
       if (!transitionResponse.ok) {
         console.error('Failed to transition to environment stage:', transitionResponse.status);

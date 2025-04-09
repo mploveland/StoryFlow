@@ -223,11 +223,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         currentStage: 'environment',
         environmentIntroMessage: `Now that we have defined your ${mainGenre} genre, let's create a compelling environment for your story. What kind of setting would you like to explore?`
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error transitioning from genre to environment:", error);
       return res.status(500).json({ 
         message: "Failed to transition from genre to environment",
-        error: error.message
+        error: error.message || String(error)
       });
     }
   });
