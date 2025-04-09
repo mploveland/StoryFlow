@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { storage } from "./storage";
-import { getAppropriateAssistant } from "./assistants";
+import { getAppropriateAssistant, waitForRunCompletion } from "./assistants";
 import OpenAI from "openai";
 
 // Initialize OpenAI client
@@ -110,22 +110,59 @@ export async function handleDynamicAssistantRequest(req: Request, res: Response)
       console.log(`Created new thread: ${conversationThreadId}`);
     }
     
-    // For demonstration purposes, we'll just return the contextType (stage) we determined
-    // without actually calling the OpenAI API
+    // Add the user message to the thread
+    await openai.beta.threads.messages.create(conversationThreadId, {
+      role: "user",
+      content: message
+    });
     
+    // Run the assistant on the thread
+    const run = await openai.beta.threads.runs.create(conversationThreadId, {
+      assistant_id: assistantId
+    });
+    
+    console.log(`Started run with assistant ${contextType} (${assistantId})`);
+    
+    // Wait for the run to complete
+    const completedRun = await waitForRunCompletion(conversationThreadId, run.id);
+    if (completedRun.status !== "completed") {
+      return res.status(500).json({
+        message: "Assistant run failed",
+        details: `Run ended with status: ${completedRun.status}`
+      });
+    }
+    
+    // Retrieve the assistant's response
+    const messages = await openai.beta.threads.messages.list(conversationThreadId);
+    const assistantMessages = messages.data.filter(msg => msg.role === "assistant");
+    
+    if (assistantMessages.length === 0) {
+      return res.status(500).json({
+        message: "No response from assistant",
+        details: "The assistant did not generate a response"
+      });
+    }
+    
+    // Get the latest assistant message
+    const assistantMessage = assistantMessages[0];
+    let responseContent = "";
+    
+    // Extract text content from the message
+    for (const content of assistantMessage.content) {
+      if (content.type === "text") {
+        responseContent = content.text.value;
+        break;
+      }
+    }
+    
+    // Return the response
     return res.json({
       success: true,
       foundationId,
       threadId: conversationThreadId,
       contextType,
-      message: `Stage progression fixed. Foundation is in ${contextType} stage.`,
-      detailedStatus: currentFoundation.genreCompleted ? 
-        "Genre stage marked as completed, will never revert back to genre stage" :
-        "Genre stage not yet completed",
-      stageHistory: {
-        current: contextType,
-        previous: currentAssistantType
-      }
+      content: responseContent,
+      isAutoTransition
     });
     
   } catch (error: any) {
