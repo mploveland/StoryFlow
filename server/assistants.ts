@@ -7,349 +7,29 @@ const openai = new OpenAI({
 });
 
 // Assistant IDs
-const StoryFlow_CharacterCreator_ID = "asst_zHYBFg9Om7fnilOfGTnVztF1";
+const StoryFlow_CharacterCreator_ID = "asst_6leBQqNpfRPmS8cHjH9H2BXz";
 // The assistant's name is StoryFlow_GenreCreator
 const StoryFlow_GenreCreator_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
 // The assistant's name is StoryFlow_WorldBuilder
-const StoryFlow_WorldBuilder_ID = "asst_1uR8DP6BZB3CdrUDm6Me7vHA";
+const StoryFlow_WorldBuilder_ID = "asst_jHr9TLXeEtTiqt6DjTRhP1fo";
 // The assistant's name is StoryFlow_ChatResponseSuggestions
 const StoryFlow_ChatResponseSuggestions_ID = "asst_qRnUXdtrdWBC5Zb5DOU1o5bO";
 // The assistant's name is StoryFlow_EnvironmentGenerator
 const StoryFlow_EnvironmentGenerator_ID = "asst_EezatLBvY8BhCC20fztog1RF";
 
-/**
- * Helper function to extract pattern matches from text with safety checks
- *
- * @param text The text to search in
- * @param regex The regex pattern to match
- * @param contextLength How many characters to extract around the match
- * @returns The extracted text portion or empty string if no match
- */
-function extractStringPattern(
-  text: string,
-  regex: RegExp,
-  contextLength = 100,
-): string {
-  const match = text.match(regex);
-  if (!match || typeof match.index !== "number") return "";
-
-  // If we have a capture group, use that, otherwise use the whole match
-  const capturedText = match[1] ? match[1].trim() : match[0].trim();
-  return capturedText;
-}
-
-/**
- * Helper function to extract a list of phrases from a text using a regex pattern
- *
- * @param text The text to search in
- * @param regex The regex pattern to match
- * @returns An array of extracted phrases
- */
-function extractPhraseList(text: string, regex: RegExp): string[] {
-  const match = text.match(regex);
-  if (!match || !match[1]) return [];
-
-  return match[1]
-    .split(/[,;.]/)
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0);
-}
-
-/**
- * Helper function to detect conversation context from a message
- * This is used to dynamically switch between assistants based on the content
- *
- * @param message The user's message to analyze
- * @returns The detected context type ('character', 'world', 'genre', 'environment', or null)
- */
-export function detectConversationContext(
-  message: string,
-): "character" | "world" | "genre" | "environment" | null {
-  const cleanedMessage = message.toLowerCase();
-
-  // Character-related keywords
-  const characterKeywords = [
-    "character",
-    "protagonist",
-    "antagonist",
-    "villain",
-    "hero",
-    "heroine",
-    "personality",
-    "backstory",
-    "motivation",
-    "goal",
-    "fear",
-    "flaw",
-    "trait",
-    "appearance",
-    "skill",
-    "ability",
-    "relationship",
-    "family",
-    "friend",
-    "enemy",
-    "ally",
-    "rival",
-    "lover",
-    "spouse",
-    "parent",
-    "child",
-    "mentor",
-    "student",
-    "age",
-    "gender",
-    "occupation",
-    "profession",
-    "name",
-    "physical",
-    "height",
-    "weight",
-    "hair",
-    "eyes",
-  ];
-
-  // World-related keywords
-  const worldKeywords = [
-    "world",
-    "geography",
-    "landscape",
-    "kingdom",
-    "empire",
-    "country",
-    "nation",
-    "continent",
-    "ocean",
-    "sea",
-    "mountain",
-    "river",
-    "forest",
-    "desert",
-    "climate",
-    "weather",
-    "region",
-    "territory",
-    "area",
-    "map",
-    "realm",
-    "politics",
-    "government",
-    "ruler",
-    "law",
-    "society",
-    "culture",
-    "religion",
-    "economy",
-    "trade",
-    "technology",
-    "history",
-    "civilization",
-    "race",
-    "species",
-    "language",
-    "magic",
-    "system",
-    "planet",
-  ];
-
-  // Environment-related keywords - specific locations within a world
-  const environmentKeywords = [
-    "environment",
-    "setting",
-    "location",
-    "place",
-    "scene",
-    "venue",
-    "city",
-    "town",
-    "village",
-    "castle",
-    "palace",
-    "fortress",
-    "temple",
-    "tavern",
-    "inn",
-    "house",
-    "mansion",
-    "cave",
-    "dungeon",
-    "forest",
-    "building",
-    "street",
-    "alley",
-    "square",
-    "market",
-    "shop",
-    "store",
-    "harbor",
-    "port",
-    "dock",
-    "beach",
-    "coast",
-    "bay",
-    "river",
-    "lake",
-    "interior",
-    "room",
-    "hall",
-    "chamber",
-    "corridor",
-    "library",
-    "laboratory",
-  ];
-
-  // Genre-related keywords
-  const genreKeywords = [
-    "genre",
-    "style",
-    "tone",
-    "theme",
-    "mood",
-    "atmosphere",
-    "trope",
-    "fantasy",
-    "sci-fi",
-    "science fiction",
-    "horror",
-    "mystery",
-    "thriller",
-    "romance",
-    "historical",
-    "adventure",
-    "drama",
-    "comedy",
-    "tragedy",
-    "western",
-    "noir",
-    "dystopian",
-    "utopian",
-    "steampunk",
-    "cyberpunk",
-    "supernatural",
-    "paranormal",
-    "fairy tale",
-    "myth",
-    "legend",
-    "epic",
-    "saga",
-    "young adult",
-    "children",
-    "adult",
-    "literary"
-  ];
-
-  // Count occurrences of keywords in each category
-  let characterScore = 0;
-  let worldScore = 0;
-  let environmentScore = 0;
-  let genreScore = 0;
-
-  // Check character keywords
-  for (const keyword of characterKeywords) {
-    if (cleanedMessage.includes(keyword)) {
-      characterScore += 1;
-    }
-  }
-
-  // Check world keywords
-  for (const keyword of worldKeywords) {
-    if (cleanedMessage.includes(keyword)) {
-      worldScore += 1;
-    }
-  }
-
-  // Check environment keywords
-  for (const keyword of environmentKeywords) {
-    if (cleanedMessage.includes(keyword)) {
-      environmentScore += 1;
-    }
-  }
-
-  // Check genre keywords
-  for (const keyword of genreKeywords) {
-    if (cleanedMessage.includes(keyword)) {
-      genreScore += 1;
-    }
-  }
-
-  // Add weight to more specific phrases
-  if (
-    cleanedMessage.includes("main character") ||
-    cleanedMessage.includes("character design") ||
-    cleanedMessage.includes("character profile") ||
-    cleanedMessage.includes("character description")
-  ) {
-    characterScore += 3;
-  }
-
-  if (
-    cleanedMessage.includes("world building") ||
-    cleanedMessage.includes("build a world") ||
-    cleanedMessage.includes("world design")
-  ) {
-    worldScore += 3;
-  }
-
-  if (
-    cleanedMessage.includes("story setting") ||
-    cleanedMessage.includes("specific location") ||
-    cleanedMessage.includes("environment design") ||
-    cleanedMessage.includes("location details") ||
-    cleanedMessage.includes("where the story takes place")
-  ) {
-    environmentScore += 3;
-  }
-
-  if (
-    cleanedMessage.includes("genre conventions") ||
-    cleanedMessage.includes("genre elements") ||
-    cleanedMessage.includes("genre tropes") ||
-    cleanedMessage.includes("genre themes") ||
-    cleanedMessage.includes("book") ||
-    cleanedMessage.includes("novel") ||
-    cleanedMessage.includes("author") ||
-    cleanedMessage.includes("movie") ||
-    cleanedMessage.includes("film") ||
-    cleanedMessage.includes("series") ||
-    cleanedMessage.includes("tv show") ||
-    cleanedMessage.includes("literature") ||
-    cleanedMessage.includes("fiction") ||
-    cleanedMessage.includes("writing style") ||
-    cleanedMessage.includes("published") ||
-    cleanedMessage.includes("detective") ||
-    cleanedMessage.includes("fantasy") ||
-    cleanedMessage.includes("sci-fi") ||
-    cleanedMessage.includes("mystery") ||
-    cleanedMessage.includes("thriller") ||
-    cleanedMessage.includes("horror") ||
-    cleanedMessage.includes("renowned") ||
-    cleanedMessage.includes("famous")
-  ) {
-    genreScore += 3;
-  }
-
-  // Determine the highest score
-  const highestScore = Math.max(
-    characterScore,
-    worldScore,
-    environmentScore,
-    genreScore,
-  );
-
-  // Return the context type with the highest score, if it's significant enough
-  if (highestScore > 1) {
-    if (characterScore === highestScore) return "character";
-    if (worldScore === highestScore) return "world";
-    if (environmentScore === highestScore) return "environment";
-    if (genreScore === highestScore) return "genre";
-  }
-
-  // If no clear context detected or scores too low, return null
-  return null;
-}
-
-// Function extractSuggestionsFromQuestion has been removed
-// All suggestions now come from the OpenAI assistant via generateChatSuggestions
+// NOTE: We have removed the keyword-based context detection functions.
+// The original functions included:
+// - extractStringPattern 
+// - extractPhraseList
+// - detectConversationContext
+//
+// This approach has been replaced with a more reliable method based on database flags:
+// - If genreCompleted is not TRUE → Genre Stage
+// - If genreCompleted=TRUE and environmentCompleted is not TRUE → Environment Stage
+// - If genreCompleted=TRUE and environmentCompleted=TRUE and worldCompleted is not TRUE → World Stage
+// - If genreCompleted=TRUE and environmentCompleted=TRUE and worldCompleted=TRUE → Character Stage
+//
+// This ensures stage progression is always consistent and not dependent on message content analysis.
 
 export interface GenreCreationInput {
   userInterests?: string;
@@ -581,6 +261,120 @@ export interface EnvironmentDetails {
 }
 
 /**
+ * This function has been completely rewritten to ONLY use database completion flags
+ * to determine what stage we're in. No keyword detection is used anymore.
+ * 
+ * Stage progression is enforced strictly in this sequence:
+ * 1. Genre
+ * 2. Environment 
+ * 3. World
+ * 4. Character
+ */
+export async function getAppropriateAssistant(
+  message: string,
+  currentAssistantType:
+    | "genre"
+    | "world"
+    | "character"
+    | "environment"
+    | null = null,
+  foundationId?: number,
+): Promise<{
+  assistantId: string;
+  contextType: "genre" | "world" | "character" | "environment";
+  isAutoTransition?: boolean;
+}> {
+  console.log(
+    `Getting appropriate assistant for message: "${message.substring(
+      0,
+      50,
+    )}..." with current assistant: ${currentAssistantType || "none"}`,
+  );
+
+  // If we don't have a foundation ID, use genre assistant (should almost never happen)
+  if (!foundationId) {
+    console.log("No foundation ID provided, defaulting to genre assistant");
+    return {
+      assistantId: StoryFlow_GenreCreator_ID,
+      contextType: "genre"
+    };
+  }
+
+  try {
+    // Get the foundation to check completion flags
+    const foundation = await storage.getFoundation(foundationId);
+    
+    if (!foundation) {
+      console.log(`Foundation ${foundationId} not found, defaulting to genre assistant`);
+      return {
+        assistantId: StoryFlow_GenreCreator_ID,
+        contextType: "genre"
+      };
+    }
+    
+    // Log the foundation flags to aid debugging
+    console.log(`Foundation ${foundationId} stage flags:`, {
+      genreCompleted: foundation.genreCompleted,
+      environmentCompleted: foundation.environmentCompleted,
+      worldCompleted: foundation.worldCompleted,
+      charactersCompleted: foundation.charactersCompleted
+    });
+    
+    // Determine current stage based solely on completion flags
+    // This follows strict sequential progression: Genre → Environment → World → Character
+    if (!foundation.genreCompleted) {
+      // If genre is not completed, we're in the genre stage
+      console.log(`Stage determined by flags: Genre (foundation.genreCompleted = ${foundation.genreCompleted})`);
+      return {
+        assistantId: StoryFlow_GenreCreator_ID,
+        contextType: "genre"
+      };
+    } 
+    else if (foundation.genreCompleted && !foundation.environmentCompleted) {
+      // If genre is completed but environment is not, we're in the environment stage
+      console.log(`Stage determined by flags: Environment (genre completed, environment not completed)`);
+      return {
+        assistantId: StoryFlow_EnvironmentGenerator_ID,
+        contextType: "environment"
+      };
+    } 
+    else if (foundation.genreCompleted && foundation.environmentCompleted && !foundation.worldCompleted) {
+      // If genre and environment are completed but world is not, we're in the world stage
+      console.log(`Stage determined by flags: World (genre & environment completed, world not completed)`);
+      return {
+        assistantId: StoryFlow_WorldBuilder_ID,
+        contextType: "world"
+      };
+    }
+    else if (foundation.genreCompleted && foundation.environmentCompleted && foundation.worldCompleted) {
+      // If genre, environment, and world are completed, we're in the character stage
+      console.log(`Stage determined by flags: Character (genre, environment & world completed)`);
+      return {
+        assistantId: StoryFlow_CharacterCreator_ID,
+        contextType: "character"
+      };
+    }
+    
+    // This should never happen because the above conditions cover all possibilities,
+    // but include a fallback just in case
+    console.log("Unexpected state in foundation flags, defaulting to genre assistant");
+    return {
+      assistantId: StoryFlow_GenreCreator_ID,
+      contextType: "genre"
+    };
+  } 
+  catch (error) {
+    // In case of any error getting foundation data, use a safe default
+    console.error("Error determining stage from foundation flags:", error);
+    console.log("Error occurred, defaulting to genre assistant");
+    return {
+      assistantId: StoryFlow_GenreCreator_ID,
+      contextType: "genre"
+    };
+  }
+}
+
+/**
  * Creates a thread with the Hyper-Realistic Character Creator assistant and gets a detailed character
  * @param characterInput Basic information about the character
  * @returns A detailed character profile
@@ -643,67 +437,100 @@ export async function createDetailedCharacter(
 
     // Retrieve the assistant's messages
     const messages = await openai.beta.threads.messages.list(thread.id);
-
-    // Get the latest assistant message
     const assistantMessages = messages.data.filter(
       (msg) => msg.role === "assistant",
     );
 
     if (assistantMessages.length === 0) {
-      throw new Error("No response from assistant");
+      throw new Error("No response from the assistant");
     }
 
-    // Extract the character data from the message content
+    // Get the latest message
     const latestMessage = assistantMessages[0];
-    const textContent = latestMessage.content.find(
-      (content) => content.type === "text",
-    );
+    let responseText = "";
 
-    if (!textContent || textContent.type !== "text") {
-      throw new Error("Response does not contain text");
+    // Extract the text content from the message
+    for (const content of latestMessage.content) {
+      if (content.type === "text") {
+        responseText = content.text.value;
+        break;
+      }
     }
 
-    // Try to parse JSON from the response
-    const jsonMatch = textContent.text.value.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error("Could not extract JSON from response");
+    if (!responseText) {
+      throw new Error("No text content in the assistant's response");
     }
 
-    const characterData = JSON.parse(jsonMatch[0]);
+    // Try to parse the JSON response
+    try {
+      // First try to extract JSON if it's wrapped in markdown code blocks
+      let jsonMatch = responseText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/);
+      if (jsonMatch && jsonMatch[1]) {
+        responseText = jsonMatch[1];
+      }
 
-    // Return the detailed character
-    return {
-      name: characterData.name || characterInput.name || "Unnamed Character",
-      role: characterData.role || characterInput.role || "Protagonist",
-      background: characterData.background || "",
-      personality: characterData.personality || [],
-      goals: characterData.goals || [],
-      fears: characterData.fears || [],
-      relationships: characterData.relationships || [],
-      skills: characterData.skills || [],
-      appearance: characterData.appearance || "",
-      voice: characterData.voice || "",
-      secrets: characterData.secrets || "",
-      quirks: characterData.quirks || [],
-      motivations: characterData.motivations || [],
-      flaws: characterData.flaws || [],
-    };
+      // Clean up any potential formatting issues
+      responseText = responseText.replace(/\\n/g, "").replace(/\\"/g, '"');
+
+      // Parse the character details
+      const characterDetails = JSON.parse(responseText);
+
+      // Create a structured character object
+      const result: DetailedCharacter = {
+        name: characterDetails.name || "Unknown",
+        role: characterDetails.role || "Unknown",
+        background: characterDetails.background || "Unknown",
+        personality: Array.isArray(characterDetails.personality)
+          ? characterDetails.personality
+          : ["Unknown"],
+        goals: Array.isArray(characterDetails.goals)
+          ? characterDetails.goals
+          : ["Unknown"],
+        fears: Array.isArray(characterDetails.fears)
+          ? characterDetails.fears
+          : ["Unknown"],
+        relationships: Array.isArray(characterDetails.relationships)
+          ? characterDetails.relationships
+          : ["Unknown"],
+        skills: Array.isArray(characterDetails.skills)
+          ? characterDetails.skills
+          : ["Unknown"],
+        appearance: characterDetails.appearance || "Unknown",
+        voice: characterDetails.voice || "Unknown",
+        secrets: characterDetails.secrets || undefined,
+        quirks: Array.isArray(characterDetails.quirks)
+          ? characterDetails.quirks
+          : undefined,
+        motivations: Array.isArray(characterDetails.motivations)
+          ? characterDetails.motivations
+          : undefined,
+        flaws: Array.isArray(characterDetails.flaws)
+          ? characterDetails.flaws
+          : undefined,
+      };
+
+      return result;
+    } catch (error) {
+      console.error("Error parsing character JSON:", error);
+      console.error("Raw response:", responseText);
+
+      // Return a minimal character object with the text content
+      return {
+        name: characterInput.name || "Unknown",
+        role: characterInput.role || "Unknown",
+        background: "Failed to parse character details: " + responseText,
+        personality: ["Unknown"],
+        goals: ["Unknown"],
+        fears: ["Unknown"],
+        relationships: ["Unknown"],
+        skills: ["Unknown"],
+        appearance: "Unknown",
+        voice: "Unknown",
+      };
+    }
   } catch (error) {
     console.error("Error creating detailed character:", error);
-    // Return a fallback character if something goes wrong
-    return {
-      name: characterInput.name || "Character",
-      role: characterInput.role || "Character",
-      background: "A mysterious individual with an unclear past.",
-      personality: ["Adaptable", "Resourceful"],
-      goals: ["Survival", "Finding purpose"],
-      fears: ["Unknown", "Failure"],
-      relationships: [],
-      skills: ["Resilience", "Quick thinking"],
-      appearance:
-        "Has a distinctive appearance that matches their personality.",
-      voice: "Speaks with an authentic and engaging tone.",
-    };
+    throw error;
   }
 }
 
@@ -714,726 +541,288 @@ export async function createDetailedCharacter(
  */
 export async function createGenreDetails(
   genreInput: GenreCreationInput,
-): Promise<GenreDetails & { threadId: string }> {
-  // Define threadId outside of try block so it's available in catch block
-  let thread;
-  let isNewThread = false;
-  let threadId: string = ""; // Initialize with empty string
-
+): Promise<{ genreDetails: GenreDetails; threadId: string }> {
   try {
-    // Check if we're continuing an existing conversation
-    if (genreInput.threadId) {
-      console.log(
-        `Attempting to continue conversation in existing thread: ${genreInput.threadId}`,
-      );
-      threadId = genreInput.threadId;
+    // Use an existing thread or create a new one
+    const threadId = genreInput.threadId || (await openai.beta.threads.create()).id;
 
-      try {
-        // Verify the thread exists by retrieving its messages
-        const existingMessages = await openai.beta.threads.messages.list(
-          genreInput.threadId,
-        );
+    let promptContent = "Let's create a genre for my story. ";
 
-        // Make sure the thread has messages
-        if (existingMessages.data.length > 0) {
-          thread = { id: genreInput.threadId };
-          console.log(
-            `Found existing thread with ${existingMessages.data.length} messages`,
-          );
-        } else {
-          console.warn(
-            `Thread ${genreInput.threadId} exists but has no messages, creating a new thread`,
-          );
-          const newThread = await openai.beta.threads.create();
-          thread = newThread;
-          threadId = newThread.id;
-          isNewThread = true;
-          console.log(`Created new thread: ${thread.id}`);
-        }
-      } catch (error) {
-        console.error(`Error accessing thread ${genreInput.threadId}:`, error);
-        // Log the specific error type for debugging
-        const typedError = error as { status?: number; message?: string };
-        if (typedError.status) {
-          console.error(
-            `Error status: ${typedError.status}, message: ${typedError.message || "Unknown"}`,
-          );
-        }
-
-        // If there's an error accessing the thread, create a new one
-        console.log(
-          "Creating new thread due to error accessing existing thread",
-        );
-        const newThread = await openai.beta.threads.create();
-        thread = newThread;
-        threadId = newThread.id;
-        isNewThread = true;
-        console.log(`Created new thread: ${thread.id}`);
-      }
-    } else {
-      // Create a new thread
-      console.log("No thread ID provided, creating a new thread");
-      const newThread = await openai.beta.threads.create();
-      thread = newThread;
-      threadId = newThread.id;
-      isNewThread = true;
-      console.log(`Created new thread: ${thread.id}`);
+    if (genreInput.userInterests) {
+      promptContent += `Here are some of my interests: ${genreInput.userInterests}. `;
     }
 
-    // Handle the user's message based on whether it's a new thread or continuing conversation
-    let promptContent;
-
-    if (isNewThread) {
-      // For a new thread, provide context about what we're trying to do
-      promptContent =
-        "I want to create a story with the following genre preferences. Please have a conversation with me about this genre and ask follow-up questions to help me develop it further.\n\n";
-
-      if (genreInput.userInterests) {
-        promptContent += `User's Interests: ${genreInput.userInterests}\n`;
-      }
-
-      if (genreInput.tone) {
-        promptContent += `Tone: ${genreInput.tone}\n`;
-      }
-
-      if (genreInput.mood) {
-        promptContent += `Mood/Tone: ${genreInput.mood}\n`;
-      }
-
-      if (genreInput.targetAudience) {
-        promptContent += `Target Audience: ${genreInput.targetAudience}\n`;
-      }
-
-      if (genreInput.inspirations && genreInput.inspirations.length > 0) {
-        promptContent += `Inspirations: ${genreInput.inspirations.join(", ")}\n`;
-      }
-
-      if (genreInput.additionalInfo) {
-        promptContent += `Additional Information: ${genreInput.additionalInfo}\n`;
-      }
-    } else {
-      // For an existing conversation, just send the user's new message
-      promptContent =
-        genreInput.userInterests || "Tell me more about this genre.";
+    if (genreInput.tone) {
+      promptContent += `I'd like the tone to be: ${genreInput.tone}. `;
     }
 
-    console.log(
-      `Adding user message to thread: "${promptContent.substring(0, 100)}..."`,
-    );
+    if (genreInput.mood) {
+      promptContent += `The mood I'm aiming for is: ${genreInput.mood}. `;
+    }
+
+    if (genreInput.targetAudience) {
+      promptContent += `The target audience is: ${genreInput.targetAudience}. `;
+    }
+
+    if (
+      genreInput.inspirations &&
+      Array.isArray(genreInput.inspirations) &&
+      genreInput.inspirations.length > 0
+    ) {
+      promptContent += `I'm inspired by: ${genreInput.inspirations.join(
+        ", ",
+      )}. `;
+    }
+
+    if (genreInput.additionalInfo) {
+      promptContent += `Additional information: ${genreInput.additionalInfo}`;
+    }
+
+    if (genreInput.previousMessages && genreInput.previousMessages.length > 0) {
+      // If we have previous messages, we're continuing a conversation
+      // Just add the latest user message
+      const lastUserMessage = genreInput.previousMessages
+        .filter((msg) => msg.role === "user")
+        .pop();
+
+      if (lastUserMessage) {
+        promptContent = lastUserMessage.content;
+      }
+    }
 
     // Add the message to the thread
-    await openai.beta.threads.messages.create(thread.id, {
+    await openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: promptContent,
     });
 
     // Run the assistant on the thread
-    const run = await openai.beta.threads.runs.create(thread.id, {
+    const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: StoryFlow_GenreCreator_ID,
     });
 
     // Poll for the completion of the run
-    let completedRun = await waitForRunCompletion(thread.id, run.id);
+    const completedRun = await waitForRunCompletion(threadId, run.id);
 
     if (completedRun.status !== "completed") {
       throw new Error(`Run ended with status: ${completedRun.status}`);
     }
 
     // Retrieve the assistant's messages
-    const messages = await openai.beta.threads.messages.list(thread.id);
-
-    // Get the latest assistant message
+    const messages = await openai.beta.threads.messages.list(threadId);
     const assistantMessages = messages.data.filter(
       (msg) => msg.role === "assistant",
     );
 
     if (assistantMessages.length === 0) {
-      throw new Error("No response from assistant");
+      throw new Error("No response from the assistant");
     }
 
-    // Extract the response content from the message
+    // Get the latest message
     const latestMessage = assistantMessages[0];
-    const textContent = latestMessage.content.find(
-      (content) => content.type === "text",
-    );
+    let responseText = "";
 
-    if (!textContent || textContent.type !== "text") {
-      throw new Error("Response does not contain text");
-    }
-
-    const responseText = textContent.text.value;
-    console.log(
-      "Received response from Genre Creator assistant:",
-      responseText,
-    );
-
-    // First, check if the response contains structured JSON data
-    // Look for JSON-like structure with curly braces
-    let parsedGenreData: GenreDetails | null = null;
-    let isStructuredResponse = false;
-
-    try {
-      // Check if the response contains a JSON block (might be surrounded by other text)
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const jsonString = jsonMatch[0];
-        // Try to parse the JSON
-        const parsedJson = JSON.parse(jsonString);
-
-        // Validate that it has the expected structure
-        // Handle both "mainGenre" and "main_genre" formats
-        if (parsedJson && (parsedJson.mainGenre || parsedJson.main_genre)) {
-          console.log(
-            "Found structured JSON response from Genre Creator assistant",
-          );
-
-          // If the data uses snake_case format (main_genre), convert it to camelCase format (mainGenre)
-          if (parsedJson.main_genre && !parsedJson.mainGenre) {
-            console.log("Converting from snake_case to camelCase format");
-            parsedJson.mainGenre = parsedJson.main_genre;
-
-            // Convert other snake_case fields to camelCase if they exist
-            if (parsedJson.genre_rationale)
-              parsedJson.genreRationale = parsedJson.genre_rationale;
-            if (parsedJson.audience_expectations)
-              parsedJson.audienceExpectations =
-                parsedJson.audience_expectations;
-            if (parsedJson.time_period)
-              parsedJson.timePeriod = parsedJson.time_period;
-            if (parsedJson.technology_level)
-              parsedJson.technologyLevel = parsedJson.technology_level;
-            if (parsedJson.physical_environment)
-              parsedJson.physicalEnvironment = parsedJson.physical_environment;
-            if (parsedJson.key_tropes)
-              parsedJson.keyTropes = parsedJson.key_tropes;
-            if (parsedJson.trope_strategy)
-              parsedJson.tropeStrategy = parsedJson.trope_strategy;
-            if (parsedJson.speculative_elements)
-              parsedJson.speculativeElements = parsedJson.speculative_elements;
-            if (parsedJson.speculative_rules)
-              parsedJson.speculativeRules = parsedJson.speculative_rules;
-            if (parsedJson.emotional_impact)
-              parsedJson.emotionalImpact = parsedJson.emotional_impact;
-          }
-
-          parsedGenreData = parsedJson;
-          isStructuredResponse = true;
-        }
+    // Extract the text content from the message
+    for (const content of latestMessage.content) {
+      if (content.type === "text") {
+        responseText = content.text.value;
+        break;
       }
-    } catch (error) {
-      console.log("Response does not contain valid JSON:", error);
-      // Continue with the existing text-based parsing approach
     }
 
-    // If we have structured JSON data, use it directly
-    if (isStructuredResponse && parsedGenreData) {
-      console.log("Using structured JSON data for genre details");
+    // Extract genre details from the response
+    let mainGenre = "Fantasy"; // Default
+    let description = responseText;
 
-      // Extract the main genre name for storage
-      const genreName = parsedGenreData.mainGenre || "Custom Genre";
-      console.log(`Genre name from structured data: ${genreName}`);
-
-      // Return the structured genre details with the thread ID
-      return {
-        ...parsedGenreData,
-        mainGenre: genreName,
-        threadId: thread.id,
-      };
+    // Try to extract fields from the response in a more robust way
+    const mainGenreMatch = responseText.match(
+      /main genre:?\s*([\w\s\-]+)/i,
+    );
+    if (mainGenreMatch && mainGenreMatch[1]) {
+      mainGenre = mainGenreMatch[1].trim();
     }
 
-    // If no structured data found, fallback to the existing text-based parsing approach
-    console.log("No structured data found, using text-based parsing");
-
-    // Parse the response content to extract genre information
-    // More robust check if we've received an informative response or if we're still in question mode
-    const containsQuestion = responseText.includes("?");
-
-    // Look for common question patterns
-    const questionIndicators = [
-      "tell me",
-      "could you",
-      "would you",
-      "what kind",
-      "which",
-      "how",
-      "leaning",
-      "prefer",
-      "like to",
-      "do you",
-      "in your",
-      "are you",
-      "aspects",
-      "elements",
-      "tell me more",
-      "can you share",
-      "any specific",
-      "what themes",
-      "what are",
-      "choices",
-      "distinct",
-      "atmospheric",
-      "introspective",
-      "more toward",
-    ];
-
-    // Check if the response contains any of these question indicators
-    const hasQuestionIndicator = questionIndicators.some((indicator) =>
-      responseText.toLowerCase().includes(indicator.toLowerCase()),
-    );
-
-    // Check if this appears to be a transition to world-building questions
-    // indicated by specific keywords related to world-building
-    const worldBuildingKeywords = [
-      "environment",
-      "setting",
-      "historical period",
-      "world",
-      "geography",
-      "civilization",
-      "culture",
-      "politics",
-      "society",
-      "location",
-    ];
-    const isWorldBuildingTransition = worldBuildingKeywords.some((keyword) =>
-      responseText.toLowerCase().includes(keyword.toLowerCase()),
-    );
-
-    // If we have a substantial response that mentions genre AND
-    // appears to be transitioning to world building, consider it a complete genre response
-    const isCompletedGenreWithWorldBuilding =
-      responseText.length > 400 &&
-      responseText.split(".").length >= 3 &&
-      responseText.includes("genre") &&
-      isWorldBuildingTransition;
-
-    // Track what iteration/message number we're on in the conversation
-    const messageCount = genreInput.previousMessages
-      ? genreInput.previousMessages.length
-      : 0;
-    console.log(`Message count in conversation: ${messageCount}`);
-
-    // After several exchanges, we should be more lenient about accepting genre completion
-    // Lower from 10 to 6 exchanges (3 user messages and 3 AI responses)
-    const isLateStageConversation = messageCount >= 6;
-
-    // Text is short OR contains a question mark OR has question phrase patterns OR doesn't have enough descriptive content
-    // UNLESS it's a completed genre with world building transition OR we're in late stage conversation
-    const isQuestionResponse =
-      !isCompletedGenreWithWorldBuilding &&
-      !isLateStageConversation &&
-      (responseText.length < 500 || // Response is too short to be complete
-        containsQuestion || // Contains any question
-        hasQuestionIndicator || // Contains question indicator phrases
-        responseText.split(".").length < 5 || // Fewer than 5 sentences
-        !responseText.includes("genre")); // Doesn't mention "genre" at all
-
-    console.log(
-      `Question detection: containsQuestion=${containsQuestion}, hasQuestionIndicator=${hasQuestionIndicator}, responseLength=${responseText.length}, sentences=${responseText.split(".").length}, isWorldBuildingTransition=${isWorldBuildingTransition}, isCompletedGenre=${isCompletedGenreWithWorldBuilding}, isLateStage=${isLateStageConversation}, isQuestionResponse=${isQuestionResponse}`,
-    );
-
-    if (isQuestionResponse) {
-      // The assistant is asking a question, this is a conversation in progress
-      // We should return a special response that indicates we need more input
-      console.log(
-        "Identified as a question response, triggering CONVERSATION_IN_PROGRESS",
-      );
-      throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
-    }
-
-    // Try to extract a genre name from the response text or from user interests
-    // IMPORTANT: Only set a real genre name when we have a complete response
-    // This prevents prematurely setting "Custom Genre" and moving to world building
-
-    let genreName = null; // Start with no genre detected
-
-    // Only look for a genre if we have a substantial response
-    if (responseText.length > 500 && responseText.split(".").length >= 5) {
-      // Now try to find the genre name in the response text
-      const genreKeywords = [
-        "fantasy",
-        "science fiction",
-        "sci-fi",
-        "mystery",
-        "thriller",
-        "horror",
-        "romance",
-        "western",
-        "historical",
-        "adventure",
-        "dystopian",
-        "cyberpunk",
-        "steampunk",
-        "urban fantasy",
-        "young adult",
-        "crime",
-        "noir",
-        "magical realism",
-      ];
-
-      // First try to find the genre name in the response text
-      for (const keyword of genreKeywords) {
-        if (responseText.toLowerCase().includes(keyword)) {
-          // Capitalize each word in the genre name
-          genreName = keyword
-            .split(" ")
-            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(" ");
-          break;
-        }
-      }
-
-      // If we didn't find a genre keyword, ONLY then use "Custom Genre" as fallback
-      if (!genreName) {
-        genreName = "Custom Genre";
-      }
-    } else {
-      // If response is not complete, we're still in the genre conversation phase
-      // CRITICAL: Don't set any genre name, which triggers conversation in progress
-      throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
-    }
-
-    console.log(`Genre name selected: ${genreName}`);
-    console.log(`Using thread ID in response: ${thread.id}`);
-
-    // Extract likely themes from the text
-    const themeKeywords = [
-      "adventure",
-      "love",
-      "betrayal",
-      "redemption",
-      "justice",
-      "good vs evil",
-      "coming of age",
-      "power",
-      "morality",
-      "identity",
-      "survival",
-      "war",
-      "exploration",
-      "discovery",
-      "revenge",
-      "sacrifice",
-      "family",
-      "freedom",
-      "heroism",
-      "tragedy",
-      "hope",
-      "corruption",
-      "honor",
-      "loyalty",
-    ];
-
-    // Find themes mentioned in the text
-    const themes = themeKeywords
-      .filter((theme) => responseText.toLowerCase().includes(theme))
-      .map((theme) => theme.charAt(0).toUpperCase() + theme.slice(1));
-
-    // If we couldn't extract themes, provide some default ones
-    const finalThemes =
-      themes.length > 0 ? themes : ["Identity", "Adventure", "Morality"];
-
-    // Extract common settings based on the detected genre
-    let commonSettings: string[] = [];
-    let tropes: string[] = [];
-    let typicalCharacters: string[] = [];
-    let recommendedReading: string[] = [];
-    let popularExamples: string[] = [];
-    let worldbuildingElements: string[] = [];
-
-    // Populate genre-specific details
-    switch (genreName.toLowerCase()) {
-      case "fantasy":
-        commonSettings = [
-          "Medieval Kingdom",
-          "Magical Forest",
-          "Ancient Ruins",
-        ];
-        tropes = ["Chosen One", "Magic System", "Epic Quest"];
-        typicalCharacters = ["Wizard", "Knight", "Princess", "Dragon"];
-        recommendedReading = ["The Lord of the Rings", "A Game of Thrones"];
-        popularExamples = ["The Witcher", "Harry Potter"];
-        worldbuildingElements = [
-          "Magic System",
-          "Mythical Creatures",
-          "Ancient History",
-        ];
-        break;
-      case "science fiction":
-      case "sci-fi":
-        commonSettings = ["Space Station", "Alien Planet", "Future Earth"];
-        tropes = [
-          "Advanced Technology",
-          "Space Travel",
-          "Artificial Intelligence",
-        ];
-        typicalCharacters = ["Astronaut", "Scientist", "Android", "Alien"];
-        recommendedReading = ["Dune", "Neuromancer"];
-        popularExamples = ["Star Wars", "Blade Runner"];
-        worldbuildingElements = [
-          "Technology Systems",
-          "Alien Civilizations",
-          "Future Society",
-        ];
-        break;
-      case "mystery":
-        commonSettings = ["Small Town", "Detective Agency", "Crime Scene"];
-        tropes = ["Whodunit", "Red Herring", "The Perfect Crime"];
-        typicalCharacters = ["Detective", "Suspect", "Witness", "Victim"];
-        recommendedReading = ["The Hound of the Baskervilles", "Gone Girl"];
-        popularExamples = ["Knives Out", "Sherlock Holmes"];
-        worldbuildingElements = [
-          "Criminal Underworld",
-          "Legal System",
-          "Investigation Methods",
-        ];
-        break;
-      case "western":
-        commonSettings = ["Mining Town", "Saloon", "Wilderness"];
-        tropes = ["Showdowns", "Frontier Justice", "Gold Rush"];
-        typicalCharacters = ["Sheriff", "Outlaw", "Prospector", "Townspeople"];
-        recommendedReading = ["Lonesome Dove", "True Grit"];
-        popularExamples = ["The Good, the Bad and the Ugly", "Deadwood"];
-        worldbuildingElements = [
-          "Historical Accuracy",
-          "Frontier Economy",
-          "Social Hierarchy",
-        ];
-        break;
-      default:
-        // For genres we don't have specifics for, extract more content from the response
-        // and provide sensible defaults
-        commonSettings = [
-          "Unique World",
-          "Character-driven Environment",
-          "Atmospheric Setting",
-        ];
-        tropes = [
-          "Genre-specific Conventions",
-          "Character Archetypes",
-          "Plot Devices",
-        ];
-        typicalCharacters = ["Protagonist", "Antagonist", "Sidekick", "Mentor"];
-        recommendedReading = [
-          "Classic Works in this Genre",
-          "Contemporary Bestsellers",
-        ];
-        popularExamples = ["Well-known Movies/Shows", "Famous Book Series"];
-        worldbuildingElements = [
-          "Cultural Elements",
-          "Geography",
-          "Historical Context",
-        ];
-    }
-
-    // Extract mood/tone details
-    const mood = extractStringPattern(
-      responseText,
-      /mood|tone|emotional impact|feel|atmosphere/i,
-    );
-
-    // Extract time period details
-    const timePeriod = extractStringPattern(
-      responseText,
-      /era|period|time|century|decade/i,
-    );
-
-    // Extract speculative elements
-    const speculativeElements = extractStringPattern(
-      responseText,
-      /magic|technology|supernatural|powers|abilities|fantasy elements|sci-fi|futuristic/i,
-      150,
-    );
-
-    // Extract inspirations
-    const inspirationsText = extractStringPattern(
-      responseText,
-      /inspired by|like|similar to|comparable to|reference|influenced by/i,
-      150,
-    );
-
-    // Return the detailed genre with thread ID for continued conversation
-    return {
-      // Core identifying information
-      mainGenre: genreName,
-      name: genreName,
-      description: responseText, // Return the full response text
-
-      // Genre information
-      genreRationale: `This ${genreName} setting is designed to support immersive storytelling with rich character development and engaging plot structures.`,
-      audienceExpectations: `Readers of ${genreName} typically expect ${finalThemes.join(", ")} as central themes.`,
-
-      // Subgenre information (if available)
-      subgenres: finalThemes.join(", "),
-
-      // Mood and tone
-      tone: mood,
-      mood: mood,
-      emotionalImpact: `${genreName} typically evokes feelings of ${finalThemes.map((t: string) => t.toLowerCase()).join(", ")}.`,
-
-      // Setting elements
-      timePeriod: timePeriod,
-      physicalEnvironment: commonSettings.join(", "),
-
-      // Tropes and speculative elements
-      keyTropes: tropes.join(", "),
-      speculativeElements: speculativeElements,
-
-      // Atmosphere and style
-      atmosphere: mood,
-
-      // Inspirations
-      inspirations: inspirationsText,
-
-      // Legacy fields (maintained for compatibility)
-      themes: finalThemes,
-      tropes: tropes,
-      commonSettings: commonSettings,
-      typicalCharacters: typicalCharacters,
-      plotStructures: [
-        "Hero's Journey",
-        "Three-Act Structure",
-        genreName + " Conventions",
-      ],
-      styleGuide: {
-        tone: "Adaptive to story needs",
-        pacing: "Balanced with appropriate tension",
-        perspective: "Suitable for the narrative",
-        dialogueStyle: "Natural and character-appropriate",
-      },
-      recommendedReading: recommendedReading,
-      popularExamples: popularExamples,
-      worldbuildingElements: worldbuildingElements,
-      threadId: thread.id,
+    const genreDetails: GenreDetails = {
+      mainGenre,
+      description,
     };
+
+    // Try to extract specific fields
+    const extractField = (
+      fieldName: string,
+      regex: RegExp,
+      defaultValue: string = "",
+    ): string => {
+      const match = responseText.match(regex);
+      return match && match[1] ? match[1].trim() : defaultValue;
+    };
+
+    // Core genre info
+    genreDetails.genreRationale = extractField(
+      "genreRationale",
+      /genre rationale:?\s*([^#]+)/i,
+    );
+    genreDetails.audienceExpectations = extractField(
+      "audienceExpectations",
+      /audience expectations:?\s*([^#]+)/i,
+    );
+
+    // Subgenre details
+    genreDetails.subgenres = extractField(
+      "subgenres",
+      /subgenres:?\s*([^#]+)/i,
+    );
+    genreDetails.subgenreRationale = extractField(
+      "subgenreRationale",
+      /subgenre rationale:?\s*([^#]+)/i,
+    );
+    genreDetails.subgenreInteraction = extractField(
+      "subgenreInteraction",
+      /subgenre interaction:?\s*([^#]+)/i,
+    );
+    genreDetails.subgenreTropes = extractField(
+      "subgenreTropes",
+      /subgenre tropes:?\s*([^#]+)/i,
+    );
+
+    // Mood and tone
+    genreDetails.tone = extractField("tone", /tone:?\s*([^#]+)/i);
+    genreDetails.mood = extractField("mood", /mood:?\s*([^#]+)/i);
+    genreDetails.emotionalImpact = extractField(
+      "emotionalImpact",
+      /emotional impact:?\s*([^#]+)/i,
+    );
+
+    // Setting elements
+    genreDetails.timePeriod = extractField(
+      "timePeriod",
+      /time period:?\s*([^#]+)/i,
+    );
+    genreDetails.technologyLevel = extractField(
+      "technologyLevel",
+      /technology level:?\s*([^#]+)/i,
+    );
+    genreDetails.physicalEnvironment = extractField(
+      "physicalEnvironment",
+      /physical environment:?\s*([^#]+)/i,
+    );
+    genreDetails.geography = extractField(
+      "geography",
+      /geography:?\s*([^#]+)/i,
+    );
+
+    // Social elements
+    genreDetails.societalStructures = extractField(
+      "societalStructures",
+      /societal structures:?\s*([^#]+)/i,
+    );
+    genreDetails.culturalNorms = extractField(
+      "culturalNorms",
+      /cultural norms:?\s*([^#]+)/i,
+    );
+
+    // Tropes and speculative elements
+    genreDetails.keyTropes = extractField(
+      "keyTropes",
+      /key tropes:?\s*([^#]+)/i,
+    );
+    genreDetails.tropeStrategy = extractField(
+      "tropeStrategy",
+      /trope strategy:?\s*([^#]+)/i,
+    );
+    genreDetails.speculativeElements = extractField(
+      "speculativeElements",
+      /speculative elements:?\s*([^#]+)/i,
+    );
+    genreDetails.speculativeRules = extractField(
+      "speculativeRules",
+      /speculative rules:?\s*([^#]+)/i,
+    );
+
+    // Atmosphere and style
+    genreDetails.atmosphere = extractField(
+      "atmosphere",
+      /atmosphere:?\s*([^#]+)/i,
+    );
+    genreDetails.sensoryDetails = extractField(
+      "sensoryDetails",
+      /sensory details:?\s*([^#]+)/i,
+    );
+    genreDetails.atmosphericStyle = extractField(
+      "atmosphericStyle",
+      /atmospheric style:?\s*([^#]+)/i,
+    );
+    genreDetails.thematicEnvironmentTieins = extractField(
+      "thematicEnvironmentTieins",
+      /thematic environment tie-ins:?\s*([^#]+)/i,
+    );
+
+    // Inspirations
+    genreDetails.inspirations = extractField(
+      "inspirations",
+      /inspirations:?\s*([^#]+)/i,
+    );
+    genreDetails.inspirationDetails = extractField(
+      "inspirationDetails",
+      /inspiration details:?\s*([^#]+)/i,
+    );
+    genreDetails.divergenceFromInspirations = extractField(
+      "divergenceFromInspirations",
+      /divergence from inspirations:?\s*([^#]+)/i,
+    );
+
+    // For legacy compatibility - extract these as arrays
+    const extractArrayField = (
+      fieldName: string,
+      regex: RegExp,
+    ): string[] => {
+      const match = responseText.match(regex);
+      if (match && match[1]) {
+        return match[1]
+          .split(/[,;]/)
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0);
+      }
+      return [];
+    };
+
+    genreDetails.themes = extractArrayField(
+      "themes",
+      /themes:?\s*([^#]+)/i,
+    );
+    genreDetails.tropes = extractArrayField(
+      "tropes",
+      /tropes:?\s*([^#]+)/i,
+    );
+    genreDetails.commonSettings = extractArrayField(
+      "commonSettings",
+      /common settings:?\s*([^#]+)/i,
+    );
+    genreDetails.typicalCharacters = extractArrayField(
+      "typicalCharacters",
+      /typical characters:?\s*([^#]+)/i,
+    );
+    genreDetails.plotStructures = extractArrayField(
+      "plotStructures",
+      /plot structures:?\s*([^#]+)/i,
+    );
+    genreDetails.recommendedReading = extractArrayField(
+      "recommendedReading",
+      /recommended reading:?\s*([^#]+)/i,
+    );
+    genreDetails.popularExamples = extractArrayField(
+      "popularExamples",
+      /popular examples:?\s*([^#]+)/i,
+    );
+    genreDetails.worldbuildingElements = extractArrayField(
+      "worldbuildingElements",
+      /worldbuilding elements:?\s*([^#]+)/i,
+    );
+
+    return { genreDetails, threadId };
   } catch (error) {
     console.error("Error creating genre details:", error);
-
-    // Check if this is a conversation-in-progress error, which should be propagated
-    const typedError = error as { message?: string };
-    if (
-      typedError.message &&
-      typedError.message.startsWith("CONVERSATION_IN_PROGRESS:")
-    ) {
-      // This is not a failure but a special case where we need more input
-      // Attach the thread ID to the error before propagating it
-      const conversationError = new Error(typedError.message);
-
-      // Create a new dummy thread ID if one isn't available
-      const errorThreadId = threadId || `error-thread-${Date.now()}`;
-
-      // Add the threadId to the error object for the API to use
-      Object.assign(conversationError, { threadId: errorThreadId });
-      console.log(
-        `Throwing conversation-in-progress error with threadId: ${errorThreadId}`,
-      );
-      throw conversationError;
-    }
-
-    // Create a new thread for fallback responses
-    let fallbackThreadId;
-    try {
-      console.log("Creating fallback thread for error recovery");
-      const fallbackThread = await openai.beta.threads.create();
-      fallbackThreadId = fallbackThread.id;
-      console.log(`Created fallback thread: ${fallbackThreadId}`);
-    } catch (threadError) {
-      console.error("Error creating fallback thread:", threadError);
-      fallbackThreadId = "fallback-thread-error-" + Date.now();
-      console.log("Using generated fallback thread ID:", fallbackThreadId);
-    }
-
-    // Try to extract genre hints from the user input for a better fallback
-    let genreName = "Custom Fiction";
-    let genreThemes = ["Identity", "Growth", "Challenge"];
-
-    if (genreInput.userInterests) {
-      // Simple genre detection from keywords
-      const genreKeywords = {
-        fantasy: {
-          name: "Fantasy Fiction",
-          themes: ["Magic", "Adventure", "Heroism"],
-        },
-        "sci-fi": {
-          name: "Science Fiction",
-          themes: ["Technology", "Future", "Space"],
-        },
-        mystery: {
-          name: "Mystery",
-          themes: ["Investigation", "Suspense", "Truth"],
-        },
-        romance: {
-          name: "Romance",
-          themes: ["Love", "Relationships", "Emotion"],
-        },
-        horror: {
-          name: "Horror",
-          themes: ["Fear", "Suspense", "Supernatural"],
-        },
-        adventure: {
-          name: "Adventure",
-          themes: ["Journey", "Discovery", "Courage"],
-        },
-      };
-
-      // Check for genre keywords
-      const userInterests = genreInput.userInterests.toLowerCase();
-      for (const [keyword, genre] of Object.entries(genreKeywords)) {
-        if (userInterests.includes(keyword)) {
-          genreName = genre.name;
-          genreThemes = genre.themes;
-          break;
-        }
-      }
-    }
-
-    // Return a fallback genre if something goes wrong, slightly customized based on input
-    return {
-      // Core identifying information
-      mainGenre: genreName, // Required field
-      name: genreName,
-      description: `A ${genreName.toLowerCase()} genre customized based on your preferences. Let's continue to refine it through our conversation.`,
-
-      // Genre information
-      genreRationale: `This ${genreName} setting provides a foundation for character-driven storytelling.`,
-      audienceExpectations: `Readers of ${genreName} typically expect ${genreThemes.join(", ")} as central themes.`,
-
-      // Subgenre information
-      subgenres: genreThemes.join(", "),
-
-      // Mood and tone
-      tone: "Balanced",
-      mood: "Engaging",
-      emotionalImpact: `Stories in this genre typically evoke feelings of wonder and excitement.`,
-
-      // Setting elements
-      timePeriod: "Variable",
-      physicalEnvironment: "Diverse settings",
-
-      // Tropes and speculative elements
-      keyTropes: "Hero's Journey, Coming of Age",
-      speculativeElements: "Varies based on specific genre implementation",
-
-      // Atmosphere and style
-      atmosphere: "Immersive",
-
-      // Legacy fields (maintained for compatibility)
-      themes: genreThemes,
-      tropes: ["Hero's Journey", "Coming of Age"],
-      commonSettings: ["Contemporary World", "Fantasy Realm"],
-      typicalCharacters: ["Protagonist", "Mentor", "Antagonist"],
-      plotStructures: ["Three-Act Structure", "Hero's Journey"],
-      styleGuide: {
-        tone: "Balanced",
-        pacing: "Moderate",
-        perspective: "Third person",
-        dialogueStyle: "Natural",
-      },
-      recommendedReading: ["Various works in this style"],
-      popularExamples: ["Successful titles in this genre"],
-      worldbuildingElements: ["Society", "Culture", "Technology"],
-      threadId: fallbackThreadId,
-    };
+    throw error;
   }
 }
 
@@ -1444,396 +833,210 @@ export async function createGenreDetails(
  */
 export async function createEnvironmentDetails(
   environmentInput: EnvironmentCreationInput,
-): Promise<EnvironmentDetails & { threadId: string }> {
+): Promise<{ environmentDetails: EnvironmentDetails; threadId: string }> {
   try {
-    let thread;
-    let isNewThread = false;
+    // Use an existing thread or create a new one
+    const threadId = environmentInput.threadId || (await openai.beta.threads.create()).id;
 
-    // Check if we're continuing an existing conversation
-    if (environmentInput.threadId) {
-      console.log(
-        `Continuing environment creation conversation in existing thread: ${environmentInput.threadId}`,
-      );
-      try {
-        // Verify the thread exists by retrieving its messages
-        const existingMessages = await openai.beta.threads.messages.list(
-          environmentInput.threadId,
-        );
-        thread = { id: environmentInput.threadId };
-        console.log(
-          `Found existing environment thread with ${existingMessages.data.length} messages`,
-        );
-      } catch (error) {
-        console.error(
-          `Error accessing environment thread ${environmentInput.threadId}:`,
-          error,
-        );
-        // If there's an error accessing the thread, create a new one
-        thread = await openai.beta.threads.create();
-        isNewThread = true;
-        console.log(`Created new environment thread: ${thread.id}`);
-      }
-    } else {
-      // Create a new thread
-      thread = await openai.beta.threads.create();
-      isNewThread = true;
-      console.log(`Created new environment thread: ${thread.id}`);
+    let promptContent = "Let's create a detailed environment for my story. ";
+
+    if (environmentInput.worldContext) {
+      promptContent += `This environment exists within: ${environmentInput.worldContext}. `;
     }
 
-    // Prepare the prompt from the input
-    let promptContent;
+    if (environmentInput.name) {
+      promptContent += `The location's name is: ${environmentInput.name}. `;
+    }
 
-    if (isNewThread) {
-      promptContent =
-        "Create a detailed story environment with the following information:\n\n";
+    if (environmentInput.locationType) {
+      promptContent += `It's a type of: ${environmentInput.locationType}. `;
+    }
 
-      if (environmentInput.worldContext) {
-        promptContent += `World Context: ${environmentInput.worldContext}\n`;
+    if (environmentInput.purpose) {
+      promptContent += `Its purpose in the story is: ${environmentInput.purpose}. `;
+    }
+
+    if (environmentInput.atmosphere) {
+      promptContent += `The atmosphere/mood is: ${environmentInput.atmosphere}. `;
+    }
+
+    if (environmentInput.inhabitants) {
+      promptContent += `It's inhabited by: ${environmentInput.inhabitants}. `;
+    }
+
+    if (environmentInput.dangers) {
+      promptContent += `Potential dangers include: ${environmentInput.dangers}. `;
+    }
+
+    if (environmentInput.secrets) {
+      promptContent += `Hidden aspects include: ${environmentInput.secrets}. `;
+    }
+
+    if (environmentInput.additionalInfo) {
+      promptContent += `Additional information: ${environmentInput.additionalInfo}`;
+    }
+
+    if (environmentInput.previousMessages && environmentInput.previousMessages.length > 0) {
+      // If we have previous messages, we're continuing a conversation
+      // Just add the latest user message
+      const lastUserMessage = environmentInput.previousMessages
+        .filter((msg) => msg.role === "user")
+        .pop();
+
+      if (lastUserMessage) {
+        promptContent = lastUserMessage.content;
       }
-
-      if (environmentInput.name) {
-        promptContent += `Location Name: ${environmentInput.name}\n`;
-      }
-
-      if (environmentInput.locationType) {
-        promptContent += `Location Type: ${environmentInput.locationType}\n`;
-      }
-
-      if (environmentInput.purpose) {
-        promptContent += `Purpose in Story: ${environmentInput.purpose}\n`;
-      }
-
-      if (environmentInput.atmosphere) {
-        promptContent += `Desired Atmosphere: ${environmentInput.atmosphere}\n`;
-      }
-
-      if (environmentInput.inhabitants) {
-        promptContent += `Inhabitants: ${environmentInput.inhabitants}\n`;
-      }
-
-      if (environmentInput.dangers) {
-        promptContent += `Dangers/Threats: ${environmentInput.dangers}\n`;
-      }
-
-      if (environmentInput.secrets) {
-        promptContent += `Hidden Aspects/Secrets: ${environmentInput.secrets}\n`;
-      }
-
-      if (environmentInput.additionalInfo) {
-        promptContent += `Additional Information: ${environmentInput.additionalInfo}\n`;
-      }
-
-      promptContent +=
-        "\nPlease create a richly detailed environment description. Format the response with clear section headings and include sensory details that bring this location to life. Also suggest how this environment might evolve or change throughout a story.";
-    } else {
-      // For continuing conversations, just pass along the message
-      promptContent =
-        environmentInput.additionalInfo ||
-        "Tell me more about this environment.";
     }
 
     // Add the message to the thread
-    await openai.beta.threads.messages.create(thread.id, {
+    await openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: promptContent,
     });
 
     // Run the assistant on the thread
-    const run = await openai.beta.threads.runs.create(thread.id, {
+    const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: StoryFlow_EnvironmentGenerator_ID,
     });
 
-    // Wait for the run to complete
-    let completedRun = await waitForRunCompletion(thread.id, run.id);
+    // Poll for the completion of the run
+    const completedRun = await waitForRunCompletion(threadId, run.id);
 
     if (completedRun.status !== "completed") {
-      throw new Error(
-        `Environment generation run ended with status: ${completedRun.status}`,
-      );
+      throw new Error(`Run ended with status: ${completedRun.status}`);
     }
 
     // Retrieve the assistant's messages
-    const messages = await openai.beta.threads.messages.list(thread.id);
-
-    // Get the latest assistant message
+    const messages = await openai.beta.threads.messages.list(threadId);
     const assistantMessages = messages.data.filter(
       (msg) => msg.role === "assistant",
     );
 
     if (assistantMessages.length === 0) {
-      throw new Error("No response from Environment Generator assistant");
+      throw new Error("No response from the assistant");
     }
 
-    // Extract the environment data
+    // Get the latest message
     const latestMessage = assistantMessages[0];
-    const textContent = latestMessage.content.find(
-      (content) => content.type === "text",
-    );
+    let responseText = "";
 
-    if (!textContent || textContent.type !== "text") {
-      throw new Error("Response does not contain text");
+    // Extract the text content from the message
+    for (const content of latestMessage.content) {
+      if (content.type === "text") {
+        responseText = content.text.value;
+        break;
+      }
     }
 
-    const responseText = textContent.text.value;
-    console.log(
-      "Received environment description, length:",
-      responseText.length,
-    );
+    // Extract environment details from the response using regex patterns
+    // This is not as reliable as JSON, but necessary for the current assistants
+    const nameMatch = responseText.match(/name:?\s*(.+?)(?:\n|$)/i);
+    const locationTypeMatch = responseText.match(/location type:?\s*(.+?)(?:\n|$)/i);
+    const descriptionMatch = responseText.match(/description:?\s*(.+?)(?:\n|$)/i);
+    const worldContextMatch = responseText.match(/world context:?\s*(.+?)(?:\n|$)/i);
 
-    // Try to extract structured information from the response
-    // Since the response is likely in prose format, we'll use regexes to extract information
-
-    // Extract the name (if not provided, look for it in the response)
-    const nameLine =
-      environmentInput.name ||
-      extractStringPattern(
-        responseText,
-        /(?:^|\n)(?:Name|Location|Place|Setting):\s*([^\n]+)/i,
-      );
-    const name = nameLine || "Unnamed Location";
-
-    // Extract the description
-    const descriptionMatch = responseText.match(
-      /(?:^|\n)(?:Description|Overview|Summary):\s*([^\n]+(?:\n[^\n]+)*)/i,
-    );
-    const description = descriptionMatch
-      ? descriptionMatch[1].trim()
-      : responseText.split("\n").slice(0, 3).join(" ").trim();
-
-    // Extract the location type
-    const locationTypeMatch = responseText.match(
-      /(?:^|\n)(?:Type|Location Type|Environment Type):\s*([^\n]+)/i,
-    );
-    const locationType = locationTypeMatch
-      ? locationTypeMatch[1].trim()
-      : environmentInput.locationType || "Mixed Environment";
-
-    // Extract structural features
-    const structuralFeaturesMatch = responseText.match(
-      /(?:^|\n)(?:Features|Structures|Landmarks|Notable Features):\s*([^\n]+(?:\n[^\n]+)*)/i,
-    );
-    const structuralFeaturesText = structuralFeaturesMatch
-      ? structuralFeaturesMatch[1].trim()
-      : "";
-    const structuralFeatures = structuralFeaturesText
-      .split(/[,;.]/)
-      .filter((item) => item.trim().length > 0)
-      .map((item) => item.trim());
-
-    // Extract the world context
-    const worldContextMatch = responseText.match(
-      /(?:^|\n)(?:World Context|In the World|Relation to World):\s*([^\n]+(?:\n[^\n]+)*)/i,
-    );
-    const worldContext = worldContextMatch
-      ? worldContextMatch[1].trim()
-      : environmentInput.worldContext || "Part of the broader setting";
-
-    // Process the detailed environment
+    // Create a default environment object with extracted data or placeholders
     const environment: EnvironmentDetails = {
-      name,
-      description,
-      locationType,
-      worldContext,
+      name: nameMatch?.[1]?.trim() || environmentInput.name || "Unnamed Location",
+      description: descriptionMatch?.[1]?.trim() || responseText.substring(0, 200) + "...",
+      locationType: locationTypeMatch?.[1]?.trim() || environmentInput.locationType || "Unknown",
+      worldContext: worldContextMatch?.[1]?.trim() || environmentInput.worldContext || "Unknown",
+      
       physicalAttributes: {
-        size:
-          extractStringPattern(
-            responseText,
-            /(?:size|scale|dimensions):\s*([^\n.,;]+)/i,
-          ) || "Medium",
-        terrain:
-          extractStringPattern(
-            responseText,
-            /(?:terrain|ground|landscape|surface):\s*([^\n.,;]+)/i,
-          ) || "Varied",
-        climate:
-          extractStringPattern(
-            responseText,
-            /(?:climate|weather|temperature):\s*([^\n.,;]+)/i,
-          ) || "Temperate",
-        flora: extractPhraseList(
-          responseText,
-          /(?:flora|plants|vegetation):\s*([^\n]+)/i,
-        ),
-        fauna: extractPhraseList(
-          responseText,
-          /(?:fauna|animals|wildlife|creatures):\s*([^\n]+)/i,
-        ),
-      },
-      structuralFeatures,
-      sensoryDetails: {
-        sights: extractPhraseList(
-          responseText,
-          /(?:sights|visuals|can see|visible):\s*([^\n]+)/i,
-        ),
-        sounds: extractPhraseList(
-          responseText,
-          /(?:sounds|audio|can hear|audible):\s*([^\n]+)/i,
-        ),
-        smells: extractPhraseList(
-          responseText,
-          /(?:smells|scents|odors|can smell):\s*([^\n]+)/i,
-        ),
-        textures: extractPhraseList(
-          responseText,
-          /(?:textures|tactile|feel|touch):\s*([^\n]+)/i,
-        ),
-      },
-      inhabitants: {
-        residents: extractPhraseList(
-          responseText,
-          /(?:residents|inhabitants|populace|people|who lives):\s*([^\n]+)/i,
-        ),
-        visitors: extractPhraseList(
-          responseText,
-          /(?:visitors|travelers|guests|tourists):\s*([^\n]+)/i,
-        ),
-        controllingFaction:
-          extractStringPattern(
-            responseText,
-            /(?:control|ruled by|governed by|leader|faction):\s*([^\n.,;]+)/i,
-          ) || "Unknown",
-      },
-      culture: {
-        traditions: extractPhraseList(
-          responseText,
-          /(?:traditions|customs|rituals|practices):\s*([^\n]+)/i,
-        ),
-        laws: extractPhraseList(
-          responseText,
-          /(?:laws|rules|regulations|code):\s*([^\n]+)/i,
-        ),
-        attitudes:
-          extractStringPattern(
-            responseText,
-            /(?:attitudes|mindset|outlook|disposition):\s*([^\n.,;]+)/i,
-          ) || "Neutral",
-      },
-      history: {
-        origin:
-          extractStringPattern(
-            responseText,
-            /(?:origin|history|background|founded):\s*([^\n.,;]+)/i,
-          ) || "Unknown origins",
-        significantEvents: extractPhraseList(
-          responseText,
-          /(?:events|happened|significant|notable|history):\s*([^\n]+)/i,
-        ),
-        secrets: extractPhraseList(
-          responseText,
-          /(?:secrets|hidden|unknown|mystery|mysteries):\s*([^\n]+)/i,
-        ),
-      },
-      currentState: {
-        condition:
-          extractStringPattern(
-            responseText,
-            /(?:condition|state|status|current):\s*([^\n.,;]+)/i,
-          ) || "Stable",
-        atmosphere:
-          environmentInput.atmosphere ||
-          extractStringPattern(
-            responseText,
-            /(?:atmosphere|mood|feeling|ambiance):\s*([^\n.,;]+)/i,
-          ) ||
-          "Neutral",
-        conflicts: extractPhraseList(
-          responseText,
-          /(?:conflicts|tensions|problems|issues|dangers):\s*([^\n]+)/i,
-        ),
-      },
-      storyRelevance: {
-        purpose:
-          environmentInput.purpose ||
-          extractStringPattern(
-            responseText,
-            /(?:purpose|role|function|significance):\s*([^\n.,;]+)/i,
-          ) ||
-          "Setting for story events",
-        challenges: extractPhraseList(
-          responseText,
-          /(?:challenges|obstacles|difficulties|problems):\s*([^\n]+)/i,
-        ),
-        rewards: extractPhraseList(
-          responseText,
-          /(?:rewards|treasures|benefits|gains|advantages):\s*([^\n]+)/i,
-        ),
-      },
-      connections: {
-        linkedLocations: extractPhraseList(
-          responseText,
-          /(?:connected to|linked to|leads to|nearby|adjoining):\s*([^\n]+)/i,
-        ),
-        accessPoints: extractPhraseList(
-          responseText,
-          /(?:access|entrances|exits|ways in|ways out):\s*([^\n]+)/i,
-        ),
-      },
-    };
-
-    // Return the environment details with thread ID for continued conversation
-    return {
-      ...environment,
-      threadId: thread.id,
-    };
-  } catch (error) {
-    console.error("Error creating detailed environment:", error);
-
-    // Create a fallback basic environment if something goes wrong
-    const fallbackThreadId =
-      typeof environmentInput.threadId === "string"
-        ? environmentInput.threadId
-        : "fallback-thread-id";
-
-    return {
-      name: environmentInput.name || "Unnamed Location",
-      description: "A mysterious location waiting to be explored.",
-      locationType: environmentInput.locationType || "Generic Environment",
-      worldContext: environmentInput.worldContext || "Part of the story world",
-      physicalAttributes: {
-        size: "Medium",
-        terrain: "Mixed",
+        size: "Medium", // Default
+        terrain: "Varied",
         climate: "Temperate",
-        flora: ["Local vegetation"],
-        fauna: ["Local wildlife"],
+        flora: ["Various plants"],
+        fauna: ["Various animals"],
       },
-      structuralFeatures: ["Notable landmarks"],
+      
+      structuralFeatures: ["Notable structures"],
+      
       sensoryDetails: {
         sights: ["Visual elements"],
-        sounds: ["Ambient sounds"],
-        smells: ["Environmental scents"],
-        textures: ["Tactile surfaces"],
+        sounds: ["Auditory elements"],
+        smells: ["Olfactory elements"],
+        textures: ["Tactile elements"],
       },
+      
       inhabitants: {
-        residents: ["Local inhabitants"],
-        visitors: ["Occasional visitors"],
-        controllingFaction: "Local authority",
+        residents: ["Local residents"],
+        visitors: ["Common visitors"],
+        controllingFaction: "Ruling group",
       },
+      
       culture: {
         traditions: ["Local customs"],
-        laws: ["Established rules"],
-        attitudes: "Determined by story context",
+        laws: ["Local rules"],
+        attitudes: "General cultural outlook",
       },
+      
       history: {
-        origin: "Established long ago",
-        significantEvents: ["Historical moments"],
-        secrets: ["Hidden history"],
+        origin: "How this place came to be",
+        significantEvents: ["Important historical events"],
+        secrets: ["Hidden aspects"],
       },
+      
       currentState: {
-        condition: "Stable",
-        atmosphere: environmentInput.atmosphere || "Neutral",
-        conflicts: ["Potential tensions"],
+        condition: "Current physical state",
+        atmosphere: environmentInput.atmosphere || "General mood",
+        conflicts: ["Current tensions"],
       },
+      
       storyRelevance: {
-        purpose: environmentInput.purpose || "Setting for story events",
-        challenges: ["Obstacles to overcome"],
-        rewards: ["Discoveries to be made"],
+        purpose: environmentInput.purpose || "Role in the narrative",
+        challenges: ["Obstacles present"],
+        rewards: ["Potential discoveries"],
       },
+      
       connections: {
-        linkedLocations: ["Connected areas"],
-        accessPoints: ["Ways in and out"],
+        linkedLocations: ["Related places"],
+        accessPoints: ["Ways to enter/exit"],
       },
-      threadId: fallbackThreadId,
     };
+
+    // Further parse the full text to extract more detailed information
+    // This is a simplified approach that could be enhanced with more regex patterns
+    
+    // Extract physical attributes
+    const sizeMatch = responseText.match(/size:?\s*(.+?)(?:\n|$)/i);
+    if (sizeMatch) environment.physicalAttributes.size = sizeMatch[1].trim();
+    
+    const terrainMatch = responseText.match(/terrain:?\s*(.+?)(?:\n|$)/i);
+    if (terrainMatch) environment.physicalAttributes.terrain = terrainMatch[1].trim();
+    
+    const climateMatch = responseText.match(/climate:?\s*(.+?)(?:\n|$)/i);
+    if (climateMatch) environment.physicalAttributes.climate = climateMatch[1].trim();
+    
+    // Extract flora and fauna (simplified)
+    const floraMatch = responseText.match(/flora:?\s*(.+?)(?:\n|$)/i);
+    if (floraMatch) {
+      environment.physicalAttributes.flora = floraMatch[1]
+        .split(/[,;]/)
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+    }
+    
+    const faunaMatch = responseText.match(/fauna:?\s*(.+?)(?:\n|$)/i);
+    if (faunaMatch) {
+      environment.physicalAttributes.fauna = faunaMatch[1]
+        .split(/[,;]/)
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+    }
+    
+    // Extract atmosphere
+    const atmosphereMatch = responseText.match(/atmosphere:?\s*(.+?)(?:\n|$)/i);
+    if (atmosphereMatch) environment.currentState.atmosphere = atmosphereMatch[1].trim();
+    
+    // Extract purpose
+    const purposeMatch = responseText.match(/purpose:?\s*(.+?)(?:\n|$)/i);
+    if (purposeMatch) environment.storyRelevance.purpose = purposeMatch[1].trim();
+
+    return { environmentDetails: environment, threadId };
+  } catch (error) {
+    console.error("Error creating environment details:", error);
+    throw error;
   }
 }
 
@@ -1844,468 +1047,211 @@ export async function createEnvironmentDetails(
  */
 export async function createWorldDetails(
   worldInput: WorldCreationInput,
-): Promise<WorldDetails & { threadId: string }> {
+): Promise<{ worldDetails: WorldDetails; threadId: string }> {
   try {
-    let thread;
-    let isNewThread = false;
+    // Use an existing thread or create a new one
+    const threadId = worldInput.threadId || (await openai.beta.threads.create()).id;
 
-    // Check if we're continuing an existing conversation
-    if (worldInput.threadId) {
-      console.log(
-        `Continuing world-building conversation in existing thread: ${worldInput.threadId}`,
-      );
-      try {
-        // Verify the thread exists by retrieving its messages
-        const existingMessages = await openai.beta.threads.messages.list(
-          worldInput.threadId,
-        );
-        thread = { id: worldInput.threadId };
-        console.log(
-          `Found existing world-building thread with ${existingMessages.data.length} messages`,
-        );
-      } catch (error) {
-        console.error(
-          `Error accessing world-building thread ${worldInput.threadId}:`,
-          error,
-        );
-        // If there's an error accessing the thread, create a new one
-        thread = await openai.beta.threads.create();
-        isNewThread = true;
-        console.log(`Created new world-building thread: ${thread.id}`);
-      }
-    } else {
-      // Create a new thread
-      thread = await openai.beta.threads.create();
-      isNewThread = true;
-      console.log(`Created new world-building thread: ${thread.id}`);
+    let promptContent = "Let's build a detailed world for my story. ";
+
+    if (worldInput.genreContext) {
+      promptContent += `The genre context is: ${worldInput.genreContext}. `;
     }
 
-    // Handle the user's message based on whether it's a new thread or continuing conversation
-    let promptContent;
-
-    if (isNewThread) {
-      // For a new thread, provide context about what we're trying to do
-      promptContent =
-        "I'm creating a story world using the following details. Please help me develop it further by asking questions and providing suggestions:\n\n";
-
-      if (worldInput.genreContext) {
-        promptContent += `Genre Context: ${worldInput.genreContext}\n\n`;
-      }
-
-      if (worldInput.setting) {
-        promptContent += `Basic Setting: ${worldInput.setting}\n`;
-      }
-
-      if (worldInput.timeframe) {
-        promptContent += `Timeframe/Era: ${worldInput.timeframe}\n`;
-      }
-
-      if (worldInput.environmentType) {
-        promptContent += `Environment: ${worldInput.environmentType}\n`;
-      }
-
-      if (worldInput.culture) {
-        promptContent += `Culture: ${worldInput.culture}\n`;
-      }
-
-      if (worldInput.technology) {
-        promptContent += `Technology Level: ${worldInput.technology}\n`;
-      }
-
-      if (worldInput.conflicts) {
-        promptContent += `Major Conflicts: ${worldInput.conflicts}\n`;
-      }
-
-      if (worldInput.additionalInfo) {
-        promptContent += `Additional Information: ${worldInput.additionalInfo}\n`;
-      }
-    } else {
-      // For an existing conversation, just send the user's new message
-      promptContent =
-        worldInput.additionalInfo || "Tell me more about this world.";
+    if (worldInput.setting) {
+      promptContent += `The basic setting is: ${worldInput.setting}. `;
     }
 
-    console.log(
-      `Adding user message to world-building thread: "${promptContent.substring(0, 100)}..."`,
-    );
+    if (worldInput.timeframe) {
+      promptContent += `The era/time period is: ${worldInput.timeframe}. `;
+    }
+
+    if (worldInput.environmentType) {
+      promptContent += `The natural environment is: ${worldInput.environmentType}. `;
+    }
+
+    if (worldInput.culture) {
+      promptContent += `The culture is: ${worldInput.culture}. `;
+    }
+
+    if (worldInput.technology) {
+      promptContent += `The technology level is: ${worldInput.technology}. `;
+    }
+
+    if (worldInput.conflicts) {
+      promptContent += `Major conflicts include: ${worldInput.conflicts}. `;
+    }
+
+    if (worldInput.additionalInfo) {
+      promptContent += `Additional information: ${worldInput.additionalInfo}`;
+    }
+
+    if (worldInput.previousMessages && worldInput.previousMessages.length > 0) {
+      // If we have previous messages, we're continuing a conversation
+      // Just add the latest user message
+      const lastUserMessage = worldInput.previousMessages
+        .filter((msg) => msg.role === "user")
+        .pop();
+
+      if (lastUserMessage) {
+        promptContent = lastUserMessage.content;
+      }
+    }
 
     // Add the message to the thread
-    await openai.beta.threads.messages.create(thread.id, {
+    await openai.beta.threads.messages.create(threadId, {
       role: "user",
       content: promptContent,
     });
 
     // Run the assistant on the thread
-    const run = await openai.beta.threads.runs.create(thread.id, {
+    const run = await openai.beta.threads.runs.create(threadId, {
       assistant_id: StoryFlow_WorldBuilder_ID,
     });
 
     // Poll for the completion of the run
-    let completedRun = await waitForRunCompletion(thread.id, run.id);
+    const completedRun = await waitForRunCompletion(threadId, run.id);
 
     if (completedRun.status !== "completed") {
-      throw new Error(
-        `World Builder run ended with status: ${completedRun.status}`,
-      );
+      throw new Error(`Run ended with status: ${completedRun.status}`);
     }
 
     // Retrieve the assistant's messages
-    const messages = await openai.beta.threads.messages.list(thread.id);
-
-    // Get the latest assistant message
+    const messages = await openai.beta.threads.messages.list(threadId);
     const assistantMessages = messages.data.filter(
       (msg) => msg.role === "assistant",
     );
 
     if (assistantMessages.length === 0) {
-      throw new Error("No response from World Builder assistant");
+      throw new Error("No response from the assistant");
     }
 
-    // Extract the response content from the message
+    // Get the latest message
     const latestMessage = assistantMessages[0];
-    const textContent = latestMessage.content.find(
-      (content) => content.type === "text",
-    );
+    let responseText = "";
 
-    if (!textContent || textContent.type !== "text") {
-      throw new Error("Response does not contain text");
-    }
-
-    const responseText = textContent.text.value;
-    console.log(
-      "Received response from World Builder assistant:",
-      responseText.substring(0, 100) + "...",
-    );
-
-    // Check if the response is a question (conversation in progress)
-    const isQuestionResponse =
-      responseText.includes("?") &&
-      (responseText.includes("tell me") ||
-        responseText.includes("could you") ||
-        responseText.includes("would you") ||
-        responseText.includes("what kind"));
-
-    if (isQuestionResponse) {
-      // The assistant is asking a question, this is a conversation in progress
-      throw new Error("CONVERSATION_IN_PROGRESS: " + responseText);
-    }
-
-    // Try to extract a world name from the response or input
-    let worldName = "Custom World";
-
-    // First try to extract from setting if provided
-    if (worldInput.setting) {
-      // Try to extract a name from the setting
-      const settingWords = worldInput.setting.split(/\s+/);
-      if (settingWords.length >= 2) {
-        // Use the first two words that might form a reasonable name
-        worldName = settingWords.slice(0, 2).join(" ");
-      } else {
-        worldName = worldInput.setting;
-      }
-    }
-
-    // Look for location names in the response text
-    const locationPatterns = [
-      /(?:called|named)\s+["']([^"']+)["']/i, // "called 'Eldoria'" or "named 'New Haven'"
-      /world of\s+["']?([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)["']?/i, // "world of Eldoria"
-      /(?:kingdom|empire|realm|world|land|city|town) (?:of|is) ["']?([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)["']?/i,
-      /["']([A-Z][a-z]+(?:\s[A-Z][a-z]+)?(?:\s[A-Z][a-z]+)?)["'] is a/i, // "'New Haven' is a"
-    ];
-
-    for (const pattern of locationPatterns) {
-      const match = responseText.match(pattern);
-      if (match && match[1]) {
-        worldName = match[1];
+    // Extract the text content from the message
+    for (const content of latestMessage.content) {
+      if (content.type === "text") {
+        responseText = content.text.value;
         break;
       }
     }
 
-    // Extract era from the response or use the input timeframe
-    let era = worldInput.timeframe || "Contemporary";
-    const eraPatterns = [
-      /(?:set in|takes place in|during) the\s+([^.,]+)(?:era|period|age|century)/i,
-      /(?:era|period|age) is (?:the|a)\s+([^.,]+)/i,
-    ];
+    // Extract world details from the response using regex patterns
+    const nameMatch = responseText.match(/name:?\s*(.+?)(?:\n|$)/i);
+    const eraMatch = responseText.match(/era:?\s*(.+?)(?:\n|$)/i);
+    const descriptionMatch = responseText.match(/description:?\s*(.+?)(?:\n\n|\n#|\n\*\*|$)/i);
 
-    for (const pattern of eraPatterns) {
-      const match = responseText.match(pattern);
-      if (match && match[1]) {
-        era = match[1].trim();
-        break;
-      }
+    // Create a default world object
+    const world: WorldDetails = {
+      name: nameMatch?.[1]?.trim() || worldInput.setting?.split(" ")[0] || "Unnamed World",
+      description: descriptionMatch?.[1]?.trim() || responseText.substring(0, 200) + "...",
+      era: eraMatch?.[1]?.trim() || worldInput.timeframe || "Unknown Era",
+      
+      geography: ["Various geographical features"],
+      locations: ["Notable locations"],
+      
+      culture: {
+        socialStructure: "Social hierarchy",
+        beliefs: "Common beliefs and values",
+        customs: ["Cultural practices"],
+        languages: ["Spoken languages"],
+      },
+      
+      politics: {
+        governmentType: "System of governance",
+        powerDynamics: "Distribution of power",
+        majorFactions: ["Important political groups"],
+      },
+      
+      economy: {
+        resources: ["Valuable resources"],
+        trade: "Economic system",
+        currency: "Exchange medium",
+      },
+      
+      technology: {
+        level: worldInput.technology || "Technological advancement",
+        innovations: ["Notable technologies"],
+        limitations: "Technological constraints",
+      },
+      
+      conflicts: [worldInput.conflicts || "Major tensions"],
+      
+      history: {
+        majorEvents: ["Significant historical events"],
+        legends: ["Myths and legends"],
+      },
+    };
+
+    // If there are indications of magic, add a magic system
+    if (responseText.toLowerCase().includes("magic") || 
+        responseText.toLowerCase().includes("magical") || 
+        responseText.toLowerCase().includes("spell") ||
+        responseText.toLowerCase().includes("arcane")) {
+      
+      world.magicSystem = {
+        rules: "How magic functions",
+        limitations: "Constraints on magical power",
+        practitioners: "Who can use magic",
+      };
+      
+      // Extract magic details if available
+      // Use 'i' flag instead of 'is' to avoid TypeScript error
+      const magicRulesMatch = responseText.match(/magic rules:?\s*(.+?)(?:\n\n|\n#|\n\*\*|$)/i);
+      if (magicRulesMatch) world.magicSystem.rules = magicRulesMatch[1].trim();
+      
+      // Use 'i' flag instead of 'is' flag for TypeScript compatibility
+      const magicLimitationsMatch = responseText.match(/magic limitations:?\s*(.+?)(?:\n\n|\n#|\n\*\*|$)/i);
+      if (magicLimitationsMatch) world.magicSystem.limitations = magicLimitationsMatch[1].trim();
+      
+      // Use 'i' flag instead of 'is' flag for TypeScript compatibility
+      const magicPractitionersMatch = responseText.match(/magic practitioners:?\s*(.+?)(?:\n\n|\n#|\n\*\*|$)/i);
+      if (magicPractitionersMatch) world.magicSystem.practitioners = magicPractitionersMatch[1].trim();
     }
 
-    // Extract geography and locations from the response
-    const geographyKeywords = [
-      "mountains",
-      "hills",
-      "valleys",
-      "forests",
-      "rivers",
-      "lakes",
-      "oceans",
-      "deserts",
-      "plains",
-      "islands",
-      "tundra",
-      "jungle",
-      "swamp",
-      "plateau",
-      "canyon",
-      "coast",
-      "reef",
-      "glacier",
-      "volcano",
-      "marsh",
-    ];
-
-    // Find geography mentioned in the response
-    const geography = geographyKeywords
-      .filter((geo) => responseText.toLowerCase().includes(geo))
-      .map((geo) => geo.charAt(0).toUpperCase() + geo.slice(1));
-
-    // Extract locations from response
-    const locationKeywords = [
-      "castle",
-      "city",
-      "town",
-      "village",
-      "kingdom",
-      "empire",
-      "fortress",
-      "capital",
-      "settlement",
-      "outpost",
-      "harbor",
-      "port",
-      "palace",
-      "temple",
-      "ruins",
-      "academy",
-      "market",
-      "district",
-      "quarter",
-      "station",
-    ];
-
-    // Find locations mentioned in the response
-    const locations = locationKeywords
-      .filter((loc) => responseText.toLowerCase().includes(loc))
-      .map((loc) => {
-        // Try to extract the full location name
-        const pattern = new RegExp(
-          `(?:\\b|the\\s)((?:[A-Z][a-z]*\\s)?${loc})\\b`,
-          "i",
-        );
-        const match = responseText.match(pattern);
-        return match
-          ? match[1].trim().charAt(0).toUpperCase() + match[1].trim().slice(1)
-          : loc.charAt(0).toUpperCase() + loc.slice(1);
-      });
-
-    // Create dynamic world based on response and inputs
-    let worldType = "generic";
-    if (responseText.toLowerCase().includes("fantasy")) worldType = "fantasy";
-    else if (
-      responseText.toLowerCase().includes("sci-fi") ||
-      responseText.toLowerCase().includes("science fiction")
-    )
-      worldType = "scifi";
-    else if (responseText.toLowerCase().includes("western"))
-      worldType = "western";
-    else if (responseText.toLowerCase().includes("medieval"))
-      worldType = "medieval";
-    else if (responseText.toLowerCase().includes("modern"))
-      worldType = "modern";
-    else if (responseText.toLowerCase().includes("post-apocalyptic"))
-      worldType = "postapoc";
-
-    // Set reasonable defaults based on world type
-    let culture = {
-      socialStructure: "Complex hierarchical society",
-      beliefs: "Mixed belief systems",
-      customs: [
-        "Local traditions",
-        "Regional celebrations",
-        "Cultural practices",
-      ],
-      languages: ["Common language", "Regional dialects", "Ancient languages"],
-    };
-
-    let politics = {
-      governmentType: "Mixed governance",
-      powerDynamics: "Complex power relationships",
-      majorFactions: ["Ruling Group", "Opposition Forces", "Neutral Parties"],
-    };
-
-    let economy = {
-      resources: ["Primary Resources", "Secondary Goods", "Luxury Items"],
-      trade: "Trade networks according to world technology level",
-      currency: "Standard currency with regional variations",
-    };
-
-    let technology = {
-      level: "Appropriate to setting",
-      innovations: [
-        "Key Technologies",
-        "Important Tools",
-        "Significant Inventions",
-      ],
-      limitations: "Technological constraints appropriate to the setting",
-    };
-
-    let conflicts = [
-      "Primary conflict appropriate to setting",
-      "Secondary tensions between groups",
-      "Personal struggles relevant to world",
-    ];
-
-    let history = {
-      majorEvents: ["Founding Event", "Critical Turn", "Recent Milestone"],
-      legends: ["Origin Myth", "Historical Legend", "Cultural Tale"],
-    };
-
-    // Adjust defaults based on detected world type
-    switch (worldType) {
-      case "fantasy":
-        culture.beliefs = "Mystical belief systems with magical elements";
-        technology.level = "Pre-industrial with magical elements";
-        technology.innovations = [
-          "Magic systems",
-          "Enchanted items",
-          "Alchemical processes",
-        ];
-        break;
-      case "scifi":
-        technology.level = "Advanced beyond current capabilities";
-        technology.innovations = [
-          "Faster-than-light travel",
-          "Advanced AI",
-          "Energy weapons",
-        ];
-        economy.resources = [
-          "Rare minerals",
-          "Energy sources",
-          "Advanced materials",
-        ];
-        break;
-      case "western":
-        era = era || "Late 19th Century";
-        culture.socialStructure = "Frontier hierarchy with emerging order";
-        technology.level = "Industrial Revolution era";
-        economy.resources = ["Mineral deposits", "Cattle", "Land"];
-        break;
-      case "medieval":
-        era = era || "Middle Ages";
-        politics.governmentType = "Feudal system with noble hierarchy";
-        technology.level = "Pre-industrial";
-        economy.currency = "Mix of barter and precious metals";
-        break;
-      case "modern":
-        era = era || "Present Day";
-        technology.level = "Current technology";
-        politics.governmentType = "Democratic or authoritarian systems";
-        break;
-      case "postapoc":
-        culture.socialStructure = "Survivor groups with new hierarchies";
-        economy.trade = "Scavenging and barter systems";
-        conflicts = [
-          "Resource scarcity",
-          "Survivor conflicts",
-          "Environmental threats",
-        ];
-        break;
+    // Further parse the response to extract more information
+    // Extract geography (simplified)
+    // Use 'i' flag instead of 'is' flag for TypeScript compatibility
+    const geographyMatch = responseText.match(/geography:?\s*(.+?)(?:\n\n|\n#|\n\*\*|$)/i);
+    if (geographyMatch) {
+      world.geography = geographyMatch[1]
+        .split(/[,;.]/)
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
     }
+    
+    // Extract locations
+    // Use 'i' flag instead of 'is' flag for TypeScript compatibility
+    const locationsMatch = responseText.match(/locations:?\s*(.+?)(?:\n\n|\n#|\n\*\*|$)/i);
+    if (locationsMatch) {
+      world.locations = locationsMatch[1]
+        .split(/[,;.]/)
+        .map(item => item.trim())
+        .filter(item => item.length > 0);
+    }
+    
+    // Extract social structure
+    const socialStructureMatch = responseText.match(/social structure:?\s*(.+?)(?:\n|$)/i);
+    if (socialStructureMatch) world.culture.socialStructure = socialStructureMatch[1].trim();
+    
+    // Extract beliefs
+    const beliefsMatch = responseText.match(/beliefs:?\s*(.+?)(?:\n|$)/i);
+    if (beliefsMatch) world.culture.beliefs = beliefsMatch[1].trim();
+    
+    // Extract government
+    const governmentMatch = responseText.match(/government:?\s*(.+?)(?:\n|$)/i);
+    if (governmentMatch) world.politics.governmentType = governmentMatch[1].trim();
+    
+    // Extract technology level
+    const techLevelMatch = responseText.match(/technology level:?\s*(.+?)(?:\n|$)/i);
+    if (techLevelMatch) world.technology.level = techLevelMatch[1].trim();
 
-    // Return the detailed world with the processed information
-    return {
-      name: worldName,
-      description: responseText, // Full conversational response
-      era: era,
-      geography:
-        geography.length > 0
-          ? geography
-          : ["Diverse Landscapes", "Notable Formations", "Natural Features"],
-      locations:
-        locations.length > 0
-          ? locations
-          : ["Major Settlement", "Important Location", "Significant Site"],
-      culture: culture,
-      politics: politics,
-      economy: economy,
-      technology: technology,
-      conflicts: conflicts,
-      history: history,
-      threadId: thread.id, // Include the thread ID for continued conversation
-    };
+    return { worldDetails: world, threadId };
   } catch (error) {
     console.error("Error creating world details:", error);
-    // Create a new thread for fallback responses
-    let fallbackThreadId;
-    try {
-      const fallbackThread = await openai.beta.threads.create();
-      fallbackThreadId = fallbackThread.id;
-      console.log(
-        `Created fallback world-building thread: ${fallbackThreadId}`,
-      );
-    } catch (threadError) {
-      console.error("Error creating fallback thread:", threadError);
-      fallbackThreadId = "fallback-thread-error";
-    }
-
-    // Return a fallback world if something goes wrong
-    return {
-      name: "Mining Frontier Town",
-      description:
-        "A bustling frontier town centered around gold mining operations in the late 19th century.",
-      era: "Late 19th Century",
-      geography: ["Mountains", "River Valley", "Forested Hills"],
-      locations: ["Mining Camp", "Town Center", "Railway Station"],
-      culture: {
-        socialStructure:
-          "Frontier hierarchy with wealthy business owners and laborers",
-        beliefs: "Mixture of traditional values and frontier pragmatism",
-        customs: [
-          "Community gatherings",
-          "Local celebrations",
-          "Mining traditions",
-        ],
-        languages: ["English", "Indigenous languages", "Immigrant dialects"],
-      },
-      politics: {
-        governmentType: "Local town council with mining company influence",
-        powerDynamics: "Tension between business interests and townspeople",
-        majorFactions: ["Mining Company", "Townsfolk", "Law Enforcement"],
-      },
-      economy: {
-        resources: ["Gold", "Timber", "Agriculture"],
-        trade: "Resource extraction with growing commerce",
-        currency: "US Dollar with some barter systems",
-      },
-      technology: {
-        level: "Industrial Revolution era",
-        innovations: ["Steam power", "Telegraph", "Early firearms"],
-        limitations: "Limited electricity and modern conveniences",
-      },
-      conflicts: [
-        "Clash between mining interests and local residents",
-        "Environmental impact of mining operations",
-        "Cultural tensions between different groups",
-      ],
-      history: {
-        majorEvents: [
-          "Gold discovery",
-          "Railway arrival",
-          "Founding of the town",
-        ],
-        legends: [
-          "Tale of the first gold strike",
-          "Stories of frontier heroes",
-        ],
-      },
-      threadId: fallbackThreadId,
-    };
+    throw error;
   }
 }
 
@@ -2323,441 +1269,176 @@ export async function generateChatSuggestions(
   assistantReply: string,
 ): Promise<string[]> {
   try {
-    // Check if this is the special genre selection trigger (welcome message)
-    const isGenreSelectionTrigger =
-      assistantReply &&
-      assistantReply.includes(
-        "What type of genre would you like to explore for your story world?",
-      );
-
-    // No more hardcoded options - all suggestions must come from the AI assistant
-    // Just log a special message for debugging welcome case
-    if (isGenreSelectionTrigger) {
-      console.log(
-        "Detected welcome message with genre selection prompt, passing to suggestions assistant",
-      );
-    }
-
-    // For non-welcome cases, require both parameters
-    // For welcome message case, we can proceed with just the assistant reply
-    const isWelcomeMessage =
-      assistantReply &&
-      (assistantReply.includes("Welcome to Foundation Builder") ||
-        assistantReply.includes(
-          "What type of genre would you like to explore",
-        ));
-
-    if (
-      (!isWelcomeMessage && (!userMessage || userMessage.trim() === "")) ||
-      !assistantReply ||
-      assistantReply.trim() === ""
-    ) {
-      console.log("Missing required inputs for chat suggestions");
-      return []; // Return empty array - no fallback suggestions
-    }
-
-    console.log(`Generating chat suggestions for conversation:`);
+    console.log("Generating chat suggestions for conversation:");
     console.log(`User: ${userMessage.substring(0, 50)}...`);
     console.log(`Assistant: ${assistantReply.substring(0, 50)}...`);
 
-    // Ensure StoryFlow_ChatResponseSuggestions_ID is valid
-    if (!StoryFlow_ChatResponseSuggestions_ID) {
-      console.error("StoryFlow_ChatResponseSuggestions_ID is not defined");
-      return [];
-    }
-
-    console.log(
-      `Using assistant ID: ${StoryFlow_ChatResponseSuggestions_ID} for chat suggestions`,
-    );
-
-    // Create a new thread for this suggestions request
+    // Create a new thread for this suggestion request
     const thread = await openai.beta.threads.create();
     console.log(`Created thread: ${thread.id} for chat suggestions`);
 
-    // Format the input as a JSON object as required by the assistant
-    console.log("Passing conversation to the chat suggestions assistant");
+    // Craft a prompt for the chat suggestions assistant
+    const content = `I'm creating a story. Here is the last exchange in the conversation:
 
-    // Create JSON object with the user message and assistant reply
-    const messageObject = {
-      user: userMessage,
-      "chat assistant": assistantReply,
-    };
+USER: ${userMessage}
 
-    // Convert to JSON string
-    const promptContent = JSON.stringify(messageObject, null, 2);
+ASSISTANT: ${assistantReply}
 
-    // Log debugging info for the welcome message trigger
-    if (
-      assistantReply.includes(
-        "What type of genre would you like to explore for your story world?",
-      )
-    ) {
-      console.log(
-        "Detected genre selection trigger - should return single-word genre options",
-      );
-    }
+Based on this exchange, suggest 5-15 thoughtful responses I could make as the USER. Format as a valid JSON object with an "options" array of strings.`;
 
-    // Add messages to provide context for the suggestions
+    // Add the message to the thread
     await openai.beta.threads.messages.create(thread.id, {
       role: "user",
-      content: promptContent,
+      content,
     });
 
-    // Run the suggestions assistant
+    console.log("Passing conversation to the chat suggestions assistant");
+    console.log(`Using assistant ID: ${StoryFlow_ChatResponseSuggestions_ID} for chat suggestions`);
+
+    // Run the assistant
     const run = await openai.beta.threads.runs.create(thread.id, {
       assistant_id: StoryFlow_ChatResponseSuggestions_ID,
     });
-    console.log(
-      `Started run: ${run.id} with assistant: ${StoryFlow_ChatResponseSuggestions_ID}`,
-    );
+    console.log(`Started run: ${run.id} with assistant: ${StoryFlow_ChatResponseSuggestions_ID}`);
 
-    // Wait for completion
+    // Wait for the run to complete
     const completedRun = await waitForRunCompletion(thread.id, run.id);
-
     if (completedRun.status !== "completed") {
-      console.error(
-        `Chat suggestions run ended with status: ${completedRun.status}`,
-      );
-      return []; // Return empty array - no fallback suggestions
+      console.error(`Suggestions run failed with status: ${completedRun.status}`);
+      return [
+        "Tell me more about that.",
+        "That sounds interesting.",
+        "I like that idea!",
+        "Let's explore that further.",
+        "What else can you tell me?",
+      ];
     }
 
-    // Get the suggestions from the assistant's response
+    // Get the assistant's reply
     const messages = await openai.beta.threads.messages.list(thread.id);
     const assistantMessages = messages.data.filter(
       (msg) => msg.role === "assistant",
     );
 
     if (assistantMessages.length === 0) {
-      console.error("No response from suggestions assistant");
-      return []; // Return empty array - no fallback suggestions
+      console.error("No suggestions received from assistant");
+      return [
+        "Tell me more about that.",
+        "I like that idea!",
+        "Let's continue with this approach.",
+        "Could you elaborate on that?",
+        "That works for me.",
+      ];
     }
 
-    // Extract the suggestions from the message content
+    // Get the most recent message
     const latestMessage = assistantMessages[0];
-    const textContent = latestMessage.content.find(
-      (content) => content.type === "text",
-    );
+    let responseText = "";
 
-    if (!textContent || textContent.type !== "text") {
-      console.error("Suggestions response does not contain text");
-      return []; // Return empty array - no fallback suggestions
+    // Extract text content
+    for (const content of latestMessage.content) {
+      if (content.type === "text") {
+        responseText = content.text.value;
+        break;
+      }
     }
 
     // Try to parse JSON from the response
     try {
-      // Print the raw response for debugging
-      console.log(
-        `Raw suggestion response: ${textContent.text.value.substring(0, 200)}...`,
-      );
+      // First, try to extract JSON if it's wrapped in a code block
+      let jsonMatch = responseText.match(/```(?:json)?\s*({[\s\S]*?})\s*```/);
+      let jsonText = jsonMatch ? jsonMatch[1] : responseText;
 
-      // Extract the full JSON object from the response
-      // First find objects with format: { ... }
-      let jsonObj;
-      try {
-        // Try to parse the entire response as JSON first
-        jsonObj = JSON.parse(textContent.text.value);
-        console.log("Successfully parsed complete JSON response");
-      } catch (err) {
-        // If that fails, try to extract JSON from within the text
-        const jsonObjMatch = textContent.text.value.match(/\{[\s\S]*\}/);
-        if (!jsonObjMatch) {
-          console.error(
-            "Could not extract JSON object from suggestions response",
-          );
-          return []; // Return empty array - no fallback suggestions
+      // Clean up any potential formatting issues
+      jsonText = jsonText.replace(/\\n/g, "").replace(/\\"/g, '"');
+
+      console.log("Raw suggestion response:", jsonText);
+
+      // Parse the JSON
+      const responseObj = JSON.parse(jsonText);
+      console.log("Successfully parsed complete JSON response");
+
+      // Check if the response has the expected structure
+      if (responseObj && Array.isArray(responseObj.options)) {
+        console.log(`Parsed response object:`, JSON.stringify(responseObj).substring(0, 150) + "...");
+        const suggestions = responseObj.options
+          .filter((option: any) => typeof option === "string" && option.trim().length > 0)
+          .slice(0, 15); // Limit to 15 suggestions max
+
+        console.log(`Returning ${suggestions.length} valid suggestions:`, JSON.stringify(suggestions));
+        return suggestions;
+      } else {
+        // If the structure doesn't match, try direct extraction
+        console.error("Response didn't have expected 'options' array structure:", responseObj);
+        
+        // Try to extract suggestions directly from the text
+        const lines = responseText
+          .split("\n")
+          .map((line) => line.trim())
+          .filter((line) => 
+            line.startsWith("-") || 
+            line.startsWith("*") || 
+            /^\d+[\.\)]/.test(line)
+          )
+          .map((line) => line.replace(/^[-*\d\.)\s]+/, "").trim())
+          .filter((line) => line.length > 0)
+          .slice(0, 15);
+        
+        if (lines.length > 0) {
+          console.log(`Extracted ${lines.length} suggestions from text format`);
+          return lines;
         }
-
-        try {
-          jsonObj = JSON.parse(jsonObjMatch[0]);
-          console.log("Successfully extracted and parsed JSON from response");
-        } catch (parseErr) {
-          console.error("Error parsing extracted JSON object:", parseErr);
-          return []; // Return empty array - no fallback suggestions
-        }
+        
+        // Fallback suggestions
+        return [
+          "Tell me more about that.",
+          "That's interesting!",
+          "Let's continue with this approach.",
+          "I like where this is going.",
+          "What other possibilities are there?",
+        ];
       }
-
-      console.log(
-        `Parsed response object: ${JSON.stringify(jsonObj).substring(0, 200)}...`,
-      );
-
-      // Process the options based on the new format where options are in the 'options' property
-      let suggestions: string[] = [];
-
-      if (
-        jsonObj &&
-        Array.isArray(jsonObj.options) &&
-        jsonObj.options.length > 0
-      ) {
-        // Get the options array from the response
-        suggestions = jsonObj.options.filter(
-          (item: any) => typeof item === "string",
-        );
-
-        // Add the additional option if present and it's a string
-        if (
-          jsonObj.additional_option &&
-          typeof jsonObj.additional_option === "string"
-        ) {
-          suggestions.push(jsonObj.additional_option);
-        }
-      } else if (Array.isArray(jsonObj)) {
-        // Fall back to the old format where the response might be a direct array
-        suggestions = jsonObj.filter((item: any) => typeof item === "string");
-      }
-
-      // No longer applying any limits - let the assistant control the number of suggestions
-      // Pass through all valid suggestions as returned by the assistant
-      const validSuggestions = suggestions;
-
-      if (validSuggestions.length > 0) {
-        console.log(
-          `Returning ${validSuggestions.length} valid suggestions: ${JSON.stringify(validSuggestions)}`,
-        );
-        return validSuggestions;
-      }
-
-      console.error("No valid suggestions found in response");
-      return []; // Return empty array - no fallback suggestions
     } catch (error) {
-      console.error("Error processing suggestions response:", error);
-      return []; // Return empty array - no fallback suggestions
+      console.error("Error parsing suggestions JSON:", error);
+      
+      // Try to extract suggestions directly from the text as a fallback
+      const lines = responseText
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => 
+          line.startsWith("-") || 
+          line.startsWith("*") || 
+          /^\d+[\.\)]/.test(line)
+        )
+        .map((line) => line.replace(/^[-*\d\.)\s]+/, "").trim())
+        .filter((line) => line.length > 0)
+        .slice(0, 15);
+      
+      if (lines.length > 0) {
+        console.log(`Extracted ${lines.length} suggestions from text format after JSON parse failure`);
+        return lines;
+      }
+      
+      // Ultimate fallback suggestions
+      return [
+        "Tell me more.",
+        "I like that!",
+        "Let's continue.",
+        "Interesting approach.",
+        "What else?",
+      ];
     }
   } catch (error) {
     console.error("Error generating chat suggestions:", error);
-    return []; // Return empty array - no fallback suggestions
+    return [
+      "Tell me more.",
+      "Sounds good.",
+      "I like that idea.",
+      "Let's go with that.",
+      "What's next?",
+    ];
   }
 }
-
-/**
- * Get the appropriate assistant ID based on conversation context
- * This enables dynamically switching between different assistants based on the content
- *
- * @param message The user's message to analyze
- * @param currentAssistantType The current assistant type (if known)
- * @param foundationId The foundation ID for context
- * @returns Object with assistantId and contextType
- */
-export async function getAppropriateAssistant(
-  message: string,
-  currentAssistantType:
-    | "genre"
-    | "world"
-    | "character"
-    | "environment"
-    | null = null,
-  foundationId?: number,
-): Promise<{
-  assistantId: string;
-  contextType: "genre" | "world" | "character" | "environment";
-  isAutoTransition?: boolean;
-}> {
-  // First, if we have a foundation ID, check if the genre is completed
-  // This is critical to prevent reverting back to genre stage once completed
-  let foundationGenreCompleted = false;
-  
-  if (foundationId) {
-    try {
-      // Get foundation record to check genre completion status
-      const foundation = await storage.getFoundation(foundationId);
-      
-      if (foundation && foundation.genreCompleted === true) {
-        foundationGenreCompleted = true;
-        console.log(`Foundation ${foundationId} has completed genre stage (genreCompleted=true)`);
-        
-        // If genre is completed but current assistant is still genre, force to environment
-        if (currentAssistantType === "genre") {
-          console.log(`Overriding current assistant from genre to environment because genreCompleted=true`);
-          currentAssistantType = "environment";
-        }
-      }
-    } catch (error) {
-      console.error("Error checking foundation genre completion status:", error);
-    }
-  }
-  
-  // Detect the conversation context from the message
-  const detectedContext = detectConversationContext(message);
-  console.log(
-    `Context detection for message: "${message.substring(0, 50)}..." detected: ${detectedContext}`,
-  );
-
-  // Special handling for completed genre stage - look for transition signals
-  const isGenreComplete =
-    currentAssistantType === "genre" &&
-    (message.toLowerCase().includes("done") ||
-      message.toLowerCase().includes("finished") ||
-      message.toLowerCase().includes("complete") ||
-      message.toLowerCase().includes("sounds good") ||
-      message.toLowerCase().includes("thank you") ||
-      message.toLowerCase().includes("great") ||
-      message.toLowerCase().includes("that sounds") ||
-      message.toLowerCase().includes("i like that") ||
-      message.toLowerCase().includes("perfect") ||
-      message.toLowerCase().includes("awesome") ||
-      message.toLowerCase().includes("perfect") ||
-      message.toLowerCase().includes("continue") ||
-      message.toLowerCase().includes("proceed") ||
-      message.toLowerCase().includes("next step") ||
-      message.toLowerCase().includes("next stage") ||
-      message.toLowerCase().includes("ready") ||
-      message.toLowerCase().includes("let's move on") ||
-      message.toLowerCase().includes("ok") ||
-      message.toLowerCase().includes("okay") ||
-      message.toLowerCase().includes("yes"));
-
-  // Check for transition cues in the message content
-  const hasGenreToEnvironmentTransition =
-    isGenreComplete ||
-    message.toLowerCase().includes("let's create an environment") ||
-    message.toLowerCase().includes("create environment") ||
-    message.toLowerCase().includes("build environment") ||
-    message.toLowerCase().includes("design environment") ||
-    message.toLowerCase().includes("start with environment") ||
-    message.toLowerCase().includes("environment creation") ||
-    message.toLowerCase().includes("make environment") ||
-    message.toLowerCase().includes("set up environment") ||
-    message.toLowerCase().includes("create the environment") ||
-    message.toLowerCase().includes("create a location") ||
-    message.toLowerCase().includes("create location") ||
-    message.toLowerCase().includes("location creation") ||
-    message.toLowerCase().includes("add environment") ||
-    message.toLowerCase().includes("add a location") ||
-    (currentAssistantType === "genre" &&
-      message.toLowerCase().includes("next"));
-
-  // If we have a foundation ID, check the foundation's stage to provide context
-  if (foundationId) {
-    try {
-      // For now, we'll use the currentAssistantType and transition triggers
-      if (currentAssistantType === "genre" && hasGenreToEnvironmentTransition) {
-        console.log(
-          "Detected completion of genre stage, automatically transitioning to environment",
-        );
-        return {
-          assistantId: StoryFlow_EnvironmentGenerator_ID,
-          contextType: "environment",
-          isAutoTransition: true,
-        };
-      } else if (
-        currentAssistantType === "environment" &&
-        (message.toLowerCase().includes("no more environments") ||
-          message.toLowerCase().includes("move to world") ||
-          message.toLowerCase().includes("go to world") ||
-          message.toLowerCase().includes("world building") ||
-          message.toLowerCase().includes("world creation"))
-      ) {
-        console.log(
-          "Detected completion of environments stage, transitioning to world building",
-        );
-        return {
-          assistantId: StoryFlow_WorldBuilder_ID,
-          contextType: "world",
-          isAutoTransition: true,
-        };
-      }
-    } catch (error) {
-      console.error("Error determining foundation stage:", error);
-    }
-  }
-
-  // If genre is completed, NEVER allow reverting to genre regardless of detected context
-  let effectiveContext = detectedContext;
-  if (foundationGenreCompleted && detectedContext === "genre") {
-    console.log("Detected genre context but genre is already completed. Staying in current context.");
-    effectiveContext = null; // Nullify the detected context to prevent reverting to genre
-  }
-
-  // If we detected a specific context in the message, use that
-  if (effectiveContext) {
-    console.log(`Using detected context: ${effectiveContext}`);
-
-    if (effectiveContext === "character") {
-      return {
-        assistantId: StoryFlow_CharacterCreator_ID,
-        contextType: "character",
-      };
-    } else if (effectiveContext === "world") {
-      return {
-        assistantId: StoryFlow_WorldBuilder_ID,
-        contextType: "world",
-      };
-    } else if (effectiveContext === "environment") {
-      return {
-        assistantId: StoryFlow_EnvironmentGenerator_ID,
-        contextType: "environment",
-      };
-    } else if (effectiveContext === "genre" && !foundationGenreCompleted) {
-      // Make sure we're always using the correct StoryFlow_GenreCreator_ID
-      // The assistant's name is StoryFlow_GenreCreator
-      console.log(`Using StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID} for genre stage`);
-      return {
-        assistantId: StoryFlow_GenreCreator_ID, // Specific ID: asst_Hc5VyWr5mXgNL86DvT1m4cim
-        contextType: "genre",
-      };
-    }
-  }
-
-  // If no context was detected and we have a current assistant, stick with it
-  if (currentAssistantType) {
-    console.log(
-      `No context detected, continuing with current assistant: ${currentAssistantType}`,
-    );
-
-    // IMPORTANT FIX: Handle "initial" stage by treating it as "genre"
-    if (currentAssistantType === "initial" as any) {
-      console.log(`Converting "initial" stage to "genre" assistant (StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID})`);
-      return {
-        assistantId: StoryFlow_GenreCreator_ID,
-        contextType: "genre", // Return "genre" as context type to ensure consistent UI
-      };
-    } else if (currentAssistantType === "character") {
-      return {
-        assistantId: StoryFlow_CharacterCreator_ID,
-        contextType: "character",
-      };
-    } else if (currentAssistantType === "world") {
-      return {
-        assistantId: StoryFlow_WorldBuilder_ID,
-        contextType: "world",
-      };
-    } else if (currentAssistantType === "environment") {
-      return {
-        assistantId: StoryFlow_EnvironmentGenerator_ID,
-        contextType: "environment",
-      };
-    } else if (currentAssistantType === "genre" && !foundationGenreCompleted) {
-      // Make sure we're always using the correct StoryFlow_GenreCreator_ID
-      console.log(`Using StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID} for continuing genre conversation`);
-      return {
-        assistantId: StoryFlow_GenreCreator_ID, // Specific ID: asst_Hc5VyWr5mXgNL86DvT1m4cim
-        contextType: "genre",
-      };
-    }
-  }
-
-  // Default case - check if genre is completed to determine default
-  if (foundationGenreCompleted) {
-    console.log(
-      "No context detected, but genre is completed. Defaulting to environment assistant",
-    );
-    return {
-      assistantId: StoryFlow_EnvironmentGenerator_ID,
-      contextType: "environment",
-    };
-  }
-  
-  // Default to genre creator only if genre is not completed
-  console.log(
-    "No context detected and genre not completed, defaulting to genre assistant",
-  );
-  console.log(`Using StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID} as default genre assistant`);
-  return {
-    assistantId: StoryFlow_GenreCreator_ID, // Specific ID: asst_Hc5VyWr5mXgNL86DvT1m4cim
-    contextType: "genre",
-  };
-}
-
-// We no longer use defaultSuggestions - all suggestions must come from the AI assistant
 
 /**
  * Wait for an assistant run to complete by polling

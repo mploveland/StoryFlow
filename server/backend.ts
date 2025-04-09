@@ -3,6 +3,9 @@ import { storage } from "./storage";
 import { getAppropriateAssistant, waitForRunCompletion } from "./assistants";
 import OpenAI from "openai";
 
+// Define assistant IDs
+const StoryFlow_GenreCreator_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
+
 // Initialize OpenAI client
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -87,13 +90,15 @@ export async function getContextTypeRespectingStageProgression(
   } catch (error) {
     console.error(`[STAGE DETERMINATION] Error determining stage:`, error);
     
-    // Fall back to using the AI-based context detection in case of error
-    console.log(`[STAGE DETERMINATION] Falling back to AI-based context detection`);
-    return await getAppropriateAssistant(
-      message,
-      currentAssistantType as "genre" | "world" | "character" | "environment" | null,
-      foundationId
-    );
+    // In case of error, use a safe default to the Genre stage
+    console.log(`[STAGE DETERMINATION] Error occurred, defaulting to Genre stage`);
+    // Define the Genre Creator ID in this scope to avoid reference errors
+    const errorGenreCreatorID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
+    return {
+      assistantId: errorGenreCreatorID,
+      contextType: "genre",
+      isAutoTransition: false
+    };
   }
 }
 
