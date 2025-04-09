@@ -169,7 +169,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`**** TRANSITION API: Genre-to-environment transition requested for foundation ${foundationId}`);
       console.log(`**** TRANSITION API: Main genre: ${mainGenre}`);
-      console.log(`**** TRANSITION API: Genre details:`, JSON.stringify(genreDetails, null, 2).substring(0, 500) + "...");
+      console.log(`**** TRANSITION API: Genre details (raw):`, JSON.stringify(genreDetails, null, 2).substring(0, 500) + "...");
+      
+      // Log extra debugging info about the request
+      console.log(`**** TRANSITION API DEBUG: Request body type:`, typeof req.body);
+      console.log(`**** TRANSITION API DEBUG: Request body keys:`, Object.keys(req.body));
+      console.log(`**** TRANSITION API DEBUG: genreDetails type:`, typeof genreDetails);
+      if (genreDetails) {
+        console.log(`**** TRANSITION API DEBUG: genreDetails keys:`, Object.keys(genreDetails));
+        console.log(`**** TRANSITION API DEBUG: mainGenre in genreDetails:`, genreDetails.mainGenre);
+      }
       
       // 1. Save genre details to the database
       const insertedGenreDetails = await storage.createGenreDetails({

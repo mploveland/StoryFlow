@@ -529,14 +529,18 @@ export class DatabaseStorage implements IStorage {
       mainGenre: insertGenreDetails.mainGenre,
       foundationId: insertGenreDetails.foundationId
     })}`);
+    console.log(`[GENRE DB DEBUG] Full insertGenreDetails object: ${JSON.stringify(insertGenreDetails)}`);
+    console.log(`[GENRE DB DEBUG] Object type: ${typeof insertGenreDetails}`);
+    console.log(`[GENRE DB DEBUG] Object keys: ${Object.keys(insertGenreDetails)}`);
     
     try {
       // Ensure we have a valid data object
       const genreData = { ...insertGenreDetails };
+      console.log(`[GENRE DB DEBUG] Created genreData copy with keys: ${Object.keys(genreData)}`);
       
       // Ensure we have a valid mainGenre string
       if (!genreData.mainGenre || typeof genreData.mainGenre !== 'string' || genreData.mainGenre.trim() === '') {
-        console.log(`[GENRE DB] Setting default mainGenre`);
+        console.log(`[GENRE DB] Setting default mainGenre because current value is invalid:`, genreData.mainGenre);
         genreData.mainGenre = 'Custom Genre';
       }
       
