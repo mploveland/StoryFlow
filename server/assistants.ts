@@ -236,6 +236,36 @@ export function detectConversationContext(
     "children",
     "adult",
     "literary",
+    // Notable genre authors - since users often mention authors as examples
+    "christie",
+    "king",
+    "rowling",
+    "tolkien",
+    "martin",
+    "gaiman",
+    "asimov",
+    "bradbury",
+    "herbert",
+    "dick",
+    "austen",
+    "stephen king",
+    "j.k. rowling",
+    "j.r.r. tolkien",
+    "george r.r. martin",
+    "neil gaiman",
+    "isaac asimov",
+    "ray bradbury",
+    "frank herbert",
+    "philip k. dick",
+    "jane austen",
+    "agatha christie",
+    "dan brown",
+    "clancy",
+    "crichton",
+    "patterson",
+    "grisham",
+    "conan doyle",
+    "lovecraft"
   ];
 
   // Count occurrences of keywords in each category
@@ -304,7 +334,26 @@ export function detectConversationContext(
     cleanedMessage.includes("genre conventions") ||
     cleanedMessage.includes("genre elements") ||
     cleanedMessage.includes("genre tropes") ||
-    cleanedMessage.includes("genre themes")
+    cleanedMessage.includes("genre themes") ||
+    cleanedMessage.includes("book") ||
+    cleanedMessage.includes("novel") ||
+    cleanedMessage.includes("author") ||
+    cleanedMessage.includes("movie") ||
+    cleanedMessage.includes("film") ||
+    cleanedMessage.includes("series") ||
+    cleanedMessage.includes("tv show") ||
+    cleanedMessage.includes("literature") ||
+    cleanedMessage.includes("fiction") ||
+    cleanedMessage.includes("writing style") ||
+    cleanedMessage.includes("published") ||
+    cleanedMessage.includes("detective") ||
+    cleanedMessage.includes("fantasy") ||
+    cleanedMessage.includes("sci-fi") ||
+    cleanedMessage.includes("mystery") ||
+    cleanedMessage.includes("thriller") ||
+    cleanedMessage.includes("horror") ||
+    cleanedMessage.includes("renowned") ||
+    cleanedMessage.includes("famous")
   ) {
     genreScore += 3;
   }
@@ -317,12 +366,19 @@ export function detectConversationContext(
     genreScore,
   );
 
-  // Return the context type with the highest score, if it's significant enough
-  if (highestScore > 1) {
-    if (characterScore === highestScore) return "character";
-    if (worldScore === highestScore) return "world";
-    if (environmentScore === highestScore) return "environment";
+  // Return the context type with the highest score, with special handling for genre
+  // We'll make genre detection more sensitive by allowing it to match with just 1 point
+  // since references to authors/works often just have a single keyword
+  if (highestScore >= 1) {
+    // Special case for genre: allow it to match with just 1 point if it's the highest score
     if (genreScore === highestScore) return "genre";
+    
+    // For other categories, still require a score > 1 to avoid false positives
+    if (highestScore > 1) {
+      if (characterScore === highestScore) return "character";
+      if (worldScore === highestScore) return "world";
+      if (environmentScore === highestScore) return "environment";
+    }
   }
 
   // If no clear context detected or scores too low, return null
