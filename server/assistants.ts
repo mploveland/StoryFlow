@@ -66,23 +66,6 @@ export function detectConversationContext(
   message: string,
 ): "character" | "world" | "genre" | "environment" | null {
   const cleanedMessage = message.toLowerCase();
-  
-  // Special case for book titles
-  // Check for common book title patterns that might not contain our keywords
-  if (cleanedMessage.includes(" by ")) {
-    console.log("Detected potential book reference with 'by' pattern");
-    return "genre";
-  }
-  
-  // Check for quotation marks in a way that suggests a title
-  if ((cleanedMessage.includes('"') || cleanedMessage.includes("'")) && 
-      (cleanedMessage.includes("read") || cleanedMessage.includes("book") || 
-       cleanedMessage.includes("novel") || cleanedMessage.includes("story") || 
-       cleanedMessage.includes("like") || cleanedMessage.includes("similar") ||
-       cleanedMessage.includes("enjoy"))) {
-    console.log("Detected potential book title in quotes with context words");
-    return "genre";
-  }
 
   // Character-related keywords
   const characterKeywords = [
@@ -252,37 +235,7 @@ export function detectConversationContext(
     "young adult",
     "children",
     "adult",
-    "literary",
-    // Notable genre authors - since users often mention authors as examples
-    "christie",
-    "king",
-    "rowling",
-    "tolkien",
-    "martin",
-    "gaiman",
-    "asimov",
-    "bradbury",
-    "herbert",
-    "dick",
-    "austen",
-    "stephen king",
-    "j.k. rowling",
-    "j.r.r. tolkien",
-    "george r.r. martin",
-    "neil gaiman",
-    "isaac asimov",
-    "ray bradbury",
-    "frank herbert",
-    "philip k. dick",
-    "jane austen",
-    "agatha christie",
-    "dan brown",
-    "clancy",
-    "crichton",
-    "patterson",
-    "grisham",
-    "conan doyle",
-    "lovecraft"
+    "literary"
   ];
 
   // Count occurrences of keywords in each category
@@ -383,35 +336,15 @@ export function detectConversationContext(
     genreScore,
   );
 
-  // Debug scores
-  console.log(`Context detection scores for message "${cleanedMessage.substring(0, 50)}...":`, {
-    characterScore,
-    worldScore,
-    environmentScore,
-    genreScore,
-    highestScore
-  });
-
-  // Return the context type with the highest score, with special handling for genre
-  // We'll make genre detection more sensitive by allowing it to match with just 1 point
-  // since references to authors/works often just have a single keyword
-  if (highestScore >= 1) {
-    // Special case for genre: allow it to match with just 1 point if it's the highest score
-    if (genreScore === highestScore) {
-      console.log(`Genre context detected! Score: ${genreScore}`);
-      return "genre";
-    }
-    
-    // For other categories, still require a score > 1 to avoid false positives
-    if (highestScore > 1) {
-      if (characterScore === highestScore) return "character";
-      if (worldScore === highestScore) return "world";
-      if (environmentScore === highestScore) return "environment";
-    }
+  // Return the context type with the highest score, if it's significant enough
+  if (highestScore > 1) {
+    if (characterScore === highestScore) return "character";
+    if (worldScore === highestScore) return "world";
+    if (environmentScore === highestScore) return "environment";
+    if (genreScore === highestScore) return "genre";
   }
 
   // If no clear context detected or scores too low, return null
-  console.log(`No clear context detected. Highest score: ${highestScore}`);
   return null;
 }
 
