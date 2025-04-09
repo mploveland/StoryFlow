@@ -2703,7 +2703,14 @@ export async function getAppropriateAssistant(
       `No context detected, continuing with current assistant: ${currentAssistantType}`,
     );
 
-    if (currentAssistantType === "character") {
+    // IMPORTANT FIX: Handle "initial" stage by treating it as "genre"
+    if (currentAssistantType === "initial") {
+      console.log(`Converting "initial" stage to "genre" assistant (StoryFlow_GenreCreator_ID: ${StoryFlow_GenreCreator_ID})`);
+      return {
+        assistantId: StoryFlow_GenreCreator_ID,
+        contextType: "genre", // Return "genre" as context type to ensure consistent UI
+      };
+    } else if (currentAssistantType === "character") {
       return {
         assistantId: StoryFlow_CharacterCreator_ID,
         contextType: "character",
