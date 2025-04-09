@@ -204,6 +204,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Special test endpoint to verify the genre assistant ID directly
+  apiRouter.post("/test-genre-assistant", async (req: Request, res: Response) => {
+    try {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const { message } = req.body;
+      
+      if (!message) {
+        return res.status(400).json({
+          message: "Message is required"
+        });
+      }
+      
+      // Create a new thread
+      const thread = await openai.beta.threads.create();
+      console.log(`Created test thread: ${thread.id}`);
+      
+      // Add the message to the thread
+      await openai.beta.threads.messages.create(thread.id, {
+        role: "user",
+        content: message
+      });
+      
+      // Use the SPECIFIC assistant ID that we want to verify
+      const StoryFlow_GenreCreator_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
+      console.log(`Using explicit genre assistant ID: ${StoryFlow_GenreCreator_ID}`);
+      
+      // Run the assistant
+      const run = await openai.beta.threads.runs.create(thread.id, {
+        assistant_id: StoryFlow_GenreCreator_ID
+      });
+      
+      // Wait for completion
+      let completedRun;
+      let attempts = 0;
+      const maxAttempts = 30;
+      
+      while (attempts < maxAttempts) {
+        const runStatus = await openai.beta.threads.runs.retrieve(thread.id, run.id);
+        console.log(`Test run status (attempt ${attempts + 1}/${maxAttempts}): ${runStatus.status}`);
+        
+        if (runStatus.status === "completed") {
+          completedRun = runStatus;
+          break;
+        }
+        
+        if (["failed", "cancelled", "expired"].includes(runStatus.status)) {
+          return res.status(500).json({
+            message: `Run failed with status: ${runStatus.status}`
+          });
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      }
+      
+      if (!completedRun) {
+        return res.status(500).json({
+          message: "Run timed out"
+        });
+      }
+      
+      // Get the assistant's response
+      const messages = await openai.beta.threads.messages.list(thread.id);
+      const assistantMessages = messages.data.filter(msg => msg.role === "assistant");
+      
+      if (assistantMessages.length === 0) {
+        return res.status(500).json({
+          message: "No response from assistant"
+        });
+      }
+      
+      // Extract the response content
+      const assistantMessage = assistantMessages[0];
+      let responseContent = "";
+      
+      for (const content of assistantMessage.content) {
+        if (content.type === "text") {
+          responseContent = content.text.value;
+          break;
+        }
+      }
+      
+      return res.json({
+        success: true,
+        threadId: thread.id,
+        content: responseContent,
+        assistantId: StoryFlow_GenreCreator_ID
+      });
+      
+    } catch (error: any) {
+      console.error("Error in test-genre-assistant endpoint:", error);
+      return res.status(500).json({
+        message: "Error testing assistant",
+        details: error.message
+      });
+    }
+  });
+  
   // Mount the API router
   app.use("/api", apiRouter);
   
