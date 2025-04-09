@@ -915,6 +915,7 @@ const FoundationDetails: React.FC = () => {
           <div className="lg:col-span-6">
             <div className="h-[calc(100vh-220px)] min-h-[400px]">
               <FoundationChatInterfaceNew 
+                key={`foundation-chat-${foundation.id}`} 
                 foundation={foundation}
                 title={`Building ${foundation.name}`}
                 description="Discuss and develop your story foundation through natural conversation"

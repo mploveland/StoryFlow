@@ -168,7 +168,7 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     }
   }, [messages, isProcessing, suggestions]);
   
-  // Load saved messages when foundation changes
+  // Load saved messages when foundation changes - only dependency on foundation ID to avoid re-loading
   useEffect(() => {
     const effectiveFoundationId = foundationId || foundation?.id;
     
@@ -190,7 +190,8 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
     const isNewFoundation = !foundation?.threadId;
     loadFoundationMessages(effectiveFoundationId, isNewFoundation);
     
-  }, [foundation, foundationId, messageHandler]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foundationId]);
   
   // Load messages from the server
   const loadFoundationMessages = async (id: number, isNewFoundation: boolean) => {
