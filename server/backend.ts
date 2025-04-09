@@ -7,52 +7,94 @@ import OpenAI from "openai";
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 /**
- * This improved helper function ensures that genre-completed foundations never revert back to genre stage
- * It implements the critical stage progression fix by enforcing strict ordering of stages
+ * This function determines the correct stage and assistant based solely on the foundation's completion flags
+ * It enforces a strict sequential stage progression: Genre → Environment → World → Character
  */
 export async function getContextTypeRespectingStageProgression(
   message: string,
   currentAssistantType: string | null,
   foundationId: number
 ) {
-  // Get detected context and assistant ID from the standard function
-  const result = await getAppropriateAssistant(
-    message,
-    currentAssistantType as "genre" | "world" | "character" | "environment" | null,
-    foundationId
-  );
-  
-  // Destructure result
-  const { assistantId, contextType, isAutoTransition } = result;
-  
-  // CRITICAL FIX: If the foundation has already completed the genre stage,
-  // force the assistant type to the next stage (environment) if it was detected as genre
-  if (contextType === 'genre') {
-    try {
-      // Get the foundation to check if genre stage is completed
-      const foundation = await storage.getFoundation(foundationId);
-      
-      // If genre is already completed, NEVER allow reverting to genre
-      if (foundation && foundation.genreCompleted === true) {
-        console.log(`[STAGE PROGRESSION] ⚠️ IMPORTANT: Foundation ${foundationId} has already completed genre stage (genreCompleted=true)`);
-        console.log(`[STAGE PROGRESSION] Forcing assistant from 'genre' to 'environment' to prevent regression`);
-        
-        // Always use the StoryFlow_EnvironmentGenerator_ID for environment stage
-        const StoryFlow_EnvironmentGenerator_ID = "asst_EezatLBvY8BhCC20fztog1RF";
-        
-        return {
-          assistantId: StoryFlow_EnvironmentGenerator_ID, // Use the specific environment assistant ID
-          contextType: 'environment',                     // Force to environment stage
-          isAutoTransition: false                         // Not an auto transition
-        };
-      }
-    } catch (error) {
-      console.error(`[STAGE PROGRESSION] Error checking foundation stage:`, error);
+  try {
+    // Define assistant IDs
+    const StoryFlow_GenreCreator_ID = "asst_Hc5VyWr5mXgNL86DvT1m4cim";
+    const StoryFlow_EnvironmentGenerator_ID = "asst_EezatLBvY8BhCC20fztog1RF";
+    const StoryFlow_WorldBuilder_ID = "asst_jHr9TLXeEtTiqt6DjTRhP1fo";
+    const StoryFlow_CharacterCreator_ID = "asst_6leBQqNpfRPmS8cHjH9H2BXz";
+    
+    // Get the foundation to check completion flags
+    const foundation = await storage.getFoundation(foundationId);
+    if (!foundation) {
+      throw new Error(`Foundation ${foundationId} not found`);
     }
+    
+    // Determine current stage based on completion flags
+    let contextType = "genre";
+    let assistantId = StoryFlow_GenreCreator_ID;
+    
+    console.log(`[STAGE DETERMINATION] Foundation ${foundationId} flags:`, {
+      genreCompleted: foundation.genreCompleted,
+      environmentCompleted: foundation.environmentCompleted,
+      worldCompleted: foundation.worldCompleted,
+      charactersCompleted: foundation.charactersCompleted
+    });
+    
+    // Sequential stage determination
+    if (!foundation.genreCompleted) {
+      // If genre is not completed, we're in the genre stage
+      contextType = "genre";
+      assistantId = StoryFlow_GenreCreator_ID;
+      console.log(`[STAGE DETERMINATION] Stage: Genre (completion flags indicate genre not completed)`);
+    } 
+    else if (foundation.genreCompleted && !foundation.environmentCompleted) {
+      // If genre is completed but environment is not, we're in the environment stage
+      contextType = "environment";
+      assistantId = StoryFlow_EnvironmentGenerator_ID;
+      console.log(`[STAGE DETERMINATION] Stage: Environment (genre completed, environment not completed)`);
+    } 
+    else if (foundation.genreCompleted && foundation.environmentCompleted && !foundation.worldCompleted) {
+      // If genre and environment are completed but world is not, we're in the world stage
+      contextType = "world";
+      assistantId = StoryFlow_WorldBuilder_ID;
+      console.log(`[STAGE DETERMINATION] Stage: World (genre & environment completed, world not completed)`);
+    }
+    else if (foundation.genreCompleted && foundation.environmentCompleted && foundation.worldCompleted && !foundation.charactersCompleted) {
+      // If all but characters are completed, we're in the character stage
+      contextType = "character";
+      assistantId = StoryFlow_CharacterCreator_ID;
+      console.log(`[STAGE DETERMINATION] Stage: Character (genre, environment & world completed, characters not completed)`);
+    }
+    else {
+      // If everything is completed, default to character stage
+      contextType = "character";
+      assistantId = StoryFlow_CharacterCreator_ID;
+      console.log(`[STAGE DETERMINATION] Stage: Character (default if all stages completed)`);
+    }
+    
+    // Update the foundation with the current stage if it's different
+    if (foundation.currentStage !== contextType) {
+      console.log(`[STAGE DETERMINATION] Updating foundation ${foundationId} currentStage from '${foundation.currentStage}' to '${contextType}'`);
+      await storage.updateFoundation(foundationId, {
+        currentStage: contextType
+      });
+    }
+    
+    return {
+      assistantId,
+      contextType,
+      isAutoTransition: false
+    };
+  } catch (error) {
+    console.error(`[STAGE DETERMINATION] Error determining stage:`, error);
+    
+    // Fall back to using the AI-based context detection in case of error
+    console.log(`[STAGE DETERMINATION] Falling back to AI-based context detection`);
+    return await getAppropriateAssistant(
+      message,
+      currentAssistantType as "genre" | "world" | "character" | "environment" | null,
+      foundationId
+    );
   }
-  
-  // If no special handling needed, return the original result
-  return result;
 }
 
 /**

@@ -109,7 +109,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Use simplified implementation for dynamic assistant
+  // Dynamic assistant endpoint - uses completion flags to enforce strict stage progression:
+  // 1. If genreCompleted is not TRUE → Genre Stage
+  // 2. If genreCompleted=TRUE and environmentCompleted is not TRUE → Environment Stage
+  // 3. If genreCompleted=TRUE and environmentCompleted=TRUE and worldCompleted is not TRUE → World Stage
+  // 4. If genreCompleted=TRUE and environmentCompleted=TRUE and worldCompleted=TRUE → Character Stage
   apiRouter.post("/foundations/:foundationId/dynamic-assistant", async (req: Request, res: Response) => {
     return await handleDynamicAssistantRequest(req, res);
   });
