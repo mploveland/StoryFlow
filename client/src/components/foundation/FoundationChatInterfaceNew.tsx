@@ -667,17 +667,36 @@ const FoundationChatInterfaceNew = forwardRef<FoundationChatInterfaceRef, Founda
         const jsonMatch = genreSummary.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const jsonString = jsonMatch[0];
+          console.log('Found JSON string in genre summary:', jsonString);
           structuredData = JSON.parse(jsonString);
-          console.log('Found structured JSON data in genre summary:', structuredData);
+          console.log('Successfully parsed JSON data from genre summary');
           
           // If we have valid JSON with mainGenre or main_genre, use it directly
-          if (structuredData && (structuredData.mainGenre || structuredData.main_genre)) {
-            mainGenre = structuredData.mainGenre || structuredData.main_genre;
-            console.log('Using main genre from structured data:', mainGenre);
+          if (structuredData) {
+            console.log('GENRE DATA FIELD CHECK:');
+            console.log('- Has mainGenre:', !!structuredData.mainGenre);
+            console.log('- Has main_genre:', !!structuredData.main_genre);
+            
+            if (structuredData.mainGenre || structuredData.main_genre) {
+              mainGenre = structuredData.mainGenre || structuredData.main_genre;
+              console.log('Using main genre from structured data:', mainGenre);
+              
+              // Set the mainGenre property for consistency (needed for API call)
+              if (!structuredData.mainGenre && structuredData.main_genre) {
+                structuredData.mainGenre = structuredData.main_genre;
+                console.log('Added mainGenre property for consistency:', structuredData.mainGenre);
+              }
+            } else {
+              console.log('WARNING: Structured data found but no genre field detected');
+              console.log('Available fields:', Object.keys(structuredData));
+            }
           }
+        } else {
+          console.log('No JSON match found in the content');
         }
       } catch (jsonError) {
-        console.log('No valid JSON found in response, falling back to regex extraction');
+        console.error('JSON parsing error:', jsonError);
+        console.log('Falling back to regex extraction');
       }
       
       // If JSON parsing failed, fallback to regex extraction
@@ -1048,6 +1067,18 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
         structuredGenreData: structuredGenreData ? 'present' : 'not present'
       });
       
+      // Log the structured genre data we extracted from the message
+      console.log('Structured genre data to send:', structuredGenreData);
+      
+      // Make sure we normalize the data to use consistent field names
+      const normalizedGenreData = structuredGenreData ? {
+        ...structuredGenreData,
+        // Ensure we have mainGenre in camelCase (required by the server)
+        mainGenre: structuredGenreData.mainGenre || structuredGenreData.main_genre
+      } : null;
+      
+      console.log('Normalized genre data:', normalizedGenreData);
+      
       const transitionResponse = await fetch(`/api/foundations/${effectiveFoundationId}/genre-to-environment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1055,7 +1086,7 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
           genreSummary,
           mainGenre,
           suggestedNames,
-          genreDetails: structuredGenreData || {
+          genreDetails: normalizedGenreData || {
             // If no structured data, provide basic information
             mainGenre,
             description: genreSummary
@@ -1134,6 +1165,9 @@ const handleEnvironmentCompletion = async (environmentSummary: string) => {
         if (parsedData && (parsedData.mainGenre || parsedData.main_genre)) {
           const genreName = parsedData.mainGenre || parsedData.main_genre;
           console.log(`Found structured JSON with genre field (${genreName}) - triggering transition`);
+          
+          // Add explicit notification about JSON detection
+          console.log('JSON GENRE DATA DETECTED:', parsedData);
           
           // Add an explicit user notification about the JSON data being found
           // and that we're preparing to save the genre information
